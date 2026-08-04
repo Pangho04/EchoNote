@@ -1,4 +1,5 @@
 node_modules/
+.pnpm-store/
 .turbo/
 coverage/
 dist/
@@ -20,6 +21,9 @@ apps/desktop/out/
 .env
 .env.local
 !.env.example
+
+# Local-only documents and private meeting samples
+/docs/
 
 # Python benchmark cache
 __pycache__/

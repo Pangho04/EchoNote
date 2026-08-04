@@ -1,6 +1,6 @@
 # EchoNote
 
-iOS·Android React Native 앱과 macOS Electron 앱에서 회의를 녹음하고, Tailscale로 연결된 Windows GPU 노드에서 전사와 요약을 처리하는 개인용 프로젝트다.
+iOS·Android React Native 앱과 macOS Electron 앱에서 회의를 녹음하고, Vercel Fastify Gateway와 Supabase를 제어 계층으로 사용해 Tailscale로 연결된 Windows GPU 노드에서 전사와 요약을 처리하는 개인용 프로젝트다.
 
 ## 요구 환경
 
@@ -9,6 +9,7 @@ iOS·Android React Native 앱과 macOS Electron 앱에서 회의를 녹음하고
 - iOS 개발: 최신 안정 Xcode, CocoaPods, Apple Personal Team, iPhone 실기기
 - Android 개발: 최신 안정 Android Studio와 SDK, USB 디버깅을 활성화한 Android 실기기
 - 추론: Windows 11, Docker Desktop, NVIDIA GPU, Tailscale
+- 배포: 카드가 등록되지 않은 Vercel Hobby, 기존 계정의 EchoNote 전용 Supabase Free 프로젝트
 
 ```bash
 nvm install
@@ -40,7 +41,7 @@ pnpm dev:mobile:go
 # Electron
 pnpm dev:desktop
 
-# AI 게이트웨이 상태 확인 골격
+# 로컬 Fastify Gateway 상태 확인 골격. 제품 배포 대상은 Vercel Hobby다.
 pnpm dev:gateway
 ```
 
@@ -48,7 +49,7 @@ pnpm dev:gateway
 
 RN 단계는 시뮬레이터·에뮬레이터만으로 완료 처리하지 않는다. 동일 코드와 앱 버전으로 iPhone과 Android 실기기를 모두 통과해야 한다. Android 로컬 개발 설치에는 유료 개발자 계정이나 7일 재서명 제한이 없다.
 
-제품 기능 구현 순서는 [RN 우선 직접 구현 로드맵](./docs/roadmap/2026-08-04-rn-first-development-roadmap.md), 시스템 결정은 [RN 우선 아키텍처](./docs/superpowers/specs/2026-08-04-echonote-rn-first-architecture-design.md)를 따른다.
+제품 기능은 UI 컴포넌트 단위가 아니라 도메인 수직 흐름으로 구현한다. 상세 설계와 단계별 학습 자료는 Git에서 제외된 로컬 `docs/`에서 관리한다.
 
 ## 버전 갱신
 

@@ -4,13 +4,15 @@
 
 ## 1. 프로젝트 목표와 우선순위
 
-EchoNote는 iOS·Android·macOS에서 회의를 녹음하고, Windows GPU 추론 노드에서 전사·오전사 후보 탐지·요약을 수행하는 개인용 애플리케이션이다.
+EchoNote는 iOS·Android·macOS에서 회의를 녹음하고, Vercel Fastify Gateway와 Supabase를 제어 계층으로 사용해 Windows GPU 추론 노드에서 전사·오전사 후보 탐지·요약을 수행하는 개인용 애플리케이션이다.
 
 - 모바일은 Expo React Native로 구현한다.
 - macOS Electron은 Expo Web 산출물을 렌더링해 모바일과 화면·라우팅을 공유한다.
 - 녹음 원본과 로컬 기능은 추론 노드가 꺼져 있어도 동작해야 한다.
+- 녹음 파일은 Vercel·Supabase에 저장하지 않고 Tailscale로 Windows에 직접 전송한다.
 - iPhone과 Android 실기기에서 같은 코드와 앱 버전을 검증한다.
-- 무료 도구와 무료 라이선스를 기본 전제로 한다.
+- Vercel Hobby와 Supabase Free를 포함해 카드 등록 없는 무료 도구와 무료 라이선스를 기본 전제로 한다.
+- 구현 학습은 UI 컴포넌트가 아니라 도메인 수직 흐름 단위로 진행한다.
 
 ## 2. 워크스페이스 경계
 
@@ -21,13 +23,16 @@ apps/
 packages/
   contracts/       클라이언트·게이트웨이 공유 Zod 계약
 services/
-  ai-gateway/      Windows 추론 노드 앞의 Fastify API
+  ai-gateway/      Vercel에 배포하는 Fastify 제어 API
+  inference-worker/ Windows에서 실행할 TypeScript 추론 제어 프로세스
 tools/
   stt-benchmark/   STT 품질·후보 비교 실험 도구
-docs/              설계·계획·개발 가이드와 샘플 자료
+docs/              로컬 전용 설계·계획·개발 가이드와 샘플 자료
 ```
 
-FSD(Feature-Sliced Design)는 사용자 인터페이스를 구성하는 `apps/mobile/src`에 적용한다. Electron 프로세스 코드, Fastify 서비스, 계약 패키지, 벤치마크 도구에는 각 런타임에 맞는 단순한 구조를 유지한다.
+`services/inference-worker`는 해당 도메인 학습 단계에서 생성한다. FSD(Feature-Sliced Design)는 사용자 인터페이스를 구성하는 `apps/mobile/src`에 적용한다. Electron 프로세스 코드, Fastify 서비스, 계약 패키지, 벤치마크 도구에는 각 런타임에 맞는 단순한 구조를 유지한다.
+
+`docs/` 전체는 `.gitignore` 대상이다. 회사 회의 자료와 로컬 설계 문서를 포함하므로 `git add -f`로 강제 추가하거나 커밋하지 않는다.
 
 ## 3. 모바일 FSD 계층
 
@@ -92,7 +97,9 @@ widgets/meeting-recorder
 features/record-meeting
 features/play-recording
 features/request-transcription
+features/upload-recording
 features/review-transcription
+features/authenticate
 entities/meeting
 entities/recording
 entities/transcript
@@ -145,14 +152,21 @@ recording-service.android.ts Android만 달라야 할 때
 - 폴더와 비컴포넌트 파일은 kebab-case를 사용한다.
 - 컴포넌트는 화면 표시와 유스케이스 조합에 집중하고 파일·네트워크 부작용은 model 또는 api segment로 이동한다.
 - 상태를 무조건 전역화하지 않는다. 한 화면에서만 필요한 상태는 해당 page 또는 feature에 둔다.
+- Axios는 `shared/api`의 기반 인스턴스를 통해 사용하고 UI에서 직접 호출하지 않는다.
+- TanStack Query는 Gateway 서버 상태, Zustand는 검색·정렬과 화면을 넘는 일시적 UI 상태에 사용한다.
+- SQLite·Supabase에 영속해야 하는 데이터를 Zustand나 Query cache만으로 보존하지 않는다.
 - `useEffect`를 사용할 때는 전역 규칙의 `@when`, `@expect`, `@clear` JSDoc을 바로 위에 작성한다.
 
 ## 8. 저장과 보안 규칙
 
 - 녹음 원본을 추론 결과나 편집본으로 덮어쓰지 않는다.
-- 회의 메타데이터·작업 상태·수정 이력은 SQLite, 오디오는 앱 전용 파일 영역에 저장한다.
-- 장치 토큰은 iOS Keychain·Android Keystore·Electron `safeStorage`에 저장한다.
-- 추론 API를 인터넷이나 `0.0.0.0`에 공개하지 않는다.
+- 회의 메타데이터와 오디오는 앱 로컬 SQLite·파일 영역을 원본으로 유지한다.
+- 서버 처리 작업·전사·요약·revision은 Supabase를 원본으로 두고 앱 SQLite에 내려받는다.
+- Supabase 사용자 세션은 iOS Keychain·Android Keystore·Electron `safeStorage`에 저장한다.
+- Supabase service role key, DB URL, Windows Worker credential을 앱 번들에 포함하지 않는다.
+- Vercel Gateway의 `/v1` API는 사용자 JWT 또는 Worker credential을 검증한다.
+- Windows 업로드 API는 loopback에 바인딩하고 Tailscale Serve로만 노출한다.
+- 녹음 파일과 전사·요약 본문을 Vercel·Supabase 로그에 남기지 않는다.
 - Electron은 임의 IPC, 원격 Node.js 실행, 무검증 외부 탐색을 허용하지 않는다.
 
 ## 9. 개발과 검증
