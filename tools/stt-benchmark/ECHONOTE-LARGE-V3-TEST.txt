@@ -1,0 +1,53 @@
+# Run these commands in Windows PowerShell.
+
+$ErrorActionPreference = "Stop"
+$Target = "$env:USERPROFILE\echonote-benchmark"
+$Log = "$env:USERPROFILE\Downloads\ECHONOTE-LARGE-V3-TEST.log"
+$ResultArchive = "$env:USERPROFILE\Downloads\ECHONOTE-LARGE-V3-RESULT.zip"
+
+if (-not (Test-Path -LiteralPath "$Target\run-benchmark.ps1" -PathType Leaf)) {
+  throw "Benchmark script not found: $Target\run-benchmark.ps1"
+}
+
+$PreviousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+
+try {
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$Target\run-benchmark.ps1" *>&1 |
+    Tee-Object -FilePath $Log
+
+  $ExitCode = $LASTEXITCODE
+} finally {
+  $ErrorActionPreference = $PreviousErrorActionPreference
+}
+
+"EXIT_CODE=$ExitCode" | Tee-Object -FilePath $Log -Append
+
+if ($ExitCode -ne 0) {
+  tailscale file cp $Log s-macbookair:
+  $LogTransferExitCode = $LASTEXITCODE
+
+  if ($LogTransferExitCode -ne 0) {
+    throw "Benchmark and log transfer failed. Log remains at: $Log"
+  }
+
+  throw "Benchmark failed. The log was sent to the Mac."
+}
+
+$Latest = Get-ChildItem "$Target\output" -Directory |
+  Sort-Object LastWriteTime -Descending |
+  Select-Object -First 1
+
+if (Test-Path -LiteralPath $ResultArchive) {
+  Remove-Item -LiteralPath $ResultArchive -Force
+}
+
+Compress-Archive -Path "$($Latest.FullName)\*" -DestinationPath $ResultArchive -Force
+tailscale file cp $Log $ResultArchive s-macbookair:
+$ResultTransferExitCode = $LASTEXITCODE
+
+if ($ResultTransferExitCode -ne 0) {
+  throw "Result transfer failed. Files remain at: $Log and $ResultArchive"
+}
+
+Write-Host "Completed and sent to Mac: $ResultArchive"
