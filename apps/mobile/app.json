@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "EchoNote",
+    "slug": "echonote",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "echonote",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "dev.pangho.echonote",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "dev.pangho.echonote"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-audio",
+        {
+          "enableBackgroundRecording": true,
+          "microphonePermission": "EchoNote가 회의를 녹음하려면 마이크 접근 권한이 필요합니다.",
+          "recordAudioAndroid": true
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

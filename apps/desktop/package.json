@@ -1,0 +1,51 @@
+{
+  "name": "@echonote/desktop",
+  "productName": "EchoNote",
+  "version": "0.1.0",
+  "private": true,
+  "author": "pangho",
+  "description": "EchoNote macOS desktop client",
+  "main": ".vite/build/main.js",
+  "scripts": {
+    "build": "pnpm run build:app && electron-builder --dir",
+    "build:app": "vite build --config vite.main.config.mts && vite build --config vite.preload.config.mts && vite build --config vite.renderer.config.mts",
+    "lint": "eslint .",
+    "make": "pnpm run build:app && electron-builder",
+    "start": "pnpm run build:app && concurrently --kill-others --names main,preload,renderer,electron \"vite build --watch --config vite.main.config.mts\" \"vite build --watch --config vite.preload.config.mts\" \"vite --config vite.renderer.config.mts\" \"wait-on http://127.0.0.1:5173 && ELECTRON_RENDERER_URL=http://127.0.0.1:5173 electron .\"",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@electron/fuses": "2.1.3",
+    "@types/node": "catalog:",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "6.0.5",
+    "concurrently": "10.0.4",
+    "electron": "43.2.0",
+    "electron-builder": "26.15.3",
+    "typescript": "catalog:",
+    "vite": "8.2.0",
+    "vitest": "catalog:",
+    "wait-on": "9.1.0"
+  },
+  "build": {
+    "appId": "dev.pangho.echonote",
+    "asar": true,
+    "afterPack": "./scripts/after-pack.mjs",
+    "directories": {
+      "output": "out"
+    },
+    "files": [
+      ".vite/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity"
+    }
+  }
+}

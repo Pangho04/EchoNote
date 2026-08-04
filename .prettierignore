@@ -1,0 +1,11 @@
+**/.expo/
+**/.turbo/
+**/.vite/
+**/coverage/
+**/dist/
+**/node_modules/
+**/out/
+.playwright-cli/
+apps/mobile/android/
+apps/mobile/expo-env.d.ts
+apps/mobile/ios/

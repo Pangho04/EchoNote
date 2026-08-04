@@ -1,0 +1,33 @@
+:root {
+  color: #171717;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f7f7f5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.shell {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.shell h1 {
+  font-size: 32px;
+  margin: 0;
+}
+
+.shell p {
+  color: #5b5b57;
+  font-size: 15px;
+  margin: 8px 0 0;
+}

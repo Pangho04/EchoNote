@@ -1,0 +1,27 @@
+packages:
+  - apps/*
+  - packages/*
+  - services/*
+
+engineStrict: true
+nodeLinker: isolated
+saveExact: true
+strictPeerDependencies: true
+
+allowBuilds:
+  '@parcel/watcher': true
+  electron: true
+  electron-winstaller: false
+  esbuild: true
+
+catalog:
+  '@types/node': 24.13.3
+  typescript: 6.0.3
+  vitest: 4.1.10
+
+minimumReleaseAgeExclude:
+  - fastify@5.11.2
+  - tsx@4.23.5
+
+overrides:
+  'xcode>uuid': 11.1.1

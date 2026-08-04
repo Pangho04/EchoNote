@@ -1,0 +1,26 @@
+node_modules/
+.turbo/
+coverage/
+dist/
+out/
+.DS_Store
+*.log
+.playwright-cli/
+
+# Expo CNG generated output
+apps/mobile/.expo/
+apps/mobile/ios/
+apps/mobile/android/
+
+# Electron Forge output
+apps/desktop/.vite/
+apps/desktop/out/
+
+# Local environment
+.env
+.env.local
+!.env.example
+
+# Python benchmark cache
+__pycache__/
+*.py[cod]
