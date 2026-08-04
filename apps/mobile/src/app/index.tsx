@@ -1,5 +1,5 @@
-import { UiLabPage } from '@/pages/ui-lab';
+import { MeetingLibraryPage } from '@/pages/meeting-library';
 
 export default function HomeRoute() {
-  return <UiLabPage />;
+  return <MeetingLibraryPage />;
 }
