@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CreateMeetingButton } from '@/features/create-meeting';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
@@ -14,7 +15,11 @@ export function MeetingLibraryPage() {
           회의
         </AppText>
       </View>
-      <View style={styles.content} />
+      <View style={styles.content}>
+        <View style={styles.createMeetingButtonPosition}>
+          <CreateMeetingButton />
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -38,6 +43,11 @@ const useStyles = createThemedStyles((theme) =>
     safeArea: {
       backgroundColor: theme.colors.surface,
       flex: 1,
+    },
+    createMeetingButtonPosition: {
+      bottom: theme.spacing[6],
+      position: 'absolute',
+      right: 18,
     },
   }),
 );

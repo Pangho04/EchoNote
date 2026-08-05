@@ -43,4 +43,18 @@ describe('MeetingLibraryPage', () => {
       backgroundColor: darkTheme.colors.surface,
     });
   });
+
+  it('녹음 시작 버튼의 우측 하단 위치를 page에서 결정한다', async () => {
+    await render(
+      <ThemeProvider mode="light">
+        <MeetingLibraryPage />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: '새 회의 녹음' }).parent).toHaveStyle({
+      bottom: 24,
+      position: 'absolute',
+      right: 18,
+    });
+  });
 });
