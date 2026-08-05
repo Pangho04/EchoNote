@@ -1,18 +1,12 @@
-import { useMemo } from 'react';
-
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-
 import { StatusBar } from 'expo-status-bar';
-
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useTheme } from '@/shared/ui/theme-provider';
-
-import type { AppTheme } from '@/shared/config/theme';
+import { createThemedStyles, useTheme } from '@/shared/ui/theme-provider';
 
 export function UiLabPage() {
   const theme = useTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
+  const styles = useStyles();
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -27,8 +21,8 @@ export function UiLabPage() {
   );
 }
 
-function createStyles(theme: AppTheme) {
-  return StyleSheet.create({
+const useStyles = createThemedStyles((theme) =>
+  StyleSheet.create({
     content: {
       flexGrow: 1,
       paddingHorizontal: theme.spacing[5],
@@ -60,5 +54,5 @@ function createStyles(theme: AppTheme) {
       lineHeight: theme.typography.lineHeight.largeTitle,
       marginTop: theme.spacing[2],
     },
-  });
-}
+  }),
+);
