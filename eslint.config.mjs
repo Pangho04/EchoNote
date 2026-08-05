@@ -1,6 +1,7 @@
 import eslint from '@eslint/js';
-import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
+import simpleImportSort from 'eslint-plugin-simple-import-sort';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -26,6 +27,9 @@ export default tseslint.config(
         ...globals.node,
       },
     },
+    plugins: {
+      'simple-import-sort': simpleImportSort,
+    },
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-unused-vars': [
@@ -34,6 +38,16 @@ export default tseslint.config(
           argsIgnorePattern: '^_',
           caughtErrorsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
+        },
+      ],
+      'simple-import-sort/imports': [
+        'error',
+        {
+          groups: [
+            ['^\\u0000(?!(?:@/|\\.))', '^node:', '^@?\\w'],
+            ['^\\u0000@/', '^@/'],
+            ['^\\u0000\\.', '^\\.'],
+          ],
         },
       ],
     },

@@ -1,5 +1,4 @@
 import path from 'node:path';
-
 import { app, BrowserWindow } from 'electron';
 
 const DEVELOPMENT_RENDERER_URL = 'http://127.0.0.1:5173';

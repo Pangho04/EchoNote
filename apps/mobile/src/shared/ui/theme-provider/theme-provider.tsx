@@ -1,8 +1,7 @@
-import { createContext, useContext, useMemo, type PropsWithChildren } from 'react';
-
+import { createContext, type PropsWithChildren, useContext, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 
-import { resolveTheme, type AppTheme, type ThemeMode } from '@/shared/config/theme';
+import { type AppTheme, resolveTheme, type ThemeMode } from '@/shared/config/theme';
 
 type ThemeContextValue = {
   theme: AppTheme;

@@ -1,5 +1,4 @@
 import { motion, palette, radii, spacing, typography } from './primitives';
-
 import type { AppTheme } from './types';
 
 const commonTheme = {

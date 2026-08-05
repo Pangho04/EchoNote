@@ -1,5 +1,4 @@
 import path from 'node:path';
-
 import { flipFuses, FuseV1Options, FuseVersion } from '@electron/fuses';
 
 export default async function applyElectronFuses(context) {

@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react-native';
-
 import { Text } from 'react-native';
 
 import { ThemeProvider, useTheme } from './theme-provider';
