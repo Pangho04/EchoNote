@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { flipFuses, FuseV1Options, FuseVersion } from '@electron/fuses';
+import { Arch } from 'electron-builder';
 
 export default async function applyElectronFuses(context) {
   const executableName = context.packager.appInfo.productFilename;
@@ -13,6 +14,8 @@ export default async function applyElectronFuses(context) {
 
   await flipFuses(executablePath, {
     version: FuseVersion.V1,
+    resetAdHocDarwinSignature:
+      context.electronPlatformName === 'darwin' && context.arch === Arch.arm64,
     strictlyRequireAllFuses: true,
     [FuseV1Options.RunAsNode]: false,
     [FuseV1Options.EnableCookieEncryption]: true,
@@ -21,7 +24,7 @@ export default async function applyElectronFuses(context) {
     [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
     [FuseV1Options.OnlyLoadAppFromAsar]: true,
     [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot]: false,
-    [FuseV1Options.GrantFileProtocolExtraPrivileges]: false,
+    [FuseV1Options.GrantFileProtocolExtraPrivileges]: true,
     [FuseV1Options.WasmTrapHandlers]: true,
   });
 }

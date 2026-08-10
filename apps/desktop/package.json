@@ -7,7 +7,7 @@
   "description": "EchoNote macOS desktop client",
   "main": ".vite/build/main.js",
   "scripts": {
-    "build": "pnpm run build:app && electron-builder --dir",
+    "build": "pnpm run build:app && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
     "build:app": "vite build --config vite.main.config.mts && vite build --config vite.preload.config.mts && vite build --config vite.renderer.config.mts",
     "lint": "eslint .",
     "make": "pnpm run build:app && electron-builder",
