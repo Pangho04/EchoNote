@@ -1,30 +1,15 @@
 import { FlatList, StyleSheet, View } from 'react-native';
 
-import type { MeetingListItemData } from '@/entities/meeting';
+import type { MeetingListItemVM } from '@/entities/meeting';
 import { MeetingListItem } from '@/entities/meeting';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
-const SAMPLE_MEETINGS: MeetingListItemData[] = [
-  {
-    id: 'sample-meeting-1',
-    monthLabel: '8월',
-    dayLabel: '04',
-    title: '제품 로드맵 정기 회의',
-    metaLabel: '52분 · 전사와 요약 완료',
-    statusLabel: '완료',
-  },
-  {
-    id: 'sample-meeting-2',
-    monthLabel: '9월',
-    dayLabel: '21',
-    title: '제품 로드맵 후속 회의',
-    metaLabel: '1시간 10분 · 전사와 요약 완료',
-    statusLabel: '완료',
-  },
-];
+type Props = {
+  items: MeetingListItemVM[];
+};
 
-export function MeetingList() {
+export function MeetingList({ items }: Props) {
   const styles = useStyle();
 
   return (
@@ -34,7 +19,7 @@ export function MeetingList() {
       </AppText>
       <FlatList
         style={styles.list}
-        data={SAMPLE_MEETINGS}
+        data={items}
         renderItem={({ item }) => <MeetingListItem item={item} />}
         keyExtractor={(item) => item.id}
       />

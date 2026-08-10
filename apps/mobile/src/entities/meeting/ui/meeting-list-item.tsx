@@ -3,10 +3,10 @@ import { StyleSheet, View } from 'react-native';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
-import type { MeetingListItemData } from '../model/types';
+import type { MeetingListItemVM } from '../model/meeting';
 
 type Props = {
-  item: MeetingListItemData;
+  item: MeetingListItemVM;
 };
 
 export function MeetingListItem({ item }: Props) {
@@ -14,6 +14,7 @@ export function MeetingListItem({ item }: Props) {
 
   return (
     <View style={styles.container}>
+      {/** 날짜 */}
       <View style={styles.dateTile}>
         <AppText color="recording" style={styles.month} variant="caption">
           {item.monthLabel}
@@ -23,6 +24,7 @@ export function MeetingListItem({ item }: Props) {
         </AppText>
       </View>
 
+      {/** 타이틀 */}
       <View style={styles.content}>
         <AppText numberOfLines={1} style={styles.title} variant="body">
           {item.title}
@@ -32,6 +34,7 @@ export function MeetingListItem({ item }: Props) {
         </AppText>
       </View>
 
+      {/** 상태 */}
       <View style={styles.chip}>
         <AppText color="accent" style={styles.label} variant="caption">
           {item.statusLabel}
