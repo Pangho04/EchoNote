@@ -26,7 +26,7 @@ pnpm verify
 pnpm dev:mobile:ios
 
 # Android에 개발 빌드 설치
-pnpm dev:mobile:android
+pnpm dev:mobile:aos
 
 # 양쪽에 개발 빌드를 설치한 뒤 Metro 실행
 pnpm dev:mobile

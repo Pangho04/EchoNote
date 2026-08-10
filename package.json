@@ -13,7 +13,7 @@
     "dev:desktop": "pnpm --filter @echonote/desktop start",
     "dev:gateway": "pnpm --filter @echonote/ai-gateway dev",
     "dev:mobile": "pnpm --filter @echonote/mobile start",
-    "dev:mobile:android": "pnpm --filter @echonote/mobile android:device",
+    "dev:mobile:aos": "pnpm --filter @echonote/mobile android:device",
     "dev:mobile:go": "pnpm --filter @echonote/mobile start:go",
     "dev:mobile:ios": "pnpm --filter @echonote/mobile ios:device",
     "format": "prettier --write .",

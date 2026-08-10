@@ -184,7 +184,7 @@ pnpm install
 ```bash
 pnpm dev:mobile
 pnpm dev:mobile:ios
-pnpm dev:mobile:android
+pnpm dev:mobile:aos
 pnpm dev:desktop
 pnpm dev:gateway
 ```
