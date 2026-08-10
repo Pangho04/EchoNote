@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CreateMeetingButton } from '@/features/create-meeting';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
+import { MeetingList } from '@/widgets/meeting-list';
 
 export function MeetingLibraryPage() {
   const styles = useStyles();
@@ -16,6 +17,8 @@ export function MeetingLibraryPage() {
         </AppText>
       </View>
       <View style={styles.content}>
+        <MeetingList />
+
         <View style={styles.createMeetingButtonPosition}>
           <CreateMeetingButton />
         </View>
