@@ -41,8 +41,11 @@ export function MeetingLibraryPage() {
           회의
         </AppText>
       </View>
+
       <View style={styles.content}>
-        <MeetingList items={SAMPLE_MEETING_LIST_ITEMS} />
+        <View style={styles.meetingListArea}>
+          <MeetingList items={SAMPLE_MEETING_LIST_ITEMS} />
+        </View>
 
         <View style={styles.createMeetingButtonPosition}>
           <CreateMeetingButton />
@@ -54,8 +57,8 @@ export function MeetingLibraryPage() {
 
 const useStyles = createThemedStyles((theme) =>
   StyleSheet.create({
-    content: {
-      backgroundColor: theme.colors.background,
+    safeArea: {
+      backgroundColor: theme.colors.surface,
       flex: 1,
     },
     header: {
@@ -68,9 +71,13 @@ const useStyles = createThemedStyles((theme) =>
       paddingHorizontal: 18,
       paddingTop: 10,
     },
-    safeArea: {
-      backgroundColor: theme.colors.surface,
+    content: {
+      backgroundColor: theme.colors.background,
       flex: 1,
+    },
+    meetingListArea: {
+      flex: 1,
+      marginBottom: 100,
     },
     createMeetingButtonPosition: {
       bottom: theme.spacing[6],

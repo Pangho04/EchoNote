@@ -13,7 +13,7 @@ export function MeetingList({ items }: Props) {
   const styles = useStyle();
 
   return (
-    <View>
+    <View style={styles.container}>
       <AppText color="textSecondary" style={styles.sectionLabel} variant="caption">
         최근 기록
       </AppText>
@@ -29,6 +29,9 @@ export function MeetingList({ items }: Props) {
 
 const useStyle = createThemedStyles((theme) =>
   StyleSheet.create({
+    container: {
+      flex: 1,
+    },
     sectionLabel: {
       marginTop: theme.spacing[6],
       marginHorizontal: 18,
@@ -36,7 +39,8 @@ const useStyle = createThemedStyles((theme) =>
       fontWeight: theme.typography.fontWeight.bold,
     },
     list: {
-      backgroundColor: theme.colors.surface,
+      flex: 1,
+
       borderTopColor: theme.colors.border,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,

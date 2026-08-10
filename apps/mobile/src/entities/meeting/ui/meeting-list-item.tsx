@@ -47,13 +47,13 @@ export function MeetingListItem({ item }: Props) {
 const useStyles = createThemedStyles((theme) =>
   StyleSheet.create({
     container: {
+      backgroundColor: theme.colors.surface,
       flexDirection: 'row',
       alignItems: 'center',
       gap: theme.spacing[3],
       minHeight: 76,
       paddingVertical: theme.spacing[3],
       paddingHorizontal: theme.spacing[4],
-      backgroundColor: theme.colors.surface,
       borderBottomColor: theme.colors.border,
       borderBottomWidth: StyleSheet.hairlineWidth,
     },
