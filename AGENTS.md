@@ -153,9 +153,11 @@ recording-service.android.ts Android만 달라야 할 때
 - 컴포넌트는 화면 표시와 유스케이스 조합에 집중하고 파일·네트워크 부작용은 model 또는 api segment로 이동한다.
 - 상태를 무조건 전역화하지 않는다. 한 화면에서만 필요한 상태는 해당 page 또는 feature에 둔다.
 - Axios는 `shared/api`의 기반 인스턴스를 통해 사용하고 UI에서 직접 호출하지 않는다.
-- TanStack Query는 Gateway 서버 상태, Zustand는 검색·정렬과 화면을 넘는 일시적 UI 상태에 사용한다.
+- TanStack Query는 Gateway 서버 상태에 사용한다. 검색처럼 한 화면에서만 필요한 상태는 page-local로
+  시작하고, 검색·정렬·현재 선택이 실제로 여러 화면을 넘을 때만 Zustand를 사용한다.
 - SQLite·Supabase에 영속해야 하는 데이터를 Zustand나 Query cache만으로 보존하지 않는다.
 - `useEffect`를 사용할 때는 전역 규칙의 `@when`, `@expect`, `@clear` JSDoc을 바로 위에 작성한다.
+- import는 `외부 패키지 → @/ 별칭 → 상대 경로` 순서로 그룹화하고 그룹 사이에만 빈 줄을 둔다. 같은 그룹의 패키지마다 빈 줄을 추가하지 않으며 `simple-import-sort` 자동수정을 기준으로 한다.
 
 ### 7.1 ViewModel과 표현 데이터 흐름
 
@@ -176,6 +178,9 @@ recording-service.android.ts Android만 달라야 할 때
 - 회의 목록 날짜·정렬·연도 조회 기준은 `startedAt`이다. `updatedAt`은 마지막 수정 시각이므로 목록 정렬이나 duration 계산에 사용하지 않는다.
 - 목록 use case는 선택 연도와 기기 현재 IANA time zone을 `[연도 시작, 다음 연도 시작)` UTC epoch millisecond 범위로 바꿔 `ListMeetingsQuery`로 repository에 전달한다. repository는 year나 time zone을 해석하지 않고 SQLite에서 `startedAt DESC, id DESC`로 조회하며, 전체 Row를 읽은 뒤 ViewModel에서 연도를 거르지 않는다.
 - 목록 query의 `cursor`는 그 cursor가 가리키는 Meeting부터 결과에 포함한다. repository는 `limit + 1`건을 읽고, 반환하지 않은 lookahead Meeting이 있으면 그 Meeting을 `nextCursor`로 제공하며 없으면 `null`을 제공한다.
+- 1B 검색은 이미 불러온 page를 ViewModel에서 거르지 않는다. 기존 SQLite 목록 query에 정규화한 title filter를 추가하고 `연도·filter → inclusive cursor → startedAt DESC, id DESC → limit + 1` 순서로 조회한다. `%`, `_`, escape 문자는 literal로 처리하며 검색어 변경 시 items·cursor를 초기화한다.
+- 생성·제목 변경·삭제는 SQLite commit 성공 뒤 현재 목록 조건으로 실제 DB를 재조회한다. 화면에만 optimistic 성공 행을 확정하지 않는다.
+- Stage 1에는 RecordingRow가 없으므로 확인된 meeting은 실제 빈 회의다. Stage 2에서 recordings migration을 추가할 때 `deleteEmptyMeeting`을 atomic `NOT EXISTS` 또는 동등한 transaction guard로 강화한다. 검증용 recording table이나 fake repository를 만들지 않는다.
 - 목록 날짜 label과 연도 조회는 같은 기기 현재 time zone을 사용한다. time zone이나 선택 연도가 바뀌면 기존 items와 cursor를 버리고 첫 page부터 다시 조회한다.
 - `MeetingListItemVM`은 월·일과 표시 label만 가지며 `yearLabel`을 두지 않는다. 선택 연도와 연도 변경 command는 page-level ViewModel hook이 소유하고 목록 상단 control이 한 번 표시한다.
 - 목록 `metaLabel`은 duration과 상세 상태 설명을 조합한다. chip은 `MeetingStatus`만 복사하지 않고 `pendingReviewCount`와 최신 outbox command를 함께 사용하며, local-only 항목처럼 chip이 필요 없으면 disclosure accessory를 사용한다. outbox 표시는 UI 우선순위일 뿐 `MeetingStatus` 전이가 아니다.
