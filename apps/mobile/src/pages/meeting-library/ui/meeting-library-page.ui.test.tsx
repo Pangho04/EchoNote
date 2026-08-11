@@ -1,11 +1,29 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { darkTheme, lightTheme, type ThemeMode } from '@/shared/config/theme';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
+import { useMeetingLibraryViewModel } from '../model/use-meeting-library-view-model';
 import { MeetingLibraryPage } from './meeting-library-page';
 
+jest.mock('../model/use-meeting-library-view-model', () => ({
+  useMeetingLibraryViewModel: jest.fn(),
+}));
+
+const mockedUseMeetingLibraryViewModel = jest.mocked(useMeetingLibraryViewModel);
+
 describe('MeetingLibraryPage', () => {
+  const create = jest.fn(async () => undefined);
+
+  beforeEach(() => {
+    create.mockClear();
+    mockedUseMeetingLibraryViewModel.mockReturnValue({
+      create,
+      errorMessage: null,
+      items: [],
+    });
+  });
+
   it('회의 목록 제목을 접근 가능한 헤더로 표시한다', async () => {
     await render(
       <ThemeProvider mode="light">
@@ -56,5 +74,17 @@ describe('MeetingLibraryPage', () => {
       position: 'absolute',
       right: 18,
     });
+  });
+
+  it('녹음 시작 버튼을 누르면 ViewModel의 생성 command를 호출한다', async () => {
+    await render(
+      <ThemeProvider mode="light">
+        <MeetingLibraryPage />
+      </ThemeProvider>,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: '새 회의 녹음' }));
+
+    expect(create).toHaveBeenCalledTimes(1);
   });
 });

@@ -3,11 +3,15 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { palette } from '@/shared/config/theme';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
-export function CreateMeetingButton() {
+type Props = {
+  createRecord: () => Promise<void>;
+};
+
+export function CreateMeetingButton({ createRecord }: Props) {
   const styles = useStyles();
 
-  function handlePress() {
-    console.log('새 회의 녹음 시작');
+  async function handlePress() {
+    await createRecord();
   }
 
   return (

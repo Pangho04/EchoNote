@@ -10,16 +10,23 @@ import { nomalizeMeetingTitle } from './nomalize-meeting-title';
 
 describe('extractMeetingDateLabels', () => {
   it('ISO 시각을 한국 시간의 월·일 label로 변환한다', () => {
-    expect(extractMeetingDateLabels('2026-09-21T14:00:00+09:00')).toEqual({
+    expect(extractMeetingDateLabels('2026-09-21T14:00:00+09:00', 'Asia/Seoul')).toEqual({
       monthLabel: '9월',
       dayLabel: '21',
     });
   });
 
   it('UTC 시각의 날짜가 한국 시간에서 넘어가면 다음 날 label을 반환한다', () => {
-    expect(extractMeetingDateLabels('2026-09-21T23:00:00Z')).toEqual({
+    expect(extractMeetingDateLabels('2026-09-21T23:00:00Z', 'Asia/Seoul')).toEqual({
       monthLabel: '9월',
       dayLabel: '22',
+    });
+  });
+
+  it('조회에 사용한 time zone 기준으로 월·일 label을 반환한다', () => {
+    expect(extractMeetingDateLabels('2026-01-01T00:30:00Z', 'America/Los_Angeles')).toEqual({
+      monthLabel: '12월',
+      dayLabel: '31',
     });
   });
 });
@@ -34,7 +41,9 @@ describe('nomalizeMeetingTitle', () => {
   });
 
   it('공백뿐인 제목을 회의 시작일 기반 기본 제목으로 바꾼다', () => {
-    expect(nomalizeMeetingTitle('   ', '2026-08-04T09:00:00+09:00')).toBe('2026. 8. 4._녹음');
+    expect(nomalizeMeetingTitle('   ', '2026-08-04T09:00:00+09:00')).toBe(
+      '2026. 8. 4. 오전 09:00:00_녹음',
+    );
   });
 });
 
@@ -50,7 +59,7 @@ describe('toMeetingListItemVM', () => {
   };
 
   it('Meeting을 목록 표시용 VM 한 건으로 변환한다', () => {
-    expect(toMeetingListItemVM(meeting)).toEqual({
+    expect(toMeetingListItemVM(meeting, 'Asia/Seoul')).toEqual({
       id: 'meeting-1',
       title: '제품 로드맵 정기 회의',
       monthLabel: '8월',
@@ -62,11 +71,14 @@ describe('toMeetingListItemVM', () => {
 
   it('녹음 전 회의는 duration 없이 상태 설명만 표시한다', () => {
     expect(
-      toMeetingListItemVM({
-        ...meeting,
-        status: MeetingStatus.LocalOnly,
-        durationMs: null,
-      }),
+      toMeetingListItemVM(
+        {
+          ...meeting,
+          status: MeetingStatus.LocalOnly,
+          durationMs: null,
+        },
+        'Asia/Seoul',
+      ),
     ).toMatchObject({
       metaLabel: '녹음 대기',
       statusLabel: '로컬',

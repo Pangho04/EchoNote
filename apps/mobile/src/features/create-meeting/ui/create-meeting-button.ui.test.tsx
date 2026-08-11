@@ -6,6 +6,8 @@ import { ThemeProvider } from '@/shared/ui/theme-provider';
 import { CreateMeetingButton } from './create-meeting-button';
 
 describe('CreateMeetingButton', () => {
+  const doNothing = async () => undefined;
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -13,7 +15,7 @@ describe('CreateMeetingButton', () => {
   it('녹음 시작 동작을 설명하는 접근성 버튼으로 표시한다', async () => {
     await render(
       <ThemeProvider mode="light">
-        <CreateMeetingButton />
+        <CreateMeetingButton createRecord={doNothing} />
       </ThemeProvider>,
     );
 
@@ -28,7 +30,7 @@ describe('CreateMeetingButton', () => {
     async ({ color, mode }) => {
       await render(
         <ThemeProvider mode={mode}>
-          <CreateMeetingButton />
+          <CreateMeetingButton createRecord={doNothing} />
         </ThemeProvider>,
       );
 
@@ -41,7 +43,7 @@ describe('CreateMeetingButton', () => {
   it('58×58 원형 버튼 안에 18×18 흰색 원을 표시한다', async () => {
     await render(
       <ThemeProvider mode="light">
-        <CreateMeetingButton />
+        <CreateMeetingButton createRecord={doNothing} />
       </ThemeProvider>,
     );
 
@@ -64,7 +66,7 @@ describe('CreateMeetingButton', () => {
   it('눌린 동안 크기와 불투명도를 낮춘다', async () => {
     await render(
       <ThemeProvider mode="light">
-        <CreateMeetingButton />
+        <CreateMeetingButton createRecord={doNothing} />
       </ThemeProvider>,
     );
 
@@ -85,18 +87,19 @@ describe('CreateMeetingButton', () => {
     await fireEvent(button, 'responderTerminate', pressEvent);
   });
 
-  it('한 번 누르면 임시 녹음 시작 로그를 한 번만 남긴다', async () => {
-    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+  it('한 번 누르면 전달받은 생성 callback을 한 번 호출한다', async () => {
+    const createRecord = jest.fn(async () => undefined);
 
     await render(
       <ThemeProvider mode="light">
-        <CreateMeetingButton />
+        <CreateMeetingButton createRecord={createRecord} />
       </ThemeProvider>,
     );
 
+    expect(createRecord).not.toHaveBeenCalled();
+
     await fireEvent.press(screen.getByRole('button', { name: '새 회의 녹음' }));
 
-    expect(consoleLogSpy).toHaveBeenCalledTimes(1);
-    expect(consoleLogSpy).toHaveBeenCalledWith('새 회의 녹음 시작');
+    expect(createRecord).toHaveBeenCalledTimes(1);
   });
 });

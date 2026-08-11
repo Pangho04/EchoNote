@@ -40,7 +40,6 @@ const useStyle = createThemedStyles((theme) =>
     },
     list: {
       flex: 1,
-
       borderTopColor: theme.colors.border,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,

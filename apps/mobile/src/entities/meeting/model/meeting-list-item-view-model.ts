@@ -7,17 +7,16 @@ import { type Meeting, type MeetingListItemVM, MeetingStatus } from './meeting';
 // ------------ Date -------------------
 export type MeetingDateLabels = Pick<MeetingListItemVM, 'monthLabel' | 'dayLabel'>;
 
-const meetingDateFormatter = new Intl.DateTimeFormat('ko-KR', {
-  timeZone: 'Asia/Seoul',
-  month: 'numeric',
-  day: 'numeric',
-});
-
 function getDatePart(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes) {
   return parts.find((part) => part.type === type)?.value;
 }
 
-export function extractMeetingDateLabels(startedAt: string): MeetingDateLabels {
+export function extractMeetingDateLabels(startedAt: string, timeZone: string): MeetingDateLabels {
+  const meetingDateFormatter = new Intl.DateTimeFormat('ko-KR', {
+    timeZone,
+    month: 'numeric',
+    day: 'numeric',
+  });
   const parts = meetingDateFormatter.formatToParts(new Date(startedAt));
   const month = getDatePart(parts, 'month');
   const day = getDatePart(parts, 'day');
@@ -108,8 +107,8 @@ const MEETING_STATUS_LABELS: Record<MeetingStatus, MeetingStatusLabels> = {
   },
 };
 
-export function toMeetingListItemVM(meeting: Meeting): MeetingListItemVM {
-  const dateLabels = extractMeetingDateLabels(meeting.startedAt);
+export function toMeetingListItemVM(meeting: Meeting, timeZone: string): MeetingListItemVM {
+  const dateLabels = extractMeetingDateLabels(meeting.startedAt, timeZone);
   const statusLabels = MEETING_STATUS_LABELS[meeting.status];
   const durationLabel =
     meeting.durationMs === null ? null : formatMeetingDurationLabel(meeting.durationMs);
