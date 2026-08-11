@@ -9,3 +9,4 @@
 apps/mobile/android/
 apps/mobile/expo-env.d.ts
 apps/mobile/ios/
+pnpm-lock.yaml
