@@ -174,7 +174,9 @@ recording-service.android.ts Android만 달라야 할 때
 - SQLite `meetings` row는 `id`, 정규화한 `title`, `started_at_ms`, `created_at_ms`, `updated_at_ms`만 소유한다. status는 InferenceJobRow 부재 시 `LocalOnly`, 존재 시 검증한 서버 status로 만든다.
 - SQLite timestamp는 UTC epoch millisecond `INTEGER`, Domain timestamp는 ISO 8601 string을 사용한다. Row mapper만 둘을 변환한다.
 - 회의 목록 날짜·정렬·연도 조회 기준은 `startedAt`이다. `updatedAt`은 마지막 수정 시각이므로 목록 정렬이나 duration 계산에 사용하지 않는다.
-- 목록은 KST 선택 연도의 `[시작, 다음 연도 시작)` 범위를 repository에 전달해 SQLite에서 필터링하고 `startedAt DESC, id DESC`로 조회한다. 전체 Row를 읽은 뒤 ViewModel에서 연도를 거르지 않는다.
+- 목록 use case는 선택 연도와 기기 현재 IANA time zone을 `[연도 시작, 다음 연도 시작)` UTC epoch millisecond 범위로 바꿔 `ListMeetingsQuery`로 repository에 전달한다. repository는 year나 time zone을 해석하지 않고 SQLite에서 `startedAt DESC, id DESC`로 조회하며, 전체 Row를 읽은 뒤 ViewModel에서 연도를 거르지 않는다.
+- 목록 query의 `cursor`는 그 cursor가 가리키는 Meeting부터 결과에 포함한다. repository는 `limit + 1`건을 읽고, 반환하지 않은 lookahead Meeting이 있으면 그 Meeting을 `nextCursor`로 제공하며 없으면 `null`을 제공한다.
+- 목록 날짜 label과 연도 조회는 같은 기기 현재 time zone을 사용한다. time zone이나 선택 연도가 바뀌면 기존 items와 cursor를 버리고 첫 page부터 다시 조회한다.
 - `MeetingListItemVM`은 월·일과 표시 label만 가지며 `yearLabel`을 두지 않는다. 선택 연도와 연도 변경 command는 page-level ViewModel hook이 소유하고 목록 상단 control이 한 번 표시한다.
 - 목록 `metaLabel`은 duration과 상세 상태 설명을 조합한다. chip은 `MeetingStatus`만 복사하지 않고 `pendingReviewCount`와 최신 outbox command를 함께 사용하며, local-only 항목처럼 chip이 필요 없으면 disclosure accessory를 사용한다. outbox 표시는 UI 우선순위일 뿐 `MeetingStatus` 전이가 아니다.
 - ViewModel 필드 추가만으로 UI 변경이 승인된 것은 아니다. 새 표시 요소는 위치·타이포그래피·간격·접근성 사양이 목업에 추가된 뒤 View에서 렌더링한다.
