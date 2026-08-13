@@ -9,6 +9,6 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/**/*.unit.test.ts'],
+    include: ['src/**/*.unit.test.ts', 'src/**/*.integration.test.ts'],
   },
 });

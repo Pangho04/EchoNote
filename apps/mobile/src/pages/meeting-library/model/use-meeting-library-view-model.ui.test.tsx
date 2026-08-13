@@ -39,7 +39,6 @@ describe('useMeetingLibraryViewModel', () => {
       id: 'meeting-1',
       title: '제품 회의',
       status: MeetingStatus.LocalOnly,
-      startedAt: '2026-08-08T00:10:00.000Z',
       createdAt: '2026-08-08T00:10:00.000Z',
       updatedAt: '2026-08-08T00:10:00.000Z',
       durationMs: null,

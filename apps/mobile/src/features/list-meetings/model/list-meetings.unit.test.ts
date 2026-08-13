@@ -42,7 +42,7 @@ describe('makeListMeetings', () => {
   });
 
   it('기기 time zone의 연도 범위와 cursor를 repository query로 전달한다', async () => {
-    const cursor = { meetingId: 'meeting-20', startedAtMs: 1_767_225_600_000 };
+    const cursor = { createdAtMs: 1_767_225_600_000, meetingId: 'meeting-20' };
     const list = vi.fn(async () => ({ meetings: [], nextCursor: null }));
     const repository: MeetingRepository = {
       create: async () => {

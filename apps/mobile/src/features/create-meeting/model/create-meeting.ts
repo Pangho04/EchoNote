@@ -8,12 +8,17 @@ type CreateMeetingDependencies = {
 
 export function makeCreateMeeting({ repository }: CreateMeetingDependencies) {
   return async function createMeeting(title: string): Promise<Meeting> {
-    const requestedAt = new Date().toISOString();
+    const createdAt = new Date().toISOString();
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    if (!timeZone) {
+      throw new Error('기기 현재 time zone을 확인할 수 없습니다.');
+    }
+
     const params = {
       meetingId: Crypto.randomUUID(),
-      title: nomalizeMeetingTitle(title, requestedAt),
-      startedAt: requestedAt,
-      requestedAt,
+      title: nomalizeMeetingTitle(title, createdAt, timeZone),
+      createdAt,
     };
 
     return repository.create(params);

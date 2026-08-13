@@ -16,6 +16,7 @@ vi.mock('expo-crypto', () => ({
 }));
 
 vi.mock('@/entities/meeting', () => ({
+  MeetingStatus: { LocalOnly: 'local_only' },
   nomalizeMeetingTitle: normalizeTitle,
 }));
 
@@ -24,6 +25,12 @@ describe('makeCreateMeeting', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-11T01:02:03.000Z'));
     normalizeTitle.mockClear();
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
+      calendar: 'gregory',
+      locale: 'ko-KR',
+      numberingSystem: 'latn',
+      timeZone: 'Asia/Seoul',
+    });
   });
 
   afterEach(() => {
@@ -35,9 +42,8 @@ describe('makeCreateMeeting', () => {
       id: params.meetingId,
       title: params.title,
       status: MeetingStatus.LocalOnly,
-      startedAt: params.startedAt,
-      createdAt: params.requestedAt,
-      updatedAt: params.requestedAt,
+      createdAt: params.createdAt,
+      updatedAt: params.createdAt,
       durationMs: null,
     }));
     const repository: MeetingRepository = {
@@ -48,13 +54,16 @@ describe('makeCreateMeeting', () => {
 
     const result = await createMeeting('  제품 회의  ');
 
-    expect(normalizeTitle).toHaveBeenCalledWith('  제품 회의  ', '2026-08-11T01:02:03.000Z');
+    expect(normalizeTitle).toHaveBeenCalledWith(
+      '  제품 회의  ',
+      '2026-08-11T01:02:03.000Z',
+      'Asia/Seoul',
+    );
     expect(create).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledWith({
       meetingId: 'meeting-uuid',
       title: '정규화된 제목',
-      startedAt: '2026-08-11T01:02:03.000Z',
-      requestedAt: '2026-08-11T01:02:03.000Z',
+      createdAt: '2026-08-11T01:02:03.000Z',
     });
     expect(result).toMatchObject({
       id: 'meeting-uuid',

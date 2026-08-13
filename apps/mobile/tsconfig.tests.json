@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["jest", "node"]
+  },
+  "include": ["src/**/*.integration.test.ts", "src/**/*.unit.test.ts", "src/**/*.ui.test.tsx"],
+  "exclude": []
+}

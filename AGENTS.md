@@ -173,12 +173,14 @@ recording-service.android.ts Android만 달라야 할 때
 - SQLite outbox의 전송 상태는 `MeetingStatus`와 별도 타입으로 관리한다. `pending`, `sending`, `failed` 같은 outbox 상태를 회의 처리 상태에 추가하지 않는다.
 - `Meeting 1 : 0..1 Recording`을 원칙으로 하고 SQLite `recordings.meeting_id`에 `UNIQUE`와 FK를 둔다. `Meeting` Domain은 화면 조합을 단순하게 하기 위해 nullable `durationMs`를 가질 수 있지만, SQLite에서는 saved RecordingRow가 원본이며 `meetings` row에 복제하지 않는다.
 - 학습 단계에서는 실제 경계를 도입할 때 타입을 만든다. SQLite Row는 schema 단계, ResponseDTO는 서버 API 단계에서 정의하며 사용되지 않는 경계 타입을 미리 만들지 않는다.
-- SQLite `meetings` row는 `id`, 정규화한 `title`, `started_at_ms`, `created_at_ms`, `updated_at_ms`만 소유한다. status는 InferenceJobRow 부재 시 `LocalOnly`, 존재 시 검증한 서버 status로 만든다.
+- SQLite `meetings` row는 `id`, 정규화한 `title`, `created_at_ms`, `updated_at_ms`만 소유한다. status는 InferenceJobRow 부재 시 `LocalOnly`, 존재 시 검증한 서버 status로 만든다.
 - SQLite timestamp는 UTC epoch millisecond `INTEGER`, Domain timestamp는 ISO 8601 string을 사용한다. Row mapper만 둘을 변환한다.
-- 회의 목록 날짜·정렬·연도 조회 기준은 `startedAt`이다. `updatedAt`은 마지막 수정 시각이므로 목록 정렬이나 duration 계산에 사용하지 않는다.
-- 목록 use case는 선택 연도와 기기 현재 IANA time zone을 `[연도 시작, 다음 연도 시작)` UTC epoch millisecond 범위로 바꿔 `ListMeetingsQuery`로 repository에 전달한다. repository는 year나 time zone을 해석하지 않고 SQLite에서 `startedAt DESC, id DESC`로 조회하며, 전체 Row를 읽은 뒤 ViewModel에서 연도를 거르지 않는다.
+- `createdAt`은 Meeting이 EchoNote에 등록된 시각이며 생성 뒤 바꾸지 않는다. 회의 목록 날짜·정렬·연도 조회·cursor·기본 제목 기준은 `createdAt`이다. `updatedAt`은 마지막 수정 시각이므로 목록 정렬이나 duration 계산에 사용하지 않는다.
+- 외부에서 과거 녹음을 가져와도 가져와 등록한 시각을 Meeting의 `createdAt`으로 사용한다. 실제 녹음 시각은 MVP Meeting 관리 기준이 아니며 요구가 생기기 전 `Recording.recordedAt` 같은 미래 필드를 추가하지 않는다.
+- 빈 Meeting 제목은 생성 당시 기기 IANA time zone의 `createdAt`을 `yyyy-MM-dd HH:mm_녹음` 형식으로 한 번 만들며, 이후 time zone 변경으로 자동 수정하지 않는다.
+- 목록 use case는 선택 연도와 기기 현재 IANA time zone을 `[연도 시작, 다음 연도 시작)` UTC epoch millisecond 범위로 바꿔 `ListMeetingsQuery`로 repository에 전달한다. repository는 year나 time zone을 해석하지 않고 SQLite에서 `createdAt DESC, id DESC`로 조회하며, 전체 Row를 읽은 뒤 ViewModel에서 연도를 거르지 않는다.
 - 목록 query의 `cursor`는 그 cursor가 가리키는 Meeting부터 결과에 포함한다. repository는 `limit + 1`건을 읽고, 반환하지 않은 lookahead Meeting이 있으면 그 Meeting을 `nextCursor`로 제공하며 없으면 `null`을 제공한다.
-- 1B 검색은 이미 불러온 page를 ViewModel에서 거르지 않는다. 기존 SQLite 목록 query에 정규화한 title filter를 추가하고 `연도·filter → inclusive cursor → startedAt DESC, id DESC → limit + 1` 순서로 조회한다. `%`, `_`, escape 문자는 literal로 처리하며 검색어 변경 시 items·cursor를 초기화한다.
+- 1B 검색은 이미 불러온 page를 ViewModel에서 거르지 않는다. 기존 SQLite 목록 query에 정규화한 title filter를 추가하고 `연도·filter → inclusive cursor → createdAt DESC, id DESC → limit + 1` 순서로 조회한다. `%`, `_`, escape 문자는 literal로 처리하며 검색어 변경 시 items·cursor를 초기화한다.
 - 생성·제목 변경·삭제는 SQLite commit 성공 뒤 현재 목록 조건으로 실제 DB를 재조회한다. 화면에만 optimistic 성공 행을 확정하지 않는다.
 - Stage 1에는 RecordingRow가 없으므로 확인된 meeting은 실제 빈 회의다. Stage 2에서 recordings migration을 추가할 때 `deleteEmptyMeeting`을 atomic `NOT EXISTS` 또는 동등한 transaction guard로 강화한다. 검증용 recording table이나 fake repository를 만들지 않는다.
 - 목록 날짜 label과 연도 조회는 같은 기기 현재 time zone을 사용한다. time zone이나 선택 연도가 바뀌면 기존 items와 cursor를 버리고 첫 page부터 다시 조회한다.

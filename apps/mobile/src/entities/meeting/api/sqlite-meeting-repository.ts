@@ -8,20 +8,41 @@ import type { MeetingRepository } from '../model/meeting-repository';
 type MeetingRow = {
   id: string;
   title: string;
-  started_at_ms: number;
   created_at_ms: number;
   updated_at_ms: number;
 };
+
+function toIsoTimestamp(value: number, field: string): string {
+  if (!Number.isSafeInteger(value)) {
+    throw new RangeError(`${field}가 올바른 UTC epoch millisecond가 아닙니다.`);
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new RangeError(`${field}가 JavaScript Date 범위를 벗어났습니다.`);
+  }
+
+  return date.toISOString();
+}
+
+function toEpochMs(value: string, field: string): number {
+  const epochMs = Date.parse(value);
+
+  if (!Number.isSafeInteger(epochMs)) {
+    throw new RangeError(`${field}가 올바른 ISO 문자열이 아닙니다.`);
+  }
+
+  return epochMs;
+}
 
 function toMeeting(row: MeetingRow): Meeting {
   return {
     id: row.id,
     title: row.title,
     status: MeetingStatus.LocalOnly,
-    // DB의 UTC epoch millisecond를 Domain ISO 문자열로 바꾼다.
-    startedAt: new Date(row.started_at_ms).toISOString(),
-    createdAt: new Date(row.created_at_ms).toISOString(),
-    updatedAt: new Date(row.updated_at_ms).toISOString(),
+    createdAt: toIsoTimestamp(row.created_at_ms, 'created_at_ms'),
+    updatedAt: toIsoTimestamp(row.updated_at_ms, 'updated_at_ms'),
     durationMs: null,
   };
 }
@@ -29,27 +50,21 @@ function toMeeting(row: MeetingRow): Meeting {
 export function createSQLiteMeetingRepository(database: SQLiteDatabase): MeetingRepository {
   return {
     async create(params) {
-      const startedAtMs = Date.parse(params.startedAt);
-      const requestedAtMs = Date.parse(params.requestedAt);
-
-      if (!Number.isFinite(startedAtMs) || !Number.isFinite(requestedAtMs)) {
-        throw new RangeError('회의 시각이 올바른 ISO 문자열이 아닙니다.');
-      }
+      const createdAtMs = toEpochMs(params.createdAt, 'createdAt');
 
       await database.runAsync(
         `INSERT INTO meetings (
-          id, title, started_at_ms, created_at_ms, updated_at_ms
-        ) VALUES (?, ?, ?, ?, ?)
+          id, title, created_at_ms, updated_at_ms
+        ) VALUES (?, ?, ?, ?)
         ON CONFLICT(id) DO NOTHING`,
         params.meetingId,
         params.title,
-        startedAtMs,
-        requestedAtMs,
-        requestedAtMs,
+        createdAtMs,
+        createdAtMs,
       );
 
       const row = await database.getFirstAsync<MeetingRow>(
-        `SELECT id, title, started_at_ms, created_at_ms, updated_at_ms
+        `SELECT id, title, created_at_ms, updated_at_ms
         FROM meetings
         WHERE id = ?`,
         params.meetingId,
@@ -59,30 +74,36 @@ export function createSQLiteMeetingRepository(database: SQLiteDatabase): Meeting
         throw new Error(`저장한 회의를 찾을 수 없습니다: ${params.meetingId}`);
       }
 
+      if (row.title !== params.title || row.created_at_ms !== createdAtMs) {
+        throw new Error(
+          `같은 meetingId에 다른 생성 입력이 이미 저장돼 있습니다: ${params.meetingId}`,
+        );
+      }
+
       return toMeeting(row);
     },
 
     async list(query) {
-      const cursorStartedAtMs = query.cursor?.startedAtMs ?? null;
+      const cursorCreatedAtMs = query.cursor?.createdAtMs ?? null;
       const cursorMeetingId = query.cursor?.meetingId ?? null;
 
       const rows = await database.getAllAsync<MeetingRow>(
-        `SELECT id, title, started_at_ms, created_at_ms, updated_at_ms
+        `SELECT id, title, created_at_ms, updated_at_ms
         FROM meetings
-        WHERE started_at_ms >= ?
-          AND started_at_ms < ?
+        WHERE created_at_ms >= ?
+          AND created_at_ms < ?
           AND (
             ? IS NULL
-            OR started_at_ms < ?
-            OR (started_at_ms = ? AND id <= ?)
+            OR created_at_ms < ?
+            OR (created_at_ms = ? AND id <= ?)
         )
-        ORDER BY started_at_ms DESC, id DESC
+        ORDER BY created_at_ms DESC, id DESC
         LIMIT ?`,
         query.yearStartMs,
         query.nextYearStartMs,
-        cursorStartedAtMs,
-        cursorStartedAtMs,
-        cursorStartedAtMs,
+        cursorCreatedAtMs,
+        cursorCreatedAtMs,
+        cursorCreatedAtMs,
         cursorMeetingId,
         query.limit + 1,
       );
@@ -94,7 +115,7 @@ export function createSQLiteMeetingRepository(database: SQLiteDatabase): Meeting
         meetings: pageRows.map(toMeeting),
         nextCursor: lookaheadRow
           ? {
-              startedAtMs: lookaheadRow.started_at_ms,
+              createdAtMs: lookaheadRow.created_at_ms,
               meetingId: lookaheadRow.id,
             }
           : null,

@@ -19,9 +19,8 @@ export type Meeting = {
   id: string;
   title: string;
   status: MeetingStatus;
-  startedAt: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string; // EchoNote에 등록된 시각
+  updatedAt: string; // 마지막으로 수정된 시각
   durationMs: number | null;
 };
 

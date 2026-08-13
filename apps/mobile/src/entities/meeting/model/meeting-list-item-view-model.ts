@@ -11,18 +11,18 @@ function getDatePart(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormat
   return parts.find((part) => part.type === type)?.value;
 }
 
-export function extractMeetingDateLabels(startedAt: string, timeZone: string): MeetingDateLabels {
+export function extractMeetingDateLabels(createdAt: string, timeZone: string): MeetingDateLabels {
   const meetingDateFormatter = new Intl.DateTimeFormat('ko-KR', {
     timeZone,
     month: 'numeric',
     day: 'numeric',
   });
-  const parts = meetingDateFormatter.formatToParts(new Date(startedAt));
+  const parts = meetingDateFormatter.formatToParts(new Date(createdAt));
   const month = getDatePart(parts, 'month');
   const day = getDatePart(parts, 'day');
 
   if (!month || !day) {
-    throw new RangeError(`회의 날짜 label을 만들 수 없습니다: ${startedAt}`);
+    throw new RangeError(`회의 날짜 label을 만들 수 없습니다: ${createdAt}`);
   }
 
   return {
@@ -107,8 +107,9 @@ const MEETING_STATUS_LABELS: Record<MeetingStatus, MeetingStatusLabels> = {
   },
 };
 
+/** Domain Date -> VM Mapper */
 export function toMeetingListItemVM(meeting: Meeting, timeZone: string): MeetingListItemVM {
-  const dateLabels = extractMeetingDateLabels(meeting.startedAt, timeZone);
+  const dateLabels = extractMeetingDateLabels(meeting.createdAt, timeZone);
   const statusLabels = MEETING_STATUS_LABELS[meeting.status];
   const durationLabel =
     meeting.durationMs === null ? null : formatMeetingDurationLabel(meeting.durationMs);

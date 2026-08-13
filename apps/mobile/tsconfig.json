@@ -6,8 +6,8 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "strict": true,
-    "types": ["jest"]
+    "strict": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "exclude": ["src/**/*.integration.test.ts", "src/**/*.unit.test.ts", "src/**/*.ui.test.tsx"]
 }

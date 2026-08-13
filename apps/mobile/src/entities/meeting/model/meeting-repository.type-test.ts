@@ -21,7 +21,7 @@ describe('MeetingRepository type contract', () => {
 
   it('cursor와 목록 결과의 페이지 계약을 고정한다', () => {
     expectTypeOf<MeetingListCursor>().toEqualTypeOf<{
-      startedAtMs: number;
+      createdAtMs: number;
       meetingId: string;
     }>();
     expectTypeOf<ListMeetingsResult>().toEqualTypeOf<{

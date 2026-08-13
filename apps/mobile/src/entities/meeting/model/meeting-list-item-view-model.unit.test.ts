@@ -33,16 +33,38 @@ describe('extractMeetingDateLabels', () => {
 
 describe('nomalizeMeetingTitle', () => {
   it('앞뒤 공백을 제거한다', () => {
-    expect(nomalizeMeetingTitle('  제품 회의  ', '2026-08-04T09:00:00+09:00')).toBe('제품 회의');
+    expect(nomalizeMeetingTitle('  제품   회의  ', '2026-08-04T00:00:00.000Z', 'Asia/Seoul')).toBe(
+      '제품 회의',
+    );
   });
 
   it('제목을 최대 80자로 제한한다', () => {
-    expect(nomalizeMeetingTitle('가'.repeat(81), '2026-08-04T09:00:00+09:00')).toHaveLength(80);
+    expect(
+      nomalizeMeetingTitle('가'.repeat(81), '2026-08-04T00:00:00.000Z', 'Asia/Seoul'),
+    ).toHaveLength(80);
   });
 
-  it('공백뿐인 제목을 회의 시작일 기반 기본 제목으로 바꾼다', () => {
-    expect(nomalizeMeetingTitle('   ', '2026-08-04T09:00:00+09:00')).toBe(
-      '2026. 8. 4. 오전 09:00:00_녹음',
+  it.each([
+    {
+      createdAt: '2025-12-31T15:30:00.000Z',
+      expected: '2026-01-01 00:30_녹음',
+      timeZone: 'Asia/Seoul',
+    },
+    {
+      createdAt: '2026-01-01T03:00:00.000Z',
+      expected: '2025-12-31 19:00_녹음',
+      timeZone: 'America/Los_Angeles',
+    },
+  ])('공백뿐인 제목을 $timeZone 등록일 기반 기본 제목으로 바꾼다', (testCase) => {
+    expect(nomalizeMeetingTitle('   ', testCase.createdAt, testCase.timeZone)).toBe(
+      testCase.expected,
+    );
+  });
+
+  it('잘못된 등록 시각과 time zone을 거부한다', () => {
+    expect(() => nomalizeMeetingTitle('', 'invalid', 'Asia/Seoul')).toThrow(RangeError);
+    expect(() => nomalizeMeetingTitle('', '2026-01-01T00:00:00.000Z', 'Invalid/Zone')).toThrow(
+      RangeError,
     );
   });
 });
@@ -52,7 +74,6 @@ describe('toMeetingListItemVM', () => {
     id: 'meeting-1',
     title: '제품 로드맵 정기 회의',
     status: MeetingStatus.Completed,
-    startedAt: '2026-08-04T09:00:00+09:00',
     createdAt: '2026-08-04T09:00:00+09:00',
     updatedAt: '2026-08-04T09:52:00+09:00',
     durationMs: 52 * 60 * 1000,
@@ -83,6 +104,17 @@ describe('toMeetingListItemVM', () => {
       metaLabel: '녹음 대기',
       statusLabel: '로컬',
     });
+  });
+
+  it('updatedAt이 바뀌어도 createdAt 기준 날짜 label은 바뀌지 않는다', () => {
+    const original = toMeetingListItemVM(meeting, 'Asia/Seoul');
+    const updated = toMeetingListItemVM(
+      { ...meeting, updatedAt: '2027-01-01T00:00:00.000Z' },
+      'Asia/Seoul',
+    );
+
+    expect(updated.monthLabel).toBe(original.monthLabel);
+    expect(updated.dayLabel).toBe(original.dayLabel);
   });
 });
 
