@@ -1,0 +1,64 @@
+{
+  "$schema": "https://paseo.dev/schemas/paseo.json",
+  "project": {
+    "name": "EchoNote",
+    "description": "회의 녹음·전사·요약 개인용 앱 (Expo + Electron + Fastify)"
+  },
+  "scripts": {
+    "dev:mobile": {
+      "command": "~/.nvm/versions/node/v24.18.0/bin/node ~/.cache/node/corepack/v1/pnpm/11.20.0/bin/pnpm.cjs dev:mobile",
+      "lifecycle": "persistent",
+      "port": 8081,
+      "healthCheck": "http://localhost:8081"
+    },
+    "dev:gateway": {
+      "command": "~/.nvm/versions/node/v24.18.0/bin/node ~/.cache/node/corepack/v1/pnpm/11.20.0/bin/pnpm.cjs dev:gateway",
+      "lifecycle": "persistent",
+      "port": 4317,
+      "healthCheck": "http://localhost:4317/live"
+    },
+    "dev:desktop": {
+      "command": "~/.nvm/versions/node/v24.18.0/bin/node ~/.cache/node/corepack/v1/pnpm/11.20.0/bin/pnpm.cjs dev:desktop",
+      "lifecycle": "persistent",
+      "port": 5173,
+      "healthCheck": "http://localhost:5173"
+    },
+    "test:watch": {
+      "command": "~/.nvm/versions/node/v24.18.0/bin/node ~/.cache/node/corepack/v1/pnpm/11.20.0/bin/pnpm.cjs test -- --watch",
+      "lifecycle": "persistent"
+    },
+    "typecheck:watch": {
+      "command": "~/.nvm/versions/node/v24.18.0/bin/node ~/.cache/node/corepack/v1/pnpm/11.20.0/bin/pnpm.cjs typecheck -- --watch",
+      "lifecycle": "persistent"
+    }
+  },
+  "worktree": {
+    "setup": [
+      "~/.nvm/versions/node/v24.18.0/bin/node ~/.cache/node/corepack/v1/pnpm/11.20.0/bin/pnpm.cjs install",
+      "~/.nvm/versions/node/v24.18.0/bin/node ~/.cache/node/corepack/v1/pnpm/11.20.0/bin/pnpm.cjs build"
+    ],
+    "cleanup": [
+      "~/.nvm/versions/node/v24.18.0/bin/node ~/.cache/node/corepack/v1/pnpm/11.20.0/bin/pnpm.cjs -r clean 2>/dev/null || true",
+      "rm -rf .turbo node_modules apps/mobile/dist apps/desktop/.vite apps/desktop/out"
+    ],
+    "hooks": {
+      "pre-commit": "~/.nvm/versions/node/v24.18.0/bin/node ~/.cache/node/corepack/v1/pnpm/11.20.0/bin/pnpm.cjs format:check && ~/.nvm/versions/node/v24.18.0/bin/node ~/.cache/node/corepack/v1/pnpm/11.20.0/bin/pnpm.cjs lint",
+      "pre-push": "~/.nvm/versions/node/v24.18.0/bin/node ~/.cache/node/corepack/v1/pnpm/11.20.0/bin/pnpm.cjs test && ~/.nvm/versions/node/v24.18.0/bin/node ~/.cache/node/corepack/v1/pnpm/11.20.0/bin/pnpm.cjs typecheck"
+    }
+  },
+  "metadata": {
+    "branch": {
+      "pattern": "{type}/{short-description}",
+      "types": ["feat", "fix", "refactor", "chore", "docs"],
+      "example": "feat/recording-ui"
+    },
+    "commit": {
+      "format": "conventional",
+      "scopes": ["mobile", "desktop", "gateway", "contracts", "shared"]
+    },
+    "pr": {
+      "title": "{branch-name}",
+      "bodyTemplate": "## 변경 사항\n{commits}\n\n## 검증\n- [ ] format:check\n- [ ] lint\n- [ ] typecheck\n- [ ] test\n- [ ] build\n- [ ] 실기기 테스트 (iOS/Android)"
+    }
+  }
+}
