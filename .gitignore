@@ -28,3 +28,5 @@ apps/desktop/out/
 # Python benchmark cache
 __pycache__/
 *.py[cod]
+# Serena MCP local config/cache
+.serena/
