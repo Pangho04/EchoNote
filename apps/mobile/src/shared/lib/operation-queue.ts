@@ -19,13 +19,17 @@ export function createOperationQueue<TCommand>(config: OperationQueueConfig<TCom
 
   function clearActiveOperation(operation: OperationContext<TCommand>): boolean {
     if (activeOperation !== operation) return false;
+
     clearTimeout(operation.timeoutId);
+
     activeOperation = null;
+
     return true;
   }
 
   function rejectActiveOperation(error: unknown, operation: OperationContext<TCommand>): void {
     if (!clearActiveOperation(operation)) return;
+
     operation.reject(error);
   }
 
@@ -36,6 +40,7 @@ export function createOperationQueue<TCommand>(config: OperationQueueConfig<TCom
       if (activeOperation.command === command) {
         return activeOperation.promise as Promise<T>;
       }
+
       return Promise.reject(config.onBusy(command));
     }
 
@@ -63,7 +68,9 @@ export function createOperationQueue<TCommand>(config: OperationQueueConfig<TCom
     void (async () => {
       try {
         const result = await execute();
+
         if (disposed || !clearActiveOperation(operation)) return;
+
         resolveOperation(result);
       } catch (error) {
         if (activeOperation === operation) {
@@ -83,6 +90,7 @@ export function createOperationQueue<TCommand>(config: OperationQueueConfig<TCom
 
   function dispose(): void {
     disposed = true;
+
     if (activeOperation) {
       rejectActiveOperation(config.onDisposed(), activeOperation);
     }

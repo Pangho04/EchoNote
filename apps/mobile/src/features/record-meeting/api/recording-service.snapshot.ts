@@ -20,8 +20,10 @@ export function createSnapshotManager(initialSnapshot: RecorderSnapshot) {
     if (listener !== null) {
       throw new Error('이미 녹음 상태 listener가 등록되어 있습니다.');
     }
+
     listener = nextListener;
     listener(snapshot);
+
     return () => {
       if (listener === nextListener) {
         listener = null;

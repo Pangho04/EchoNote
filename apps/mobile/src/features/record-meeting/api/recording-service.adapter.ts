@@ -27,6 +27,7 @@ export function createRecordingServiceAdapter(
 
   function stopNativeOnce(): Promise<void> {
     nativeStopPromise ??= recorder.stop();
+
     return nativeStopPromise;
   }
 
@@ -35,6 +36,7 @@ export function createRecordingServiceAdapter(
     allowedStates: readonly RecorderState[],
   ): void {
     const currentState = snapshotManager.getSnapshot().state;
+
     if (!allowedStates.includes(currentState)) {
       throw new Error(
         `${commandName} 명령을 ${RecorderState[currentState]} 상태에서 실행할 수 없습니다.`,
@@ -148,6 +150,7 @@ export function createRecordingServiceAdapter(
 
       const stateBeforeDispose = snapshotManager.getSnapshot().state;
       const commandBeforeDispose = operationQueue.getActiveCommand();
+
       operationQueue.dispose();
       snapshotManager.clearListener();
 
