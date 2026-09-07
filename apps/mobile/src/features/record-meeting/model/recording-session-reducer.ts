@@ -51,7 +51,7 @@ export type RecordingSessionEvent =
     };
 
 /** 현재 작업에 귀속된 실패 Event를 받아들일 수 있는 상태인지 판정한다. */
-function canFail(state: RecordingSessionState): boolean {
+function isFailable(state: RecordingSessionState): boolean {
   if (state.status === RecordingStatus.PROCESSING) return true;
 
   // 녹음·일시정지 안정 상태에서도 native runtime 오류가 발생할 수 있다.
@@ -71,7 +71,7 @@ export function recordingSessionReducer(
 
   // 현재 작업에서 발생한 실패만 복구하지 않는 최종 오류 상태로 반영한다.
   if (event.status === RecordingStatus.FAILED) {
-    if (event.state !== state.state || !canFail(state)) return state;
+    if (event.state !== state.state || !isFailable(state)) return state;
 
     return {
       state: event.state,
