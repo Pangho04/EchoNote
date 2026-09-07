@@ -157,7 +157,18 @@ recording-service.android.ts Android만 달라야 할 때
   시작하고, 검색·정렬·현재 선택이 실제로 여러 화면을 넘을 때만 Zustand를 사용한다.
 - SQLite·Supabase에 영속해야 하는 데이터를 Zustand나 Query cache만으로 보존하지 않는다.
 - `useEffect`를 사용할 때는 전역 규칙의 `@when`, `@expect`, `@clear` JSDoc을 바로 위에 작성한다.
-- import는 `외부 패키지 → @/ 별칭 → 상대 경로` 순서로 그룹화하고 그룹 사이에만 빈 줄을 둔다. 같은 그룹의 패키지마다 빈 줄을 추가하지 않으며 `simple-import-sort` 자동수정을 기준으로 한다.
+
+- **import 그룹화**: `외부 패키지 → @/ 별칭 → 상대 경로` 순서로 그룹화하고 **그룹 사이에만 빈 줄**을 둔다. 같은 그룹 내부는 빈 줄 없이 연속. `simple-import-sort` 자동수정 기준.
+
+- **세로 여백(카테고리 전환 시 빈 줄)** — **모든 선언·문장 레벨**에 적용:
+  - **카테고리 정의**: `선언(const/let/interface/type/enum)` · `조건(if/else/switch)` · `반복(for/while)` · `예외(try/catch)` · `호출·표현식(함수 호출/할당 없는 await)` · `반환·중단(return/throw/break/continue)`
+  - **규칙**: 연속된 두 문장의 **카테고리가 다르면 반드시 빈 줄 1줄**을 둔다.
+    - 예: `const` 묶음 → `if` 분기, `try` 블록 → `const` 선언, `if` 종료 → `return` 등
+  - **예외**: 한 줄 조기 반환(`if (cond) return x;`), `for` 헤더 직후 단일 본문 등 관례적 초소형 블록은 생략 가능.
+
+- **클래스/인터페이스/타입 멤버** 사이는 동일 카테고리(빈 줄 없음). **타입·함수·클래스 등 최상위 선언끼리**는 위 규칙 적용.
+
+- **도구 우선순위**: Prettier/ESLint와 충돌 시 본 규칙(§2.1·§2.3)을 우선한다. 편집·리뷰 시 기존 파일과 어긋나면 본 규칙 우선 적용.
 
 ### 7.1 ViewModel과 표현 데이터 흐름
 
