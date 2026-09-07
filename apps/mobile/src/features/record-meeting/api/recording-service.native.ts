@@ -1,8 +1,12 @@
 import { createOperationQueue } from '@/shared/lib/operation-queue';
 
 import { RecorderBusyError, RecorderTimeoutError } from './recorder-errors';
-import type { ExpoAudioRecorderLike, NativeRecordingAdapter } from './recording-service';
-import { RecorderDisposedError } from './recording-service';
+import type {
+  ExpoAudioRecorderLike,
+  NativeRecordingAdapter,
+  RecorderSnapshot,
+} from './recording-service';
+import { RecorderDisposedError, RecorderState } from './recording-service';
 import type { RecorderCommand } from './recording-service.adapter';
 import { createRecordingServiceAdapter } from './recording-service.adapter';
 import { createExpoStatusMapper } from './recording-service.expo-mapper';
@@ -11,8 +15,8 @@ import { createSnapshotManager } from './recording-service.snapshot';
 export function createNativeRecordingAdapter(
   recorder: ExpoAudioRecorderLike,
 ): NativeRecordingAdapter {
-  const initialSnapshot = {
-    state: 0, // RecorderState.UNPREPARED
+  const initialSnapshot: RecorderSnapshot = {
+    state: RecorderState.UNPREPARED,
     durationMs: 0,
     errorMessage: null,
   };

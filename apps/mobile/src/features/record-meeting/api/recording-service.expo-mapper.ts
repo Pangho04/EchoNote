@@ -3,8 +3,8 @@ import type {
   RecordingStatus as ExpoRecordingStatus,
 } from 'expo-audio';
 
+import { normalizeError } from '@/shared/lib/coded-error';
 import type { OperationQueue } from '@/shared/lib/operation-queue';
-import { normalizeError } from '@/shared/lib/recorder-errors';
 
 import { RecorderState } from './recording-service';
 import { RecorderCommand } from './recording-service.adapter';
