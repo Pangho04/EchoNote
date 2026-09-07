@@ -1,3 +1,8 @@
+import type {
+  RecorderState as ExpoRecorderState,
+  RecordingStatus as ExpoRecordingStatus,
+} from 'expo-audio';
+
 export interface StoppedRecordingCandidate {
   tempUri: string;
   durationMs: number;
@@ -36,4 +41,18 @@ export interface RecordingService {
   stop: () => Promise<StoppedRecordingCandidate>;
   subscribe: (listener: RecorderStateListener) => () => void;
   dispose: () => Promise<void>;
+}
+
+export interface ExpoAudioRecorderLike {
+  readonly uri: string | null;
+  prepareToRecordAsync(): Promise<void>;
+  record(): void;
+  pause(): void;
+  stop(): Promise<void>;
+  getStatus(): ExpoRecorderState;
+}
+
+export interface NativeRecordingAdapter {
+  service: RecordingService;
+  receiveExpoStatus(status: ExpoRecordingStatus): void;
 }
