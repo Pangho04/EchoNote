@@ -1,12 +1,12 @@
 import { FlatList, StyleSheet, View } from 'react-native';
 
-import type { MeetingListItemVM } from '@/entities/meeting';
+import type { MeetingListVMItem } from '@/entities/meeting';
 import { MeetingListItem } from '@/entities/meeting';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 type Props = {
-  items: MeetingListItemVM[];
+  items: MeetingListVMItem[];
 };
 
 export function MeetingList({ items }: Props) {

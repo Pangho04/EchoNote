@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   createSQLiteMeetingRepository,
-  type MeetingListItemVM,
+  type MeetingListVMItem,
   toMeetingListItemVM,
 } from '@/entities/meeting';
 import { makeCreateMeeting } from '@/features/create-meeting';
@@ -14,7 +14,7 @@ const FIRST_PAGE_LIMIT = 20;
 export function useMeetingLibraryViewModel() {
   const database = useSQLiteContext();
 
-  const [items, setItems] = useState<MeetingListItemVM[]>([]);
+  const [items, setItems] = useState<MeetingListVMItem[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const repository = useMemo(() => createSQLiteMeetingRepository(database), [database]);

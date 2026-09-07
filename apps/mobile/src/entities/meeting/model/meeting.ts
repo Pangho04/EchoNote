@@ -24,7 +24,7 @@ export type Meeting = {
   durationMs: number | null;
 };
 
-export type MeetingListItemVM = {
+export type MeetingListVMItem = {
   id: string;
   title: string;
   monthLabel: string;

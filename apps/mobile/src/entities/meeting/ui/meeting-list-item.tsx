@@ -3,10 +3,10 @@ import { StyleSheet, View } from 'react-native';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
-import type { MeetingListItemVM } from '../model/meeting';
+import type { MeetingListVMItem } from '../model/meeting';
 
 type Props = {
-  item: MeetingListItemVM;
+  item: MeetingListVMItem;
 };
 
 export function MeetingListItem({ item }: Props) {

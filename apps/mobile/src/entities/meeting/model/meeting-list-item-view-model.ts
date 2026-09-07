@@ -1,11 +1,11 @@
-import { type Meeting, type MeetingListItemVM, MeetingStatus } from './meeting';
+import { type Meeting, type MeetingListVMItem, MeetingStatus } from './meeting';
 
 /**
  * Utils
  */
 
 // ------------ Date -------------------
-export type MeetingDateLabels = Pick<MeetingListItemVM, 'monthLabel' | 'dayLabel'>;
+export type MeetingDateLabels = Pick<MeetingListVMItem, 'monthLabel' | 'dayLabel'>;
 
 function getDatePart(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes) {
   return parts.find((part) => part.type === type)?.value;
@@ -108,7 +108,7 @@ const MEETING_STATUS_LABELS: Record<MeetingStatus, MeetingStatusLabels> = {
 };
 
 /** Domain Date -> VM Mapper */
-export function toMeetingListItemVM(meeting: Meeting, timeZone: string): MeetingListItemVM {
+export function toMeetingListItemVM(meeting: Meeting, timeZone: string): MeetingListVMItem {
   const dateLabels = extractMeetingDateLabels(meeting.createdAt, timeZone);
   const statusLabels = MEETING_STATUS_LABELS[meeting.status];
   const durationLabel =
