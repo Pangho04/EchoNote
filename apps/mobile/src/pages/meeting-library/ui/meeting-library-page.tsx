@@ -1,20 +1,36 @@
+import * as Crypto from 'expo-crypto';
+import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CreateMeetingButton } from '@/features/create-meeting';
+import { recordingPermissionService } from '@/features/record-meeting/api/recording-permission-service.native';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 import { MeetingList } from '@/widgets/meeting-list';
 
 import { useMeetingLibraryViewModel } from '../model/use-meeting-library-view-model';
+import { RecordingButton } from './recording-button';
+import { RecordingTitleDialog } from './recording-title-dialog';
 
 export function MeetingLibraryPage() {
-  const { create, errorMessage, items } = useMeetingLibraryViewModel();
+  const router = useRouter();
+  const {
+    items,
+    blockedMessage,
+    isTitleDialogOpen,
+    openRecordingTitleDialog,
+    cancelRecordingTitleDialog,
+    confirmRecordingTitle,
+  } = useMeetingLibraryViewModel(recordingPermissionService, () => Crypto.randomUUID());
 
   const styles = useStyles();
 
-  if (errorMessage) {
-    console.error(errorMessage);
+  async function handleConfirmTitle(title: string) {
+    const result = await confirmRecordingTitle(title);
+
+    if (result.kind === 'granted') {
+      router.push(`/recording?meetingId=${result.meetingId}`);
+    }
   }
 
   return (
@@ -30,10 +46,21 @@ export function MeetingLibraryPage() {
           <MeetingList items={items} />
         </View>
 
-        <View style={styles.createMeetingButtonPosition}>
-          <CreateMeetingButton createRecord={create} />
+        <View style={styles.recordingButtonPosition}>
+          <RecordingButton openTitleDialog={openRecordingTitleDialog} />
         </View>
       </View>
+
+      {isTitleDialogOpen ? (
+        <RecordingTitleDialog
+          blockedMessage={blockedMessage}
+          onCancel={cancelRecordingTitleDialog}
+          onConfirm={handleConfirmTitle}
+          onOpenSettings={() => {
+            void recordingPermissionService.openSettings();
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -62,7 +89,7 @@ const useStyles = createThemedStyles((theme) =>
       flex: 1,
       marginBottom: 100,
     },
-    createMeetingButtonPosition: {
+    recordingButtonPosition: {
       bottom: theme.spacing[6],
       position: 'absolute',
       right: 18,

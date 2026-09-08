@@ -2,8 +2,9 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { createSQLiteMeetingRepository, toMeetingListItemVM } from '@/entities/meeting';
-import { makeCreateMeeting } from '@/features/create-meeting';
 import { makeListMeetings } from '@/features/list-meetings';
+import type { RecordingPermissionService } from '@/features/record-meeting';
+import { startRecording } from '@/features/record-meeting';
 
 import { type Meeting, MeetingStatus } from '../../../entities/meeting/model/meeting';
 import { useMeetingLibraryViewModel } from './use-meeting-library-view-model';
@@ -15,26 +16,82 @@ jest.mock('@/entities/meeting', () => ({
   createSQLiteMeetingRepository: jest.fn(),
   toMeetingListItemVM: jest.fn(),
 }));
-jest.mock('@/features/create-meeting', () => ({
-  makeCreateMeeting: jest.fn(),
-}));
 jest.mock('@/features/list-meetings', () => ({
   makeListMeetings: jest.fn(),
+}));
+jest.mock('@/features/record-meeting', () => ({
+  startRecording: jest.fn(),
 }));
 
 const mockedUseSQLiteContext = jest.mocked(useSQLiteContext);
 const mockedCreateRepository = jest.mocked(createSQLiteMeetingRepository);
 const mockedToMeetingListItemVM = jest.mocked(toMeetingListItemVM);
-const mockedMakeCreateMeeting = jest.mocked(makeCreateMeeting);
 const mockedMakeListMeetings = jest.mocked(makeListMeetings);
+const mockedStartRecording = jest.mocked(startRecording);
+
+const permissionService: RecordingPermissionService = {
+  get: jest.fn(),
+  request: jest.fn(),
+  openSettings: jest.fn(),
+};
+
+function setupMeetings(meeting: Meeting | null) {
+  const listMeetings = jest.fn(async () => ({
+    meetings: meeting ? [meeting] : [],
+    nextCursor: null,
+    timeZone: 'Asia/Seoul',
+  }));
+
+  mockedUseSQLiteContext.mockReturnValue({} as ReturnType<typeof useSQLiteContext>);
+  mockedCreateRepository.mockReturnValue({ create: jest.fn(), list: listMeetings });
+  mockedMakeListMeetings.mockReturnValue(listMeetings);
+
+  return listMeetings;
+}
 
 describe('useMeetingLibraryViewModel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('회의 생성 commit 뒤 목록을 다시 조회한다', async () => {
-    const repository = { create: jest.fn(), list: jest.fn() };
+  it('granted 결과를 그대로 반환한다', async () => {
+    setupMeetings(null);
+    mockedStartRecording.mockResolvedValue({ kind: 'granted', meetingId: 'meeting-id' });
+
+    const { result } = await renderHook(() =>
+      useMeetingLibraryViewModel(permissionService, () => 'm1'),
+    );
+
+    let outcome: Awaited<ReturnType<typeof result.current.confirmRecordingTitle>> | undefined;
+
+    await act(async () => {
+      outcome = await result.current.confirmRecordingTitle('제목');
+    });
+
+    expect(mockedStartRecording).toHaveBeenCalledWith(
+      permissionService,
+      '제목',
+      expect.any(Function),
+    );
+    expect(outcome).toEqual({ kind: 'granted', meetingId: 'meeting-id' });
+  });
+
+  it('blocked면 blockedMessage를 노출한다', async () => {
+    setupMeetings(null);
+    mockedStartRecording.mockResolvedValue({ kind: 'blocked' });
+
+    const { result } = await renderHook(() =>
+      useMeetingLibraryViewModel(permissionService, () => 'm1'),
+    );
+
+    await act(async () => {
+      await result.current.confirmRecordingTitle('제목');
+    });
+
+    expect(result.current.blockedMessage).toBe('설정에서 마이크 권한을 허용해 주세요.');
+  });
+
+  it('초기 로드가 끝나면 목록을 보여준다', async () => {
     const meeting: Meeting = {
       id: 'meeting-1',
       title: '제품 회의',
@@ -43,66 +100,22 @@ describe('useMeetingLibraryViewModel', () => {
       updatedAt: '2026-08-08T00:10:00.000Z',
       durationMs: null,
     };
-    let resolveCreate: ((createdMeeting: Meeting) => void) | undefined;
-    const createMeeting = jest.fn(
-      () =>
-        new Promise<Meeting>((resolve) => {
-          resolveCreate = resolve;
-        }),
-    );
-    const emptyResult: { meetings: Meeting[]; nextCursor: null; timeZone: string } = {
-      meetings: [],
-      nextCursor: null,
-      timeZone: 'Asia/Seoul',
-    };
-    const listMeetings = jest
-      .fn(async () => emptyResult)
-      .mockResolvedValueOnce(emptyResult)
-      .mockResolvedValueOnce({
-        meetings: [meeting],
-        nextCursor: null,
-        timeZone: 'Asia/Seoul',
-      });
+    const listMeetings = setupMeetings(meeting);
 
-    mockedUseSQLiteContext.mockReturnValue({} as ReturnType<typeof useSQLiteContext>);
-    mockedCreateRepository.mockReturnValue(repository);
-    mockedMakeCreateMeeting.mockReturnValue(createMeeting);
-    mockedMakeListMeetings.mockReturnValue(listMeetings);
-    mockedToMeetingListItemVM.mockImplementation((source) => ({
-      id: source.id,
-      title: source.title,
+    mockedToMeetingListItemVM.mockReturnValue({
+      id: 'meeting-1',
+      title: '제품 회의',
       monthLabel: '8월',
       dayLabel: '08',
       metaLabel: '녹음 대기',
       statusLabel: '로컬',
-    }));
-
-    const { result } = await renderHook(() => useMeetingLibraryViewModel());
-
-    await waitFor(() => expect(listMeetings).toHaveBeenCalledTimes(1));
-
-    let createRequest: Promise<void> | undefined;
-
-    await act(() => {
-      createRequest = result.current.create();
     });
 
-    expect(createMeeting).toHaveBeenCalledWith('');
+    const { result } = await renderHook(() =>
+      useMeetingLibraryViewModel(permissionService, () => 'm1'),
+    );
+
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
     expect(listMeetings).toHaveBeenCalledTimes(1);
-
-    if (!resolveCreate || !createRequest) {
-      throw new Error('회의 생성 요청이 시작되지 않았습니다.');
-    }
-
-    await act(async () => {
-      resolveCreate?.(meeting);
-      await createRequest;
-    });
-
-    expect(listMeetings).toHaveBeenCalledTimes(2);
-    expect(mockedToMeetingListItemVM).toHaveBeenCalledWith(meeting, 'Asia/Seoul');
-    expect(result.current.items).toEqual([
-      expect.objectContaining({ id: 'meeting-1', title: '제품 회의' }),
-    ]);
   });
 });

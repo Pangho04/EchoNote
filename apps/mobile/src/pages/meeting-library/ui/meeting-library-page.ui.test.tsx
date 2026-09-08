@@ -1,90 +1,73 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { useSQLiteContext } from 'expo-sqlite';
 
-import { darkTheme, lightTheme, type ThemeMode } from '@/shared/config/theme';
+import { makeListMeetings } from '@/features/list-meetings';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
-import { useMeetingLibraryViewModel } from '../model/use-meeting-library-view-model';
 import { MeetingLibraryPage } from './meeting-library-page';
 
-jest.mock('../model/use-meeting-library-view-model', () => ({
-  useMeetingLibraryViewModel: jest.fn(),
+const mockedPush = jest.fn();
+
+jest.mock('expo-sqlite', () => ({
+  useSQLiteContext: jest.fn(),
+}));
+jest.mock('@/features/list-meetings', () => ({
+  makeListMeetings: jest.fn(),
+}));
+jest.mock('@/features/record-meeting', () => ({
+  startRecording: jest.fn(),
+  recordingPermissionService: { get: jest.fn(), request: jest.fn(), openSettings: jest.fn() },
+}));
+jest.mock('expo-crypto', () => ({ randomUUID: () => 'mocked-uuid' }));
+jest.mock('@/features/record-meeting/api/recording-permission-service.native', () => ({
+  recordingPermissionService: { get: jest.fn(), request: jest.fn(), openSettings: jest.fn() },
+}));
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockedPush, back: jest.fn() }),
 }));
 
-const mockedUseMeetingLibraryViewModel = jest.mocked(useMeetingLibraryViewModel);
+const mockedUseSQLiteContext = jest.mocked(useSQLiteContext);
+const mockedMakeListMeetings = jest.mocked(makeListMeetings);
 
 describe('MeetingLibraryPage', () => {
-  const create = jest.fn(async () => undefined);
-
   beforeEach(() => {
-    create.mockClear();
-    mockedUseMeetingLibraryViewModel.mockReturnValue({
-      create,
-      errorMessage: null,
-      items: [],
-    });
+    jest.clearAllMocks();
+    mockedUseSQLiteContext.mockReturnValue({} as ReturnType<typeof useSQLiteContext>);
+    mockedMakeListMeetings.mockReturnValue(
+      jest.fn(async () => ({ meetings: [], nextCursor: null, timeZone: 'Asia/Seoul' })),
+    );
   });
 
-  it('회의 목록 제목을 접근 가능한 헤더로 표시한다', async () => {
-    await render(
+  it('녹음 버튼을 누르면 제목 모달을 연다', async () => {
+    const { getByLabelText, queryByText } = await render(
       <ThemeProvider mode="light">
         <MeetingLibraryPage />
       </ThemeProvider>,
     );
 
-    expect(screen.getByRole('header', { name: '회의' })).toBeOnTheScreen();
+    expect(queryByText('녹음 시작')).toBeNull();
+
+    await fireEvent.press(getByLabelText('새 회의 녹음'));
+
+    expect(queryByText('녹음 시작')).toBeTruthy();
   });
 
-  it.each([
-    { color: lightTheme.colors.textPrimary, mode: 'light' },
-    { color: darkTheme.colors.textPrimary, mode: 'dark' },
-  ] satisfies ReadonlyArray<{ color: string; mode: ThemeMode }>)(
-    '$mode 모드의 제목 색상 토큰을 적용한다',
-    async ({ color, mode }) => {
-      await render(
-        <ThemeProvider mode={mode}>
-          <MeetingLibraryPage />
-        </ThemeProvider>,
-      );
+  it('granted면 녹음 route로 이동한다', async () => {
+    const { startRecording } = jest.requireMock('@/features/record-meeting') as {
+      startRecording: jest.Mock;
+    };
+    startRecording.mockResolvedValue({ kind: 'granted', meetingId: 'm1' });
 
-      expect(screen.getByRole('header', { name: '회의' })).toHaveStyle({ color });
-    },
-  );
-
-  it('다크 모드에서 제목을 읽을 수 있는 surface 색상을 헤더 배경에 적용한다', async () => {
-    await render(
-      <ThemeProvider mode="dark">
-        <MeetingLibraryPage />
-      </ThemeProvider>,
-    );
-
-    expect(screen.getByRole('header', { name: '회의' }).parent).toHaveStyle({
-      backgroundColor: darkTheme.colors.surface,
-    });
-  });
-
-  it('녹음 시작 버튼의 우측 하단 위치를 page에서 결정한다', async () => {
-    await render(
+    const { getByLabelText, getByPlaceholderText, getByText } = await render(
       <ThemeProvider mode="light">
         <MeetingLibraryPage />
       </ThemeProvider>,
     );
 
-    expect(screen.getByRole('button', { name: '새 회의 녹음' }).parent).toHaveStyle({
-      bottom: 24,
-      position: 'absolute',
-      right: 18,
-    });
-  });
+    await fireEvent.press(getByLabelText('새 회의 녹음'));
+    await fireEvent.changeText(getByPlaceholderText('기본 이름으로 저장'), '제목');
+    await fireEvent.press(getByText('녹음 시작'));
 
-  it('녹음 시작 버튼을 누르면 ViewModel의 생성 command를 호출한다', async () => {
-    await render(
-      <ThemeProvider mode="light">
-        <MeetingLibraryPage />
-      </ThemeProvider>,
-    );
-
-    await fireEvent.press(screen.getByRole('button', { name: '새 회의 녹음' }));
-
-    expect(create).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockedPush).toHaveBeenCalledWith('/recording?meetingId=m1'));
   });
 });

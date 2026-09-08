@@ -5,20 +5,24 @@ function formatDefaultMeetingTitle(createdAt: string, timeZone: string): string 
     throw new RangeError(`등록 시각이 올바른 ISO 문자열이 아닙니다: ${createdAt}`);
   }
 
-  const formatter = new Intl.DateTimeFormat('en-CA', {
+  const formatter = new Intl.DateTimeFormat('ko-KR', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    hourCycle: 'h23',
+    second: '2-digit',
+    hourCycle: 'h12',
   });
   const parts = Object.fromEntries(
     formatter.formatToParts(date).map(({ type, value }) => [type, value]),
   ) as Record<string, string>;
 
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}_녹음`;
+  const dayPeriod = parts.dayPeriod ?? '';
+  const separator = dayPeriod ? ' ' : '';
+
+  return `${parts.year}-${parts.month}-${parts.day} ${dayPeriod}${separator}${parts.hour}:${parts.minute}:${parts.second}_녹음`;
 }
 
 /**

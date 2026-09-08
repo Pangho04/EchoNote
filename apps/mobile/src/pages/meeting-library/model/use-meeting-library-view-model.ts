@@ -6,20 +6,38 @@ import {
   type MeetingListVMItem,
   toMeetingListItemVM,
 } from '@/entities/meeting';
-import { makeCreateMeeting } from '@/features/create-meeting';
 import { makeListMeetings } from '@/features/list-meetings';
+import type { RecordingIdFactory, RecordingPermissionService } from '@/features/record-meeting';
+import { startRecording } from '@/features/record-meeting';
 
 const FIRST_PAGE_LIMIT = 20;
 
-export function useMeetingLibraryViewModel() {
+// 열린 회의 시작 결과를 page가 consume할 수 있게 반환한다. navigate는 page 책임이다.
+export type ConfirmRecordingResult =
+  { kind: 'granted'; meetingId: string } | { kind: 'denied' } | { kind: 'blocked' };
+
+export interface MeetingLibraryViewModel {
+  items: MeetingListVMItem[];
+  errorMessage: string | null;
+  isTitleDialogOpen: boolean;
+  blockedMessage: string | null;
+  openRecordingTitleDialog(): void;
+  cancelRecordingTitleDialog(): void;
+  confirmRecordingTitle(title: string): Promise<ConfirmRecordingResult>;
+}
+
+export function useMeetingLibraryViewModel(
+  permissionService: RecordingPermissionService,
+  createRecordingId: RecordingIdFactory,
+): MeetingLibraryViewModel {
   const database = useSQLiteContext();
 
   const [items, setItems] = useState<MeetingListVMItem[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isTitleDialogOpen, setIsTitleDialogOpen] = useState(false);
+  const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
 
   const repository = useMemo(() => createSQLiteMeetingRepository(database), [database]);
-
-  const createMeeting = useMemo(() => makeCreateMeeting({ repository }), [repository]);
   const listMeetings = useMemo(() => makeListMeetings(repository), [repository]);
 
   const refresh = useCallback(async () => {
@@ -38,24 +56,44 @@ export function useMeetingLibraryViewModel() {
    * @clear -
    */
   useEffect(() => {
-    // refresh는 SQLite 조회를 await한 뒤 state를 갱신한다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh().catch((error: unknown) => {
       setErrorMessage(error instanceof Error ? error.message : '회의 목록을 불러오지 못했습니다.');
     });
   }, [refresh]);
 
-  const create = useCallback(async () => {
-    setErrorMessage(null);
+  const openRecordingTitleDialog = useCallback(() => {
+    setBlockedMessage(null);
+    setIsTitleDialogOpen(true);
+  }, []);
 
-    try {
-      await createMeeting('');
-      // React 배열에 임시 행을 추가하지 않고 DB를 다시 읽는다.
-      await refresh();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '회의를 만들지 못했습니다.');
-    }
-  }, [createMeeting, refresh]);
+  const cancelRecordingTitleDialog = useCallback(() => {
+    setIsTitleDialogOpen(false);
+    setBlockedMessage(null);
+  }, []);
 
-  return { create, errorMessage, items };
+  const confirmRecordingTitle = useCallback(
+    async (title: string): Promise<ConfirmRecordingResult> => {
+      setIsTitleDialogOpen(false);
+
+      const result = await startRecording(permissionService, title, createRecordingId);
+
+      if (result.kind === 'blocked') {
+        setBlockedMessage('설정에서 마이크 권한을 허용해 주세요.');
+      }
+
+      return result;
+    },
+    [permissionService, createRecordingId],
+  );
+
+  return {
+    items,
+    errorMessage,
+    isTitleDialogOpen,
+    blockedMessage,
+    openRecordingTitleDialog,
+    cancelRecordingTitleDialog,
+    confirmRecordingTitle,
+  };
 }

@@ -47,12 +47,12 @@ describe('nomalizeMeetingTitle', () => {
   it.each([
     {
       createdAt: '2025-12-31T15:30:00.000Z',
-      expected: '2026-01-01 00:30_녹음',
+      expected: '2026-01-01 오전 12:30:00_녹음',
       timeZone: 'Asia/Seoul',
     },
     {
       createdAt: '2026-01-01T03:00:00.000Z',
-      expected: '2025-12-31 19:00_녹음',
+      expected: '2025-12-31 오후 07:00:00_녹음',
       timeZone: 'America/Los_Angeles',
     },
   ])('공백뿐인 제목을 $timeZone 등록일 기반 기본 제목으로 바꾼다', (testCase) => {

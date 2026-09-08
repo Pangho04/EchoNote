@@ -4,21 +4,17 @@ import { palette } from '@/shared/config/theme';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 type Props = {
-  createRecord: () => Promise<void>;
+  openTitleDialog: () => void;
 };
 
-export function CreateMeetingButton({ createRecord }: Props) {
+export function RecordingButton({ openTitleDialog }: Props) {
   const styles = useStyles();
-
-  async function handlePress() {
-    await createRecord();
-  }
 
   return (
     <Pressable
       accessibilityLabel="새 회의 녹음"
       accessibilityRole="button"
-      onPress={handlePress}
+      onPress={openTitleDialog}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}
     >
       <View style={styles.indicator} />

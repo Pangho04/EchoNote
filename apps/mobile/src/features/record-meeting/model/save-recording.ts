@@ -1,5 +1,5 @@
-import type { Recording } from '@/entities/recording';
-import type { MeetingRecordingPersistence } from '@/entities/recording';
+import type { MeetingRecordingPersistence } from '@/entities/recording/api/recording-persistence';
+import type { Recording } from '@/entities/recording/model/recording';
 import { CodedError } from '@/shared/lib/coded-error';
 
 import type { RecordingFileService } from '../api/recording-file-service';

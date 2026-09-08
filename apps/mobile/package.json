@@ -18,8 +18,8 @@
     "start": "expo start --dev-client",
     "start:go": "expo start --go",
     "test": "pnpm run test:unit && pnpm run test:ui",
-    "test:ui": "jest --passWithNoTests --runInBand",
-    "test:unit": "vitest run --passWithNoTests",
+    "test:ui": "jest --runInBand",
+    "test:unit": "vitest run",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json"
   },
   "dependencies": {
