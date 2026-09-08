@@ -189,7 +189,7 @@ recording-service.android.ts Android만 달라야 할 때
 - SQLite timestamp는 UTC epoch millisecond `INTEGER`, Domain timestamp는 ISO 8601 string을 사용한다. Row mapper만 둘을 변환한다.
 - `createdAt`은 Meeting이 EchoNote에 등록된 시각이며 생성 뒤 바꾸지 않는다. 회의 목록 날짜·정렬·연도 조회·cursor·기본 제목 기준은 `createdAt`이다. `updatedAt`은 마지막 수정 시각이므로 목록 정렬이나 duration 계산에 사용하지 않는다.
 - 외부에서 과거 녹음을 가져와도 가져와 등록한 시각을 Meeting의 `createdAt`으로 사용한다. 실제 녹음 시각은 MVP Meeting 관리 기준이 아니며 요구가 생기기 전 `Recording.recordedAt` 같은 미래 필드를 추가하지 않는다.
-- 빈 Meeting 제목은 생성 당시 기기 IANA time zone의 `createdAt`을 `yyyy-MM-dd HH:mm_녹음` 형식으로 한 번 만들며, 이후 time zone 변경으로 자동 수정하지 않는다.
+- 빈 Meeting 제목은 생성 당시 기기 IANA time zone의 `createdAt`을 `yyyy-MM-dd 오전/오후 hh:mm:ss_녹음` 형식으로 한 번 만들며, 이후 time zone 변경으로 자동 수정하지 않는다.
 - 목록 use case는 선택 연도와 기기 현재 IANA time zone을 `[연도 시작, 다음 연도 시작)` UTC epoch millisecond 범위로 바꿔 `ListMeetingsQuery`로 repository에 전달한다. repository는 year나 time zone을 해석하지 않고 SQLite에서 `createdAt DESC, id DESC`로 조회하며, 전체 Row를 읽은 뒤 ViewModel에서 연도를 거르지 않는다.
 - 목록 query의 `cursor`는 그 cursor가 가리키는 Meeting부터 결과에 포함한다. repository는 `limit + 1`건을 읽고, 반환하지 않은 lookahead Meeting이 있으면 그 Meeting을 `nextCursor`로 제공하며 없으면 `null`을 제공한다.
 - 1B 검색은 이미 불러온 page를 ViewModel에서 거르지 않는다. 기존 SQLite 목록 query에 정규화한 title filter를 추가하고 `연도·filter → inclusive cursor → createdAt DESC, id DESC → limit + 1` 순서로 조회한다. `%`, `_`, escape 문자는 literal로 처리하며 검색어 변경 시 items·cursor를 초기화한다.
