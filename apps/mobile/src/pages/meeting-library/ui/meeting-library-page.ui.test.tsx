@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import type React from 'react';
 
+import { MeetingStatus } from '@/entities/meeting';
 import { makeListMeetings } from '@/features/list-meetings';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
@@ -78,6 +79,38 @@ describe('MeetingLibraryPage', () => {
     await fireEvent.press(getByText('녹음 시작'));
 
     await waitFor(() => expect(mockedPush).toHaveBeenCalledWith('/recording?meetingId=m1'));
+  });
+
+  it('목록 항목을 누르면 상세 route로 이동한다', async () => {
+    mockedMakeListMeetings.mockReturnValue(
+      jest.fn(async () => ({
+        meetings: [
+          {
+            id: 'm1',
+            title: '제품 회의',
+            status: MeetingStatus.LocalOnly,
+            createdAt: '2026-08-04T01:00:00.000Z',
+            updatedAt: '2026-08-04T01:00:00.000Z',
+            durationMs: null,
+          },
+        ],
+        nextCursor: null,
+        timeZone: 'Asia/Seoul',
+      })),
+    );
+
+    const { getByText } = await render(
+      <ThemeProvider mode="light">
+        <MeetingLibraryPage />
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => expect(getByText('제품 회의')).toBeTruthy());
+
+    await fireEvent.press(getByText('제품 회의'));
+
+    expect(mockedPush).toHaveBeenCalledWith('/meetings/m1');
+    expect(mockedPush).toHaveBeenCalledTimes(1);
   });
 
   it('설정 열기를 누르면 모달을 닫아 권한을 다시 확인할 수 있게 한다', async () => {

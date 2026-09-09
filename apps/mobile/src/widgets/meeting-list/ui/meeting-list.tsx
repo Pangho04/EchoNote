@@ -7,9 +7,10 @@ import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 type Props = {
   items: MeetingListVMItem[];
+  onMeetingPress: (meetingId: string) => void;
 };
 
-export function MeetingList({ items }: Props) {
+export function MeetingList({ items, onMeetingPress }: Props) {
   const styles = useStyle();
 
   return (
@@ -20,7 +21,7 @@ export function MeetingList({ items }: Props) {
       <FlatList
         style={styles.list}
         data={items}
-        renderItem={({ item }) => <MeetingListItem item={item} />}
+        renderItem={({ item }) => <MeetingListItem item={item} onPress={onMeetingPress} />}
         keyExtractor={(item) => item.id}
       />
     </View>

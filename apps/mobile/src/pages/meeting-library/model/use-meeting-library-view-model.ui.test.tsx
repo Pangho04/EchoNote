@@ -6,6 +6,7 @@ import { makeListMeetings } from '@/features/list-meetings';
 import type { RecordingPermissionService } from '@/features/record-meeting';
 import { startRecording } from '@/features/record-meeting';
 
+// 배럴을 jest.mock으로 갈아끼웠으므로 실제 MeetingStatus는 model 모듈에서 직접 가져온다.
 import { type Meeting, MeetingStatus } from '../../../entities/meeting/model/meeting';
 import { useMeetingLibraryViewModel } from './use-meeting-library-view-model';
 
@@ -161,7 +162,7 @@ describe('useMeetingLibraryViewModel', () => {
       monthLabel: '8월',
       dayLabel: '08',
       metaLabel: '녹음 대기',
-      statusLabel: '로컬',
+      accessory: { kind: 'disclosure' },
     });
 
     const { result } = await renderHook(() =>

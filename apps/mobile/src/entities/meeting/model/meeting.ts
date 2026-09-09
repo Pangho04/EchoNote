@@ -24,11 +24,14 @@ export type Meeting = {
   durationMs: number | null;
 };
 
+// 목록 오른쪽 끝 표시. chip과 상세 이동 표시는 배타적이다.
+export type MeetingListAccessory = { kind: 'chip'; label: string } | { kind: 'disclosure' };
+
 export type MeetingListVMItem = {
   id: string;
   title: string;
   monthLabel: string;
   dayLabel: string;
   metaLabel: string;
-  statusLabel: string;
+  accessory: MeetingListAccessory;
 };

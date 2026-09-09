@@ -57,7 +57,10 @@ export function MeetingLibraryPage() {
 
       <View style={styles.content}>
         <View style={styles.meetingListArea}>
-          <MeetingList items={items} />
+          <MeetingList
+            items={items}
+            onMeetingPress={(meetingId) => router.push(`/meetings/${meetingId}`)}
+          />
         </View>
 
         <View style={styles.recordingButtonPosition}>

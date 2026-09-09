@@ -86,7 +86,7 @@ describe('toMeetingListItemVM', () => {
       monthLabel: '8월',
       dayLabel: '04',
       metaLabel: '52분 · 전사와 요약 완료',
-      statusLabel: '완료',
+      accessory: { kind: 'chip', label: '완료' },
     });
   });
 
@@ -102,7 +102,7 @@ describe('toMeetingListItemVM', () => {
       ),
     ).toMatchObject({
       metaLabel: '녹음 대기',
-      statusLabel: '로컬',
+      accessory: { kind: 'disclosure' },
     });
   });
 

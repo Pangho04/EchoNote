@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
@@ -7,13 +7,14 @@ import type { MeetingListVMItem } from '../model/meeting';
 
 type Props = {
   item: MeetingListVMItem;
+  onPress: (meetingId: string) => void;
 };
 
-export function MeetingListItem({ item }: Props) {
+export function MeetingListItem({ item, onPress }: Props) {
   const styles = useStyles();
 
   return (
-    <View style={styles.container}>
+    <Pressable accessibilityRole="button" onPress={() => onPress(item.id)} style={styles.container}>
       {/** 날짜 */}
       <View style={styles.dateTile}>
         <AppText color="recording" style={styles.month} variant="caption">
@@ -34,13 +35,19 @@ export function MeetingListItem({ item }: Props) {
         </AppText>
       </View>
 
-      {/** 상태 */}
-      <View style={styles.chip}>
-        <AppText color="accent" style={styles.label} variant="caption">
-          {item.statusLabel}
+      {/** 상태 chip 또는 상세 이동 표시 */}
+      {item.accessory.kind === 'chip' ? (
+        <View style={styles.chip}>
+          <AppText color="accent" style={styles.label} variant="caption">
+            {item.accessory.label}
+          </AppText>
+        </View>
+      ) : (
+        <AppText aria-hidden color="textSecondary" style={styles.disclosure} variant="caption">
+          ›
         </AppText>
-      </View>
-    </View>
+      )}
+    </Pressable>
   );
 }
 
@@ -87,6 +94,11 @@ const useStyles = createThemedStyles((theme) =>
       paddingHorizontal: 7,
       borderRadius: 6,
       backgroundColor: theme.colors.accentMuted,
+    },
+    // 목업 16/20은 실기기에서 판독이 어려워 22/26을 쓴다.
+    disclosure: {
+      fontSize: 22,
+      lineHeight: 26,
     },
     label: {
       fontSize: 10,
