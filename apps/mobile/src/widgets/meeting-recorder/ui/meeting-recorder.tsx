@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Keyboard, StyleSheet, View } from 'react-native';
 
 import type { RecordingSessionViewModel } from '@/features/record-meeting';
 import { RecordingControls } from '@/features/record-meeting/ui/recording-controls';
@@ -27,7 +27,16 @@ export function MeetingRecorder({ viewModel }: MeetingRecorderProps): ReactEleme
   }
 
   return (
-    <View style={styles.container}>
+    // 제목 입력 키보드가 녹음 컨트롤을 가리므로 빈 곳을 눌러 닫을 수 있게 한다.
+    // responder를 가져가지 않으므로(false 반환) 버튼을 누른 경우에는 호출되지 않는다.
+    <View
+      onStartShouldSetResponder={() => {
+        Keyboard.dismiss();
+
+        return false;
+      }}
+      style={styles.container}
+    >
       <View style={styles.titleArea}>
         <RecordingTitleEditor
           editable={viewModel.saveStatus === 'idle' || viewModel.saveStatus === 'saving'}

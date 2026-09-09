@@ -8,10 +8,11 @@ export interface RecordingTitleEditorProps {
   value: string;
   onChangeText(text: string): void;
   editable: boolean;
+  autoFocus?: boolean;
 }
 
 export function RecordingTitleEditor(props: RecordingTitleEditorProps): ReactElement {
-  const { value, onChangeText, editable } = props;
+  const { value, onChangeText, editable, autoFocus = false } = props;
   const styles = useStyles();
 
   return (
@@ -25,6 +26,9 @@ export function RecordingTitleEditor(props: RecordingTitleEditorProps): ReactEle
         placeholder="기본 이름으로 저장"
         placeholderTextColor={styles.placeholder.color}
         editable={editable}
+        autoFocus={autoFocus}
+        // 한 줄 입력이라 return 키가 곧 키보드 닫기다. 키보드가 녹음 컨트롤을 가리는 것을 막는다.
+        returnKeyType="done"
         style={styles.input}
       />
     </View>
