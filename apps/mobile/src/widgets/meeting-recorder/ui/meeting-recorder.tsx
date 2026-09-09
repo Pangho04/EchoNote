@@ -15,24 +15,39 @@ export interface MeetingRecorderProps {
 export function MeetingRecorder({ viewModel }: MeetingRecorderProps): ReactElement {
   const styles = useStyles();
 
-  return (
-    <View style={styles.container}>
-      <AppText color="textSecondary" variant="body" accessibilityRole="header">
-        {viewModel.elapsedLabel}
-      </AppText>
-
-      <RecordingTitleEditor
-        editable={viewModel.saveStatus === 'idle' || viewModel.saveStatus === 'saving'}
-        onChangeText={viewModel.changeTitle}
-        value={viewModel.titleInput}
-      />
-
-      {viewModel.saveStatus === 'failed' ? (
+  if (viewModel.saveStatus === 'failed') {
+    return (
+      <View style={styles.container}>
         <RecordingSaveError
           message={viewModel.errorMessage ?? '저장하지 못했습니다.'}
           onRetry={viewModel.retrySave}
         />
-      ) : (
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.titleArea}>
+        <RecordingTitleEditor
+          editable={viewModel.saveStatus === 'idle' || viewModel.saveStatus === 'saving'}
+          onChangeText={viewModel.changeTitle}
+          value={viewModel.titleInput}
+        />
+      </View>
+
+      <View style={styles.controlArea}>
+        <AppText
+          accessibilityRole="header"
+          adjustsFontSizeToFit
+          color="textPrimary"
+          numberOfLines={1}
+          style={styles.elapsed}
+          variant="display"
+        >
+          {viewModel.elapsedLabel}
+        </AppText>
+
         <RecordingControls
           canPause={viewModel.canPause}
           canResume={viewModel.canResume}
@@ -41,7 +56,7 @@ export function MeetingRecorder({ viewModel }: MeetingRecorderProps): ReactEleme
           onResume={viewModel.resume}
           onStop={viewModel.stop}
         />
-      )}
+      </View>
     </View>
   );
 }
@@ -50,9 +65,22 @@ const useStyles = createThemedStyles((theme) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      paddingHorizontal: theme.spacing[4],
+      paddingHorizontal: theme.spacing[5],
       paddingVertical: theme.spacing[6],
-      justifyContent: 'space-between',
+    },
+    titleArea: {
+      gap: theme.spacing[4],
+    },
+    elapsed: {
+      fontSize: theme.typography.fontSize.timer,
+      lineHeight: theme.typography.lineHeight.timer,
+      textAlign: 'center',
+    },
+    controlArea: {
+      alignItems: 'center',
+      flex: 1,
+      gap: theme.spacing[6],
+      justifyContent: 'center',
     },
   }),
 );

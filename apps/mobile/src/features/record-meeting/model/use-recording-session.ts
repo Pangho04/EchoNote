@@ -75,9 +75,15 @@ export function useRecordingSession(input: UseRecordingSessionInput): RecordingS
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [savedRecording, setSavedRecording] = useState<Recording | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
-  const [titleInput, setTitleInput] = useState<string>(draftTitle);
+  const [titleInput, setTitleInput] = useState<string>(() =>
+    draftTitle !== ''
+      ? draftTitle
+      : nomalizeMeetingTitle('', dependencies.now(), dependencies.getCurrentTimeZone()),
+  );
 
   const titleInputRef = useRef(titleInput);
+  // 일시정지·재개를 반복해도 경과가 이어지도록 이전 녹음 구간의 합을 보관한다.
+  const accumulatedMsRef = useRef(0);
   const savedCandidateRef = useRef<{ tempUri: string; durationMs: number } | null>(null);
 
   const dispatch = useCallback((event: RecordingSessionEvent) => {
@@ -167,23 +173,24 @@ export function useRecordingSession(input: UseRecordingSessionInput): RecordingS
 
   /**
    * @when session이 RECORD+COMPLETED(실제 녹음 중)일 때만
-   * @expect 500ms 간격으로 경과를 갱신하고 RECORD 진입 시 0으로 초기화한다.
-   * @clear 일시정지·정지·이탈 시 타이머를 해제한다.
+   * @expect 이전 구간까지 누적한 경과에 이어서 500ms 간격으로 갱신한다.
+   * @clear 일시정지·정지·이탈 시 이번 구간을 누적하고 타이머를 해제한다.
    */
   useEffect(() => {
     if (session.state !== RecordingState.RECORD || session.status !== RecordingStatus.COMPLETED)
       return;
 
     const startedAt = Date.now();
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setElapsedMs(0);
+    const baseMs = accumulatedMsRef.current;
 
     const interval = setInterval(() => {
-      setElapsedMs(Date.now() - startedAt);
+      setElapsedMs(baseMs + (Date.now() - startedAt));
     }, 500);
 
-    return () => clearInterval(interval);
+    return () => {
+      accumulatedMsRef.current = baseMs + (Date.now() - startedAt);
+      clearInterval(interval);
+    };
   }, [session.state, session.status]);
 
   const pause = useCallback(async () => {

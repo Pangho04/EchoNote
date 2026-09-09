@@ -67,6 +67,7 @@ export const typography = {
     title: 23,
     heading: 29,
     largeTitle: 36,
+    timer: 60,
     reading: 25,
   },
 } as const;

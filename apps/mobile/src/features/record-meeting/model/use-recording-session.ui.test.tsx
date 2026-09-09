@@ -2,7 +2,10 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import type { Recording } from '@/entities/recording/model/recording';
 
-import type { RecordingService, StoppedRecordingCandidate } from '../api/recording-service-contract';
+import type {
+  RecordingService,
+  StoppedRecordingCandidate,
+} from '../api/recording-service-contract';
 import { clearRecordingDraft } from './recording-draft';
 import { type RecordingSessionDependencies, useRecordingSession } from './use-recording-session';
 
@@ -70,6 +73,45 @@ describe('useRecordingSession', () => {
     await waitFor(() => expect(record).toHaveBeenCalled());
     await waitFor(() => expect(result.current.canPause).toBe(true));
     expect(result.current.canResume).toBe(false);
+  });
+
+  it('일시정지 후 재개해도 경과 시간이 이어진다', async () => {
+    jest.useFakeTimers();
+
+    try {
+      const { service } = makeRecorder();
+      const { result } = await bind(service, makeDeps());
+
+      await waitFor(() => expect(result.current.canPause).toBe(true));
+
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+      });
+
+      const pausedAtMs = result.current.elapsedMs;
+
+      expect(pausedAtMs).toBeGreaterThanOrEqual(2000);
+
+      await act(async () => {
+        await result.current.pause();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(5000);
+      });
+
+      expect(result.current.elapsedMs).toBe(pausedAtMs);
+
+      await act(async () => {
+        await result.current.resume();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(result.current.elapsedMs).toBeGreaterThanOrEqual(pausedAtMs + 1000);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('stop 후 candidate를 저장하고 saved로 전이한다', async () => {

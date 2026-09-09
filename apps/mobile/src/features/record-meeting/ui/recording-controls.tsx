@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText } from '@/shared/ui/app-text';
+import { palette } from '@/shared/config/theme';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 export interface RecordingControlsProps {
@@ -13,51 +13,49 @@ export interface RecordingControlsProps {
   onStop(): void;
 }
 
+// 녹음 화면 중앙의 단일 원형 버튼(내부 도형이 단계에 따라 변화) + 작은 종료 버튼.
 export function RecordingControls(props: RecordingControlsProps): ReactElement {
   const { canPause, canResume, canStop, onPause, onResume, onStop } = props;
   const styles = useStyles();
 
+  // 녹음 중(pause 가능)이면 일시정지, 일시정지 상태면 재개, 그 외엔 비활성.
+  const isPausing = canPause;
+  const isResuming = canResume;
+
+  const onToggle = isPausing ? onPause : isResuming ? onResume : undefined;
+  const toggleEnabled = isPausing || isResuming;
+
   return (
     <View style={styles.row}>
       <Pressable
-        accessibilityLabel="일시 정지"
+        accessibilityLabel={isPausing ? '일시정지' : '재개'}
         accessibilityRole="button"
-        accessibilityState={{ disabled: !canPause }}
-        disabled={!canPause}
-        onPress={onPause}
+        accessibilityState={{ disabled: !toggleEnabled }}
+        disabled={!toggleEnabled}
+        hitSlop={12}
+        onPress={onToggle}
         style={({ pressed }) => [
-          styles.textButton,
-          !canPause && styles.disabled,
+          styles.toggleButton,
+          !toggleEnabled && styles.disabled,
           pressed && styles.pressed,
         ]}
       >
-        <AppText color={canPause ? 'accent' : 'textTertiary'} variant="body">
-          일시 정지
-        </AppText>
+        {isPausing ? (
+          <View style={styles.pauseIcon}>
+            <View style={styles.pauseBar} />
+            <View style={styles.pauseBar} />
+          </View>
+        ) : (
+          <View style={styles.resumeIcon} />
+        )}
       </Pressable>
 
       <Pressable
-        accessibilityLabel="재개"
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !canResume }}
-        disabled={!canResume}
-        onPress={onResume}
-        style={({ pressed }) => [
-          styles.textButton,
-          !canResume && styles.disabled,
-          pressed && styles.pressed,
-        ]}
-      >
-        <AppText color={canResume ? 'accent' : 'textTertiary'} variant="body">
-          재개
-        </AppText>
-      </Pressable>
-
-      <Pressable
-        accessibilityLabel="녹음 중지"
+        accessibilityLabel="녹음 종료"
         accessibilityRole="button"
         accessibilityState={{ disabled: !canStop }}
         disabled={!canStop}
+        hitSlop={12}
         onPress={onStop}
         style={({ pressed }) => [
           styles.stopButton,
@@ -76,24 +74,51 @@ const useStyles = createThemedStyles((theme) =>
     row: {
       alignItems: 'center',
       flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    textButton: {
-      alignItems: 'center',
+      gap: theme.spacing[5],
       justifyContent: 'center',
-      paddingVertical: theme.spacing[2],
     },
-    stopButton: {
+    toggleButton: {
       alignItems: 'center',
       backgroundColor: theme.colors.recording,
       borderRadius: theme.radii.round,
-      height: 58,
+      height: 72,
       justifyContent: 'center',
-      width: 58,
+      width: 72,
+    },
+    pauseIcon: {
+      flexDirection: 'row',
+      gap: 7,
+    },
+    pauseBar: {
+      backgroundColor: palette.white,
+      borderRadius: 2,
+      height: 24,
+      width: 7,
+    },
+    resumeIcon: {
+      borderBottomColor: 'transparent',
+      borderBottomWidth: 12,
+      borderLeftColor: palette.white,
+      borderLeftWidth: 20,
+      borderTopColor: 'transparent',
+      borderTopWidth: 12,
+      height: 0,
+      marginLeft: 5,
+      width: 0,
+    },
+    stopButton: {
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.recording,
+      borderRadius: theme.radii.round,
+      borderWidth: 2,
+      height: 56,
+      justifyContent: 'center',
+      width: 56,
     },
     stopIndicator: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.radii.round,
+      backgroundColor: theme.colors.recording,
+      borderRadius: 3,
       height: 18,
       width: 18,
     },
