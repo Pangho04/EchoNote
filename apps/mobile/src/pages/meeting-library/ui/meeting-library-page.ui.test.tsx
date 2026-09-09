@@ -1,5 +1,6 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useSQLiteContext } from 'expo-sqlite';
+import type React from 'react';
 
 import { makeListMeetings } from '@/features/list-meetings';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
@@ -22,9 +23,17 @@ jest.mock('expo-crypto', () => ({ randomUUID: () => 'mocked-uuid' }));
 jest.mock('@/features/record-meeting/api/recording-permission-service.native', () => ({
   recordingPermissionService: { get: jest.fn(), request: jest.fn(), openSettings: jest.fn() },
 }));
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockedPush, back: jest.fn() }),
-}));
+jest.mock('expo-router', () => {
+  const { useEffect } = jest.requireActual('react') as typeof React;
+
+  return {
+    useRouter: () => ({ push: mockedPush, back: jest.fn() }),
+    // 화면 포커스를 mount 시 1회 실행으로 대신한다.
+    useFocusEffect: (callback: () => void) => {
+      useEffect(callback, [callback]);
+    },
+  };
+});
 
 const mockedUseSQLiteContext = jest.mocked(useSQLiteContext);
 const mockedMakeListMeetings = jest.mocked(makeListMeetings);

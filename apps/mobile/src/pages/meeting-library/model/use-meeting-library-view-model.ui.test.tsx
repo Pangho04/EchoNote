@@ -76,7 +76,7 @@ describe('useMeetingLibraryViewModel', () => {
     expect(outcome).toEqual({ kind: 'granted', meetingId: 'meeting-id' });
   });
 
-  it('blocked면 blockedMessage를 노출한다', async () => {
+  it('blocked면 dialog를 열어 둔 채 설정 안내를 노출한다', async () => {
     setupMeetings(null);
     mockedStartRecording.mockResolvedValue({ kind: 'blocked' });
 
@@ -85,13 +85,62 @@ describe('useMeetingLibraryViewModel', () => {
     );
 
     await act(async () => {
+      result.current.openRecordingTitleDialog();
+    });
+
+    await act(async () => {
       await result.current.confirmRecordingTitle('제목');
     });
 
-    expect(result.current.blockedMessage).toBe('설정에서 마이크 권한을 허용해 주세요.');
+    expect(result.current.isTitleDialogOpen).toBe(true);
+    expect(result.current.permissionMessage).toBe('설정에서 마이크 권한을 허용해 주세요.');
+    expect(result.current.isPermissionBlocked).toBe(true);
   });
 
-  it('초기 로드가 끝나면 목록을 보여준다', async () => {
+  it('denied면 dialog를 열어 둔 채 재시도 안내를 노출한다', async () => {
+    setupMeetings(null);
+    mockedStartRecording.mockResolvedValue({ kind: 'denied' });
+
+    const { result } = await renderHook(() =>
+      useMeetingLibraryViewModel(permissionService, () => 'm1'),
+    );
+
+    await act(async () => {
+      result.current.openRecordingTitleDialog();
+    });
+
+    await act(async () => {
+      await result.current.confirmRecordingTitle('제목');
+    });
+
+    expect(result.current.isTitleDialogOpen).toBe(true);
+    expect(result.current.permissionMessage).toBe(
+      '마이크 권한을 허용해야 녹음을 시작할 수 있습니다.',
+    );
+    expect(result.current.isPermissionBlocked).toBe(false);
+  });
+
+  it('granted면 dialog를 닫는다', async () => {
+    setupMeetings(null);
+    mockedStartRecording.mockResolvedValue({ kind: 'granted', meetingId: 'meeting-id' });
+
+    const { result } = await renderHook(() =>
+      useMeetingLibraryViewModel(permissionService, () => 'm1'),
+    );
+
+    await act(async () => {
+      result.current.openRecordingTitleDialog();
+    });
+
+    await act(async () => {
+      await result.current.confirmRecordingTitle('제목');
+    });
+
+    expect(result.current.isTitleDialogOpen).toBe(false);
+    expect(result.current.permissionMessage).toBeNull();
+  });
+
+  it('refresh가 끝나면 목록을 보여준다', async () => {
     const meeting: Meeting = {
       id: 'meeting-1',
       title: '제품 회의',
@@ -114,6 +163,10 @@ describe('useMeetingLibraryViewModel', () => {
     const { result } = await renderHook(() =>
       useMeetingLibraryViewModel(permissionService, () => 'm1'),
     );
+
+    await act(async () => {
+      await result.current.refresh();
+    });
 
     await waitFor(() => expect(result.current.items).toHaveLength(1));
     expect(listMeetings).toHaveBeenCalledTimes(1);

@@ -1,5 +1,6 @@
 import * as Crypto from 'expo-crypto';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,7 +17,9 @@ export function MeetingLibraryPage() {
   const router = useRouter();
   const {
     items,
-    blockedMessage,
+    refresh,
+    permissionMessage,
+    isPermissionBlocked,
     isTitleDialogOpen,
     openRecordingTitleDialog,
     cancelRecordingTitleDialog,
@@ -24,6 +27,17 @@ export function MeetingLibraryPage() {
   } = useMeetingLibraryViewModel(recordingPermissionService, () => Crypto.randomUUID());
 
   const styles = useStyles();
+
+  /**
+   * @when 회의 목록 화면이 포커스를 얻을 때마다(녹음 화면에서 돌아온 직후 포함)
+   * @expect 방금 저장한 녹음까지 반영되도록 목록을 다시 읽는다.
+   * @clear 진행 중인 조회는 결과를 버리므로 별도 정리가 없다.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+    }, [refresh]),
+  );
 
   async function handleConfirmTitle(title: string) {
     const result = await confirmRecordingTitle(title);
@@ -53,7 +67,8 @@ export function MeetingLibraryPage() {
 
       {isTitleDialogOpen ? (
         <RecordingTitleDialog
-          blockedMessage={blockedMessage}
+          canOpenSettings={isPermissionBlocked}
+          permissionMessage={permissionMessage}
           onCancel={cancelRecordingTitleDialog}
           onConfirm={handleConfirmTitle}
           onOpenSettings={() => {

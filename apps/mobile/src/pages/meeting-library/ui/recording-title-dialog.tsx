@@ -7,21 +7,24 @@ import { createThemedStyles } from '@/shared/ui/theme-provider';
 export interface RecordingTitleDialogProps {
   onCancel(): void;
   onConfirm(title: string): Promise<void>;
-  blockedMessage: string | null;
+  permissionMessage: string | null;
+  canOpenSettings: boolean;
   onOpenSettings(): void;
 }
 
 export function RecordingTitleDialog({
   onCancel,
   onConfirm,
-  blockedMessage,
+  permissionMessage,
+  canOpenSettings,
   onOpenSettings,
 }: RecordingTitleDialogProps) {
   const styles = useStyles();
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const confirmDisabled = blockedMessage !== null || busy;
+  // 권한 차단(재요청 불가)일 때만 시작을 막는다. 단순 거부는 다시 시도할 수 있어야 한다.
+  const confirmDisabled = canOpenSettings || busy;
 
   async function handleConfirm() {
     setBusy(true);
@@ -46,13 +49,14 @@ export function RecordingTitleDialog({
             editable={!busy}
             onChangeText={setTitle}
             placeholder="기본 이름으로 저장"
+            placeholderTextColor={styles.placeholder.color}
             style={styles.input}
             value={title}
           />
 
-          {blockedMessage ? (
+          {permissionMessage ? (
             <AppText color="warning" variant="body">
-              {blockedMessage}
+              {permissionMessage}
             </AppText>
           ) : null}
 
@@ -67,7 +71,7 @@ export function RecordingTitleDialog({
               </AppText>
             </Pressable>
 
-            {blockedMessage ? (
+            {canOpenSettings ? (
               <Pressable
                 accessibilityRole="button"
                 onPress={onOpenSettings}
@@ -114,7 +118,11 @@ const useStyles = createThemedStyles((theme) =>
       borderRadius: theme.radii.item,
       padding: theme.spacing[5],
     },
+    placeholder: {
+      color: theme.colors.textTertiary,
+    },
     input: {
+      color: theme.colors.textPrimary,
       borderColor: theme.colors.border,
       borderRadius: theme.radii.item,
       borderWidth: StyleSheet.hairlineWidth,

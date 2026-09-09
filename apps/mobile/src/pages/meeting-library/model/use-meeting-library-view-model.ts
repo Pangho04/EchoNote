@@ -1,5 +1,5 @@
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   createSQLiteMeetingRepository,
@@ -19,8 +19,10 @@ export type ConfirmRecordingResult =
 export interface MeetingLibraryViewModel {
   items: MeetingListVMItem[];
   errorMessage: string | null;
+  refresh(): Promise<void>;
   isTitleDialogOpen: boolean;
-  blockedMessage: string | null;
+  permissionMessage: string | null;
+  isPermissionBlocked: boolean;
   openRecordingTitleDialog(): void;
   cancelRecordingTitleDialog(): void;
   confirmRecordingTitle(title: string): Promise<ConfirmRecordingResult>;
@@ -35,63 +37,78 @@ export function useMeetingLibraryViewModel(
   const [items, setItems] = useState<MeetingListVMItem[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isTitleDialogOpen, setIsTitleDialogOpen] = useState(false);
-  const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
+  const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
+  const [isPermissionBlocked, setIsPermissionBlocked] = useState(false);
 
   const repository = useMemo(() => createSQLiteMeetingRepository(database), [database]);
   const listMeetings = useMemo(() => makeListMeetings(repository), [repository]);
 
+  // 조회 실패는 errorMessage로 흡수한다. 최초 로드 시점은 화면(focus)이 정한다.
   const refresh = useCallback(async () => {
     const currentYear = new Date().getFullYear();
-    const result = await listMeetings({
-      year: currentYear,
-      limit: FIRST_PAGE_LIMIT,
-    });
 
-    setItems(result.meetings.map((meeting) => toMeetingListItemVM(meeting, result.timeZone)));
+    try {
+      const result = await listMeetings({
+        year: currentYear,
+        limit: FIRST_PAGE_LIMIT,
+      });
+
+      setItems(result.meetings.map((meeting) => toMeetingListItemVM(meeting, result.timeZone)));
+      setErrorMessage(null);
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : '회의 목록을 불러오지 못했습니다.');
+    }
   }, [listMeetings]);
 
-  /**
-   * @when 회의 목록 화면이 실제 DB 연결 아래 처음 나타날 때
-   * @expect 현재 연도의 첫 page를 SQLite에서 읽어 목록에 표시한다.
-   * @clear -
-   */
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refresh().catch((error: unknown) => {
-      setErrorMessage(error instanceof Error ? error.message : '회의 목록을 불러오지 못했습니다.');
-    });
-  }, [refresh]);
+  const clearPermissionNotice = useCallback(() => {
+    setPermissionMessage(null);
+    setIsPermissionBlocked(false);
+  }, []);
 
   const openRecordingTitleDialog = useCallback(() => {
-    setBlockedMessage(null);
+    clearPermissionNotice();
     setIsTitleDialogOpen(true);
-  }, []);
+  }, [clearPermissionNotice]);
 
   const cancelRecordingTitleDialog = useCallback(() => {
     setIsTitleDialogOpen(false);
-    setBlockedMessage(null);
-  }, []);
+    clearPermissionNotice();
+  }, [clearPermissionNotice]);
 
+  // 권한을 얻은 경우에만 dialog를 닫는다. 거부·차단은 dialog 안에서 안내해야 사용자가 볼 수 있다.
   const confirmRecordingTitle = useCallback(
     async (title: string): Promise<ConfirmRecordingResult> => {
-      setIsTitleDialogOpen(false);
-
       const result = await startRecording(permissionService, title, createRecordingId);
 
-      if (result.kind === 'blocked') {
-        setBlockedMessage('설정에서 마이크 권한을 허용해 주세요.');
+      if (result.kind === 'granted') {
+        setIsTitleDialogOpen(false);
+        clearPermissionNotice();
+
+        return result;
       }
+
+      if (result.kind === 'blocked') {
+        setPermissionMessage('설정에서 마이크 권한을 허용해 주세요.');
+        setIsPermissionBlocked(true);
+
+        return result;
+      }
+
+      setPermissionMessage('마이크 권한을 허용해야 녹음을 시작할 수 있습니다.');
+      setIsPermissionBlocked(false);
 
       return result;
     },
-    [permissionService, createRecordingId],
+    [clearPermissionNotice, permissionService, createRecordingId],
   );
 
   return {
     items,
     errorMessage,
+    refresh,
     isTitleDialogOpen,
-    blockedMessage,
+    permissionMessage,
+    isPermissionBlocked,
     openRecordingTitleDialog,
     cancelRecordingTitleDialog,
     confirmRecordingTitle,
