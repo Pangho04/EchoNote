@@ -28,4 +28,5 @@ export type ListMeetingsResult = {
 export type MeetingRepository = {
   create: (params: CreateMeetingParams) => Promise<Meeting>;
   list: (query: ListMeetingsQuery) => Promise<ListMeetingsResult>;
+  getByMeetingId: (meetingId: string) => Promise<Meeting | null>;
 };

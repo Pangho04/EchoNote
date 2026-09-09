@@ -83,6 +83,17 @@ export function createSQLiteMeetingRepository(database: SQLiteDatabase): Meeting
       return toMeeting(row);
     },
 
+    async getByMeetingId(meetingId) {
+      const row = await database.getFirstAsync<MeetingRow>(
+        `SELECT id, title, created_at_ms, updated_at_ms
+        FROM meetings
+        WHERE id = ?`,
+        meetingId,
+      );
+
+      return row ? toMeeting(row) : null;
+    },
+
     async list(query) {
       const cursorCreatedAtMs = query.cursor?.createdAtMs ?? null;
       const cursorMeetingId = query.cursor?.meetingId ?? null;

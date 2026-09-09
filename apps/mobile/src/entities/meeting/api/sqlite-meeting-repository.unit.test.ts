@@ -180,4 +180,60 @@ describe('createSQLiteMeetingRepository', () => {
       RangeError,
     );
   });
+
+  it('getByMeetingId는 meetingId를 bind해 단건 Row를 Domain으로 변환한다', async () => {
+    const database = makeDatabaseDouble();
+    const createdAt = '2026-08-08T00:11:00.000Z';
+    const createdAtMs = Date.parse(createdAt);
+
+    vi.mocked(database.getFirstAsync).mockResolvedValue({
+      id: 'meeting-1',
+      title: '제품 회의',
+      created_at_ms: createdAtMs,
+      updated_at_ms: createdAtMs,
+    });
+
+    const repository = createSQLiteMeetingRepository(asSQLiteDatabase(database));
+    const result = await repository.getByMeetingId('meeting-1');
+
+    expect(database.getFirstAsync).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE id = ?'),
+      'meeting-1',
+    );
+    expect(result).toEqual({
+      id: 'meeting-1',
+      title: '제품 회의',
+      status: MeetingStatus.LocalOnly,
+      createdAt,
+      updatedAt: createdAt,
+      durationMs: null,
+    });
+    expect(database.runAsync).not.toHaveBeenCalled();
+  });
+
+  it('getByMeetingId는 Row가 없으면 null을 반환한다', async () => {
+    const database = makeDatabaseDouble();
+
+    vi.mocked(database.getFirstAsync).mockResolvedValue(null);
+
+    const repository = createSQLiteMeetingRepository(asSQLiteDatabase(database));
+    const result = await repository.getByMeetingId('meeting-1');
+
+    expect(result).toBeNull();
+  });
+
+  it('getByMeetingId는 잘못된 created_at_ms Row를 Domain으로 변환하지 않는다', async () => {
+    const database = makeDatabaseDouble();
+
+    vi.mocked(database.getFirstAsync).mockResolvedValue({
+      id: 'meeting-1',
+      title: '제품 회의',
+      created_at_ms: Number.NaN,
+      updated_at_ms: 1,
+    });
+
+    const repository = createSQLiteMeetingRepository(asSQLiteDatabase(database));
+
+    await expect(repository.getByMeetingId('meeting-1')).rejects.toThrow(RangeError);
+  });
 });

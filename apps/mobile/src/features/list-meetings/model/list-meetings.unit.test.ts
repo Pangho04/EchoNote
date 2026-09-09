@@ -48,6 +48,9 @@ describe('makeListMeetings', () => {
       create: async () => {
         throw new Error('이 테스트에서는 create를 호출하지 않습니다.');
       },
+      getByMeetingId: async () => {
+        throw new Error('이 테스트에서는 getByMeetingId를 호출하지 않습니다.');
+      },
       list,
     };
     const resolvedOptionsSpy = vi

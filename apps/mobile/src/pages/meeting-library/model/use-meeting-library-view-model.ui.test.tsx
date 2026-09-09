@@ -43,7 +43,11 @@ function setupMeetings(meeting: Meeting | null) {
   }));
 
   mockedUseSQLiteContext.mockReturnValue({} as ReturnType<typeof useSQLiteContext>);
-  mockedCreateRepository.mockReturnValue({ create: jest.fn(), list: listMeetings });
+  mockedCreateRepository.mockReturnValue({
+    create: jest.fn(),
+    getByMeetingId: jest.fn(),
+    list: listMeetings,
+  });
   mockedMakeListMeetings.mockReturnValue(listMeetings);
 
   return listMeetings;
