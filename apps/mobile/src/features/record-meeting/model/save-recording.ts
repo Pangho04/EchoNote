@@ -2,8 +2,8 @@ import type { MeetingRecordingPersistence } from '@/entities/recording/api/recor
 import type { Recording } from '@/entities/recording/model/recording';
 import { CodedError } from '@/shared/lib/coded-error';
 
-import type { RecordingFileService } from '../api/recording-file-service';
-import type { StoppedRecordingCandidate } from '../api/recording-service';
+import type { RecordingFileService } from '../api/recording-file-service-contract';
+import type { StoppedRecordingCandidate } from '../api/recording-service-contract';
 
 // MIME allowlist는 audio/mp4 단독이다. 이 목록 밖은 저장 전 어떤 mutation도 하지 않는다.
 export const RECORDING_MIME_ALLOWLIST: readonly string[] = ['audio/mp4'];

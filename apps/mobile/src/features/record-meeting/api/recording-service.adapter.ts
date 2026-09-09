@@ -1,13 +1,13 @@
 import type { OperationQueue } from '@/shared/lib/operation-queue';
 
-import type { ExpoAudioRecorderLike } from './recording-service';
+import type { SnapshotManager } from './recording-service.snapshot';
+import type { ExpoAudioRecorderLike } from './recording-service-contract';
 import {
   RecorderDisposedError,
   RecorderState,
   type RecordingService,
   type StoppedRecordingCandidate,
-} from './recording-service';
-import type { SnapshotManager } from './recording-service.snapshot';
+} from './recording-service-contract';
 
 export enum RecorderCommand {
   PREPARE = 'PREPARE',

@@ -1,7 +1,7 @@
 import type { PermissionResponse } from 'expo-audio';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { RecordingPermission } from './recording-permission-service';
+import { RecordingPermission } from './recording-permission';
 import {
   mapRecordingPermission,
   recordingPermissionService,

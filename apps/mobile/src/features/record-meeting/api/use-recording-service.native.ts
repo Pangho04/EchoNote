@@ -5,9 +5,9 @@ import {
 } from 'expo-audio';
 import { useEffect, useMemo, useRef } from 'react';
 
-import type { RecordingService } from './recording-service';
-import type { NativeRecordingAdapter } from './recording-service';
 import { createNativeRecordingAdapter } from './recording-service.native';
+import type { RecordingService } from './recording-service-contract';
+import type { NativeRecordingAdapter } from './recording-service-contract';
 
 export function useNativeRecordingService(): RecordingService {
   const adapterRef = useRef<NativeRecordingAdapter | null>(null);

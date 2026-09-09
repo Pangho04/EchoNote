@@ -2,7 +2,7 @@ import type { RecordingStatus as ExpoRecordingStatus } from 'expo-audio';
 import { useAudioRecorder } from 'expo-audio';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { RecorderState } from './recording-service';
+import { RecorderState } from './recording-service-contract';
 import { useNativeRecordingService } from './use-recording-service.native';
 
 const mocks = vi.hoisted(() => ({

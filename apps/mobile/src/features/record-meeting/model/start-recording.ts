@@ -1,5 +1,5 @@
-import type { RecordingPermissionService } from '../api/recording-permission-service';
-import { RecordingPermission } from '../api/recording-permission-service';
+import type { RecordingPermissionService } from '../api/recording-permission';
+import { RecordingPermission } from '../api/recording-permission';
 import { setRecordingDraft } from './recording-draft';
 
 export type StartRecordingResult =

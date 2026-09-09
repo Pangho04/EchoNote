@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { detectMimeTypeFromBytes } from './recording-file-service';
+import { detectMimeTypeFromBytes } from './recording-file-service-contract';
 
 function toBytes(hex: string): Uint8Array {
   const normalized = hex.length % 2 === 0 ? hex : `0${hex}`;

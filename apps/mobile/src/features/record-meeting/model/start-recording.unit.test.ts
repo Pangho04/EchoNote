@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  RecordingPermission,
-  type RecordingPermissionService,
-} from '../api/recording-permission-service';
+import { RecordingPermission, type RecordingPermissionService } from '../api/recording-permission';
 import { clearRecordingDraft, getRecordingDraft } from './recording-draft';
 import { startRecording } from './start-recording';
 

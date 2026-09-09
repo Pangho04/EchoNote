@@ -1,7 +1,10 @@
 import * as Crypto from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 
-import { detectMimeTypeFromBytes, type RecordingFileService } from './recording-file-service';
+import {
+  detectMimeTypeFromBytes,
+  type RecordingFileService,
+} from './recording-file-service-contract';
 
 function toHex(arrayBuffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(arrayBuffer))

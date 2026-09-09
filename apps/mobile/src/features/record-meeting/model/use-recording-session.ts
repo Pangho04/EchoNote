@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { nomalizeMeetingTitle } from '@/entities/meeting/model/nomalize-meeting-title';
 import type { Recording } from '@/entities/recording/model/recording';
 
-import type { RecordingService } from '../api/recording-service';
+import type { RecordingService } from '../api/recording-service-contract';
 import { clearRecordingDraft, updateRecordingDraftTitle } from './recording-draft';
 import {
   type RecordingSessionEvent,

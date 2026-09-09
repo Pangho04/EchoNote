@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { MeetingRecordingPersistence } from '@/entities/recording';
 import type { Recording } from '@/entities/recording';
 
-import type { RecordingFileService } from '../api/recording-file-service';
+import type { RecordingFileService } from '../api/recording-file-service-contract';
 import type { SaveRecordingDependencies } from './save-recording';
 import {
   isAllowedRecordingMimeType,

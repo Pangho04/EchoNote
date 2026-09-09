@@ -1,4 +1,4 @@
-import type { RecorderSnapshot, RecorderStateListener } from './recording-service';
+import type { RecorderSnapshot, RecorderStateListener } from './recording-service-contract';
 
 export function createSnapshotManager(initialSnapshot: RecorderSnapshot) {
   let snapshot = initialSnapshot;

@@ -9,7 +9,7 @@ import {
   type RecorderStateListener,
   type RecordingService,
   type StoppedRecordingCandidate,
-} from '../api/recording-service';
+} from '../api/recording-service-contract';
 import {
   type RecordingSessionEvent,
   recordingSessionReducer,

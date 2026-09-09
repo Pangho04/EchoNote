@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { RecordingPermissionService } from '../api/recording-permission-service';
-import { RecordingPermission } from '../api/recording-permission-service';
+import type { RecordingPermissionService } from '../api/recording-permission';
+import { RecordingPermission } from '../api/recording-permission';
 import { requestRecordingPermission } from './request-recording-permission';
 
 type PermissionCase = {

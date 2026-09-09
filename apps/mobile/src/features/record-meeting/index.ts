@@ -1,6 +1,6 @@
-export * from './api/recording-permission-service';
-export * from './api/recording-service';
-export * from './api/recording-file-service';
+export * from './api/recording-permission';
+export * from './api/recording-service-contract';
+export * from './api/recording-file-service-contract';
 export { requestRecordingPermission } from './model/request-recording-permission';
 export * from './model/save-recording';
 export * from './model/recording-draft';

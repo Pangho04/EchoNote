@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import type { Recording } from '@/entities/recording/model/recording';
 
-import type { RecordingService, StoppedRecordingCandidate } from '../api/recording-service';
+import type { RecordingService, StoppedRecordingCandidate } from '../api/recording-service-contract';
 import { clearRecordingDraft } from './recording-draft';
 import { type RecordingSessionDependencies, useRecordingSession } from './use-recording-session';
 

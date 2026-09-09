@@ -2,8 +2,8 @@ import type { PermissionResponse } from 'expo-audio';
 import { getRecordingPermissionsAsync, requestRecordingPermissionsAsync } from 'expo-audio';
 import { Linking } from 'react-native';
 
-import type { RecordingPermissionService } from './recording-permission-service';
-import { RecordingPermission } from './recording-permission-service';
+import type { RecordingPermissionService } from './recording-permission';
+import { RecordingPermission } from './recording-permission';
 
 export function mapRecordingPermission(response: PermissionResponse): RecordingPermission {
   if (response.granted === true) return RecordingPermission.GRANTED;

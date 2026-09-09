@@ -1,4 +1,4 @@
-import type { StoppedRecordingCandidate } from '../api/recording-service';
+import type { StoppedRecordingCandidate } from '../api/recording-service-contract';
 
 export enum RecordingState {
   PREPARE,

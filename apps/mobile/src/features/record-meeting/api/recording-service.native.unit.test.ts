@@ -4,9 +4,13 @@ import type {
 } from 'expo-audio';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { ExpoAudioRecorderLike } from './recording-service';
-import { RecorderDisposedError, type RecorderSnapshot, RecorderState } from './recording-service';
 import { createNativeRecordingAdapter } from './recording-service.native';
+import type { ExpoAudioRecorderLike } from './recording-service-contract';
+import {
+  RecorderDisposedError,
+  type RecorderSnapshot,
+  RecorderState,
+} from './recording-service-contract';
 
 interface Deferred<T> {
   promise: Promise<T>;

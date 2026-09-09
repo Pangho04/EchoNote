@@ -6,9 +6,9 @@ import type {
 import { normalizeError } from '@/shared/lib/coded-error';
 import type { OperationQueue } from '@/shared/lib/operation-queue';
 
-import { RecorderState } from './recording-service';
 import { RecorderCommand } from './recording-service.adapter';
 import type { SnapshotManager } from './recording-service.snapshot';
+import { RecorderState } from './recording-service-contract';
 
 export interface ExpoRecorderLike {
   getStatus(): ExpoRecorderState;
