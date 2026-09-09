@@ -2,6 +2,7 @@ import type {
   RecorderState as ExpoRecorderState,
   RecordingStatus as ExpoRecordingStatus,
 } from 'expo-audio';
+import { setAudioModeAsync } from 'expo-audio';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createNativeRecordingAdapter } from './recording-service.native';
@@ -11,6 +12,10 @@ import {
   type RecorderSnapshot,
   RecorderState,
 } from './recording-service-contract';
+
+vi.mock('expo-audio', () => ({
+  setAudioModeAsync: vi.fn(async () => {}),
+}));
 
 interface Deferred<T> {
   promise: Promise<T>;
@@ -91,6 +96,21 @@ afterEach(() => {
 });
 
 describe('createNativeRecordingAdapter', () => {
+  it('prepare는 native 준비 전에 iOS 녹음 허용 audio mode를 먼저 설정한다', async () => {
+    const { recorder } = createFakeRecorder();
+    const adapter = createNativeRecordingAdapter(recorder);
+
+    await adapter.service.prepare();
+
+    expect(setAudioModeAsync).toHaveBeenCalledWith({
+      allowsRecording: true,
+      playsInSilentMode: true,
+    });
+    expect(vi.mocked(setAudioModeAsync).mock.invocationCallOrder[0]!).toBeLessThan(
+      vi.mocked(recorder.prepareToRecordAsync).mock.invocationCallOrder[0]!,
+    );
+  });
+
   it('현재 snapshot을 구독자에게 보내고 prepare·record·pause·stop을 관찰한다', async () => {
     const { recorder } = createFakeRecorder();
     const adapter = createNativeRecordingAdapter(recorder);

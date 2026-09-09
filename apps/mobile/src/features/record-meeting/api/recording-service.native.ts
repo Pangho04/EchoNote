@@ -1,3 +1,5 @@
+import { setAudioModeAsync } from 'expo-audio';
+
 import { createOperationQueue } from '@/shared/lib/operation-queue';
 
 import { RecorderBusyError, RecorderTimeoutError } from './recorder-errors';
@@ -11,6 +13,23 @@ import type {
   RecorderSnapshot,
 } from './recording-service-contract';
 import { RecorderDisposedError, RecorderState } from './recording-service-contract';
+
+// iOS는 audio mode의 allowsRecording이 true여야 native record를 허용한다.
+function withRecordingAudioMode(recorder: ExpoAudioRecorderLike): ExpoAudioRecorderLike {
+  return {
+    get uri() {
+      return recorder.uri;
+    },
+    prepareToRecordAsync: async () => {
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+    },
+    record: () => recorder.record(),
+    pause: () => recorder.pause(),
+    stop: () => recorder.stop(),
+    getStatus: () => recorder.getStatus(),
+  };
+}
 
 export function createNativeRecordingAdapter(
   recorder: ExpoAudioRecorderLike,
@@ -30,7 +49,11 @@ export function createNativeRecordingAdapter(
   });
 
   const snapshotManager = createSnapshotManager(initialSnapshot);
-  const service = createRecordingServiceAdapter(recorder, operationQueue, snapshotManager);
+  const service = createRecordingServiceAdapter(
+    withRecordingAudioMode(recorder),
+    operationQueue,
+    snapshotManager,
+  );
   const receiveExpoStatus = createExpoStatusMapper(
     recorder,
     operationQueue,
