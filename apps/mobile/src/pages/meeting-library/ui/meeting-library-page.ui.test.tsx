@@ -79,4 +79,30 @@ describe('MeetingLibraryPage', () => {
 
     await waitFor(() => expect(mockedPush).toHaveBeenCalledWith('/recording?meetingId=m1'));
   });
+
+  it('설정 열기를 누르면 모달을 닫아 권한을 다시 확인할 수 있게 한다', async () => {
+    const { startRecording } = jest.requireMock('@/features/record-meeting') as {
+      startRecording: jest.Mock;
+    };
+    const { recordingPermissionService } = jest.requireMock(
+      '@/features/record-meeting/api/recording-permission-service.native',
+    ) as { recordingPermissionService: { openSettings: jest.Mock } };
+    startRecording.mockResolvedValue({ kind: 'blocked' });
+
+    const { getByLabelText, getByText, queryByText } = await render(
+      <ThemeProvider mode="light">
+        <MeetingLibraryPage />
+      </ThemeProvider>,
+    );
+
+    await fireEvent.press(getByLabelText('새 회의 녹음'));
+    await fireEvent.press(getByText('녹음 시작'));
+
+    await waitFor(() => expect(getByText('설정 열기')).toBeTruthy());
+
+    await fireEvent.press(getByText('설정 열기'));
+
+    expect(recordingPermissionService.openSettings).toHaveBeenCalledTimes(1);
+    expect(queryByText('설정 열기')).toBeNull();
+  });
 });

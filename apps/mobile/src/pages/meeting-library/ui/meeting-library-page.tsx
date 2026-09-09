@@ -72,6 +72,9 @@ export function MeetingLibraryPage() {
           onCancel={cancelRecordingTitleDialog}
           onConfirm={handleConfirmTitle}
           onOpenSettings={() => {
+            // 설정에서 권한을 바꾸고 돌아와도 이 모달에는 권한을 다시 확인할 버튼이 없다.
+            // 모달을 닫아 녹음 버튼부터 다시 시작하게 한다.
+            cancelRecordingTitleDialog();
             void recordingPermissionService.openSettings();
           }}
         />
