@@ -50,25 +50,25 @@ function createDeferred<T>() {
 }
 
 describe('useMeetingDetailViewModel', () => {
-  it('첫 렌더는 loading이고 load가 meetingId로 1회 호출된다', async () => {
-    const load = jest.fn(() => new Promise<MeetingDetailResult>(() => {}));
+  it('첫 렌더는 loading이고 loadMeetingDetail가 meetingId로 1회 호출된다', async () => {
+    const loadMeetingDetail = jest.fn(() => new Promise<MeetingDetailResult>(() => {}));
 
     const { result, unmount } = await renderHook(() =>
-      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, load }),
+      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
     );
 
     expect(result.current).toEqual({ kind: 'loading' });
-    expect(load).toHaveBeenCalledTimes(1);
-    expect(load).toHaveBeenCalledWith('meeting-1');
+    expect(loadMeetingDetail).toHaveBeenCalledTimes(1);
+    expect(loadMeetingDetail).toHaveBeenCalledWith('meeting-1');
 
     await unmount();
   });
 
   it('ready 결과가 오면 kind가 ready이고 title, dateLabel, metaLabel이 담긴다', async () => {
-    const load = jest.fn(async () => buildReadyResult());
+    const loadMeetingDetail = jest.fn(async () => buildReadyResult());
 
     const { result } = await renderHook(() =>
-      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, load }),
+      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
     );
 
     await waitFor(() => expect(result.current.kind).toBe('ready'));
@@ -82,10 +82,12 @@ describe('useMeetingDetailViewModel', () => {
   });
 
   it('not-found 결과는 회의를 찾을 수 없다는 안내가 된다', async () => {
-    const load = jest.fn(async () => ({ kind: 'not-found' }) satisfies MeetingDetailResult);
+    const loadMeetingDetail = jest.fn(
+      async () => ({ kind: 'not-found' }) satisfies MeetingDetailResult,
+    );
 
     const { result } = await renderHook(() =>
-      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, load }),
+      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
     );
 
     await waitFor(() =>
@@ -94,12 +96,12 @@ describe('useMeetingDetailViewModel', () => {
   });
 
   it('error 결과는 use case의 원인 문구 대신 고정된 안내 문구가 된다', async () => {
-    const load = jest.fn(
+    const loadMeetingDetail = jest.fn(
       async () => ({ kind: 'error', message: 'DB가 깨졌습니다' }) satisfies MeetingDetailResult,
     );
 
     const { result } = await renderHook(() =>
-      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, load }),
+      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
     );
 
     await waitFor(() =>
@@ -110,14 +112,14 @@ describe('useMeetingDetailViewModel', () => {
   it('먼저 시작한 요청이 늦게 resolve해도 최신 결과만 반영된다', async () => {
     const staleRequest = createDeferred<MeetingDetailResult>();
     const freshRequest = createDeferred<MeetingDetailResult>();
-    const load = jest
+    const loadMeetingDetail = jest
       .fn<Promise<MeetingDetailResult>, [string]>()
       .mockImplementationOnce(() => staleRequest.promise)
       .mockImplementationOnce(() => freshRequest.promise);
 
     const { result, rerender, unmount } = await renderHook(
       ({ meetingId }: { meetingId: string }) =>
-        useMeetingDetailViewModel({ meetingId, timeZone: TIME_ZONE, load }),
+        useMeetingDetailViewModel({ meetingId, timeZone: TIME_ZONE, loadMeetingDetail }),
       { initialProps: { meetingId: 'meeting-1' } },
     );
 
@@ -143,14 +145,14 @@ describe('useMeetingDetailViewModel', () => {
   it('이미 결과가 표시된 뒤 meetingId가 바뀌면 이전 회의를 남기지 않고 loading으로 돌아간다', async () => {
     const firstRequest = createDeferred<MeetingDetailResult>();
     const secondRequest = createDeferred<MeetingDetailResult>();
-    const load = jest
+    const loadMeetingDetail = jest
       .fn<Promise<MeetingDetailResult>, [string]>()
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise);
 
     const { result, rerender, unmount } = await renderHook(
       ({ meetingId }: { meetingId: string }) =>
-        useMeetingDetailViewModel({ meetingId, timeZone: TIME_ZONE, load }),
+        useMeetingDetailViewModel({ meetingId, timeZone: TIME_ZONE, loadMeetingDetail }),
       { initialProps: { meetingId: 'meeting-1' } },
     );
 
@@ -177,10 +179,10 @@ describe('useMeetingDetailViewModel', () => {
     [3_660_000, '1시간 1분 · 녹음만 저장됨'],
     [3_601_000, '1시간 1초 · 녹음만 저장됨'],
   ])('durationMs가 %d이면 metaLabel은 "%s"이다', async (durationMs, expectedMetaLabel) => {
-    const load = jest.fn(async () => buildReadyResult({}, { durationMs }));
+    const loadMeetingDetail = jest.fn(async () => buildReadyResult({}, { durationMs }));
 
     const { result } = await renderHook(() =>
-      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, load }),
+      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
     );
 
     await waitFor(() => expect(result.current.kind).toBe('ready'));
@@ -188,7 +190,7 @@ describe('useMeetingDetailViewModel', () => {
     expect(result.current).toMatchObject({ metaLabel: expectedMetaLabel });
   });
 
-  it('createdAt이 잘못됐거나 durationMs가 비정상이거나 load가 reject해도 error VM이 되고 렌더는 throw하지 않는다', async () => {
+  it('createdAt이 잘못됐거나 durationMs가 비정상이거나 loadMeetingDetail가 reject해도 error VM이 되고 렌더는 throw하지 않는다', async () => {
     const invalidCreatedAt = jest.fn(async () => buildReadyResult({ createdAt: 'invalid-date' }));
     const negativeDuration = jest.fn(async () => buildReadyResult({}, { durationMs: -1 }));
     const nanDuration = jest.fn(async () => buildReadyResult({}, { durationMs: NaN }));
@@ -197,7 +199,7 @@ describe('useMeetingDetailViewModel', () => {
       throw new Error('DB 연결 실패');
     });
 
-    for (const load of [
+    for (const loadMeetingDetail of [
       invalidCreatedAt,
       negativeDuration,
       nanDuration,
@@ -205,7 +207,11 @@ describe('useMeetingDetailViewModel', () => {
       rejectingLoad,
     ]) {
       const { result, unmount } = await renderHook(() =>
-        useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, load }),
+        useMeetingDetailViewModel({
+          meetingId: 'meeting-1',
+          timeZone: TIME_ZONE,
+          loadMeetingDetail,
+        }),
       );
 
       await waitFor(() =>

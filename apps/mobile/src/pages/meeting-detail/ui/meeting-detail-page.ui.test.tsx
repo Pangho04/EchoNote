@@ -79,7 +79,7 @@ describe('MeetingDetailPage', () => {
     expect(mockedCreateMeetingDetailLoader).toHaveBeenCalledTimes(1);
     expect(mockedUseMeetingDetailViewModel).toHaveBeenCalledWith(
       expect.objectContaining({
-        load: mockedLoad,
+        loadMeetingDetail: mockedLoad,
         meetingId: 'm1',
         timeZone: expect.any(String),
       }),

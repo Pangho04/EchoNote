@@ -16,7 +16,7 @@ export type MeetingDetailViewModel =
 export interface UseMeetingDetailViewModelInput {
   meetingId: string;
   timeZone: string;
-  load: (meetingId: string) => Promise<MeetingDetailResult>;
+  loadMeetingDetail: (meetingId: string) => Promise<MeetingDetailResult>;
 }
 
 function formatDateLabel(createdAt: string, timeZone: string): string {
@@ -88,7 +88,7 @@ function toRequestKey(meetingId: string, timeZone: string): string {
 export function useMeetingDetailViewModel(
   input: UseMeetingDetailViewModelInput,
 ): MeetingDetailViewModel {
-  const { meetingId, timeZone, load } = input;
+  const { meetingId, timeZone, loadMeetingDetail } = input;
   const requestKey = toRequestKey(meetingId, timeZone);
 
   const [loaded, setLoaded] = useState<{ key: string; viewModel: MeetingDetailViewModel } | null>(
@@ -105,9 +105,9 @@ export function useMeetingDetailViewModel(
 
     const key = toRequestKey(meetingId, timeZone);
 
-    async function loadDetail() {
+    async function runLoad() {
       try {
-        const result = await load(meetingId);
+        const result = await loadMeetingDetail(meetingId);
 
         if (active) setLoaded({ key, viewModel: toViewModel(result, timeZone) });
       } catch {
@@ -115,14 +115,14 @@ export function useMeetingDetailViewModel(
       }
     }
 
-    void loadDetail();
+    void runLoad();
 
     return () => {
       active = false;
     };
-  }, [load, meetingId, timeZone]);
+  }, [loadMeetingDetail, meetingId, timeZone]);
 
   // 조회 대상이 바뀌면 이전 회의 결과를 그대로 두지 않고 다시 loading을 보여준다.
-  // load만 교체되는 경우(database context 변경)는 깜빡임을 피해 이전 결과를 유지한다.
+  // loadMeetingDetail만 교체되는 경우(database context 변경)는 깜빡임을 피해 이전 결과를 유지한다.
   return loaded?.key === requestKey ? loaded.viewModel : { kind: 'loading' };
 }

@@ -22,9 +22,9 @@ export function MeetingDetailPage({ meetingId }: MeetingDetailPageProps): ReactE
   const router = useRouter();
   const styles = useStyles();
 
-  const load = useMemo(() => createMeetingDetailLoader(database), [database]);
+  const loadMeetingDetail = useMemo(() => createMeetingDetailLoader(database), [database]);
   const timeZone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
-  const viewModel = useMeetingDetailViewModel({ meetingId, timeZone, load });
+  const viewModel = useMeetingDetailViewModel({ meetingId, timeZone, loadMeetingDetail });
 
   // deep link로 바로 들어오면 되돌아갈 화면이 없다.
   const leave = useCallback(() => {
