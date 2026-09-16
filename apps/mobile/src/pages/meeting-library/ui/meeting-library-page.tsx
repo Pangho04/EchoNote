@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { recordingPermissionService } from '@/features/record-meeting/api/recording-permission-service.native';
+import { ROUTES } from '@/shared/config/routes';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 import { MeetingList } from '@/widgets/meeting-list';
@@ -43,7 +44,7 @@ export function MeetingLibraryPage() {
     const result = await confirmRecordingTitle(title);
 
     if (result.kind === 'granted') {
-      router.push(`/recording?meetingId=${result.meetingId}`);
+      router.push(ROUTES.recording.session(result.meetingId));
     }
   }
 
@@ -59,7 +60,7 @@ export function MeetingLibraryPage() {
         <View style={styles.meetingListArea}>
           <MeetingList
             items={items}
-            onMeetingPress={(meetingId) => router.push(`/meetings/${meetingId}`)}
+            onMeetingPress={(meetingId) => router.push(ROUTES.meeting.detail(meetingId))}
           />
         </View>
 

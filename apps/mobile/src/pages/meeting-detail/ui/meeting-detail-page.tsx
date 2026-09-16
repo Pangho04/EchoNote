@@ -4,6 +4,7 @@ import { type ReactElement, useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ROUTES } from '@/shared/config/routes';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 import { createMeetingDetailLoader } from '../model/create-meeting-detail-loader';
@@ -33,7 +34,7 @@ export function MeetingDetailPage({ meetingId }: MeetingDetailPageProps): ReactE
       return;
     }
 
-    router.replace('/');
+    router.replace(ROUTES.meeting.list);
   }, [router]);
 
   return (
