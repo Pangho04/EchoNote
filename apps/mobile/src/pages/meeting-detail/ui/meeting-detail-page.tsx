@@ -37,23 +37,32 @@ export function MeetingDetailPage({ meetingId }: MeetingDetailPageProps): ReactE
     router.replace(ROUTES.meeting.list);
   }, [router]);
 
+  // 컴포넌트가 아니라 함수로 호출한다. 요소 타입이 유지되어야 상태가 보존된다.
+  function renderBody(): ReactElement {
+    switch (viewModel.kind) {
+      case 'ready':
+        return (
+          <MeetingDetailHeader
+            dateLabel={viewModel.dateLabel}
+            metaLabel={viewModel.metaLabel}
+            title={viewModel.title}
+          />
+        );
+
+      case 'not-found':
+      case 'error':
+        return <MeetingDetailMissing message={viewModel.message} onLeave={leave} />;
+
+      case 'loading':
+        return <View style={styles.body} />;
+    }
+  }
+
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       <MeetingDetailNavigation onBack={leave} />
 
-      {viewModel.kind === 'ready' ? (
-        <MeetingDetailHeader
-          dateLabel={viewModel.dateLabel}
-          metaLabel={viewModel.metaLabel}
-          title={viewModel.title}
-        />
-      ) : null}
-
-      {viewModel.kind === 'not-found' || viewModel.kind === 'error' ? (
-        <MeetingDetailMissing message={viewModel.message} onLeave={leave} />
-      ) : null}
-
-      {viewModel.kind === 'loading' ? <View style={styles.body} /> : null}
+      {renderBody()}
     </SafeAreaView>
   );
 }
