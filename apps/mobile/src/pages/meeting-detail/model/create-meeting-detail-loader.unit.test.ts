@@ -12,7 +12,7 @@ vi.mock('@/entities/recording', () => ({ createSQLiteRecordingRepository: vi.fn(
 vi.mock('@/features/get-meeting-detail', () => ({ getMeetingDetail: vi.fn() }));
 
 describe('createMeetingDetailLoader', () => {
-  it('두 SQLite repository를 같은 database로 만들어 use case에 주입한다', async () => {
+  it('두 SQLite repository를 같은 database로 만들어 조회 기능에 주입한다', async () => {
     const database = {} as SQLiteDatabase;
     const meetings = { getByMeetingId: vi.fn() };
     const recordings = { getSavedByMeetingId: vi.fn() };

@@ -9,7 +9,7 @@ import type {
 } from './meeting-repository';
 
 describe('MeetingRepository type contract', () => {
-  it('목록 use case가 만든 조회 조건만 list 입력으로 받는다', () => {
+  it('목록 기능이 만든 조회 조건만 list 입력으로 받는다', () => {
     expectTypeOf<Parameters<MeetingRepository['list']>[0]>().toEqualTypeOf<ListMeetingsQuery>();
     expectTypeOf<ListMeetingsQuery>().toEqualTypeOf<{
       yearStartMs: number;

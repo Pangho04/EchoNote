@@ -41,7 +41,7 @@ apps/mobile/src/
   app/             Expo Router 라우트·레이아웃·전역 Provider
   pages/           라우트 하나를 구성하는 전체 화면
   widgets/         여러 feature·entity를 조합한 큰 UI 블록
-  features/        사용자가 수행하는 행동과 유스케이스
+  features/        사용자가 수행하는 행동 단위 기능
   entities/        회의·녹음·전사·작업 등 도메인 객체
   shared/          범용 UI·유틸·설정·플랫폼 기반 코드
 ```
@@ -55,7 +55,7 @@ app → pages → widgets → features → entities → shared
 - 하위 계층은 상위 계층을 import하지 않는다.
 - 같은 계층의 서로 다른 slice를 직접 import하지 않는다.
 - 다른 계층은 slice의 공개 진입점인 `index.ts`를 통해 import한다.
-- `shared`에는 EchoNote 도메인 용어와 유스케이스를 넣지 않는다.
+- `shared`에는 EchoNote 도메인 용어와 기능을 넣지 않는다.
 - 재사용 가능성을 추측해 미리 slice나 공통 컴포넌트를 만들지 않는다.
 - 파일이 작고 역할이 하나라면 불필요한 하위 디렉터리를 추가하지 않는다.
 
@@ -67,7 +67,7 @@ app → pages → widgets → features → entities → shared
 features/
   record-meeting/
     api/           플랫폼 녹음 서비스와 요청 코드
-    model/         상태·함수형 ViewModel·훅·유스케이스
+    model/         상태·함수형 ViewModel·훅·기능
     ui/            녹음 제어 UI
     index.ts       외부 공개 API
 
@@ -150,7 +150,7 @@ recording-service.android.ts Android만 달라야 할 때
 - 외부 입력과 네트워크 경계는 Zod 계약으로 검증한다.
 - React 컴포넌트는 PascalCase, 훅은 `use` 접두사, 일반 함수·변수는 camelCase를 사용한다.
 - 폴더와 비컴포넌트 파일은 kebab-case를 사용한다.
-- 컴포넌트는 화면 표시와 유스케이스 조합에 집중하고 파일·네트워크 부작용은 model 또는 api segment로 이동한다.
+- 컴포넌트는 화면 표시와 기능 조합에 집중하고 파일·네트워크 부작용은 model 또는 api segment로 이동한다.
 - 상태를 무조건 전역화하지 않는다. 한 화면에서만 필요한 상태는 해당 page 또는 feature에 둔다.
 - Axios는 `shared/api`의 기반 인스턴스를 통해 사용하고 UI에서 직접 호출하지 않는다.
 - TanStack Query는 Gateway 서버 상태에 사용한다. 검색처럼 한 화면에서만 필요한 상태는 page-local로
@@ -178,8 +178,8 @@ recording-service.android.ts Android만 달라야 할 때
 - 함수형 ViewModel을 기본으로 사용한다. 관련 slice의 `model` segment에 화면 표시 타입과 `to...ViewModel` 순수 mapper를 두며 React 상태, repository 호출, 파일·네트워크 부작용을 넣지 않는다.
 - page composition 또는 page의 ViewModel hook은 받은 Domain을 함수형 ViewModel로 변환해 widget·entity UI에 props로 전달한다. `MeetingList` 같은 UI 컴포넌트가 repository, API, Domain sample을 직접 import해 데이터 원본을 소유하지 않는다.
 - 로딩·오류·선택·생성 중 상태나 화면 명령 조율이 필요할 때만 `use...ViewModel` hook을 해당 page·widget·feature의 `model` segment에 둔다.
-- ViewModel hook은 View가 소비할 상태와 callback을 제공하고 feature의 공개 use case에 위임한다. 비즈니스 규칙, SQL·HTTP, 파일 처리, 녹음기·플레이어 수명주기를 직접 구현하지 않는다.
-- Feature는 사용자 행동과 유스케이스를, entity Domain은 앱의 불변식과 의미를, adapter와 플랫폼 서비스는 저장·네트워크·기기 세부사항을 소유한다.
+- ViewModel hook은 View가 소비할 상태와 callback을 제공하고 feature의 공개 기능 함수에 위임한다. 비즈니스 규칙, SQL·HTTP, 파일 처리, 녹음기·플레이어 수명주기를 직접 구현하지 않는다.
+- Feature는 사용자 행동과 그 처리 규칙을, entity Domain은 앱의 불변식과 의미를, adapter와 플랫폼 서비스는 저장·네트워크·기기 세부사항을 소유한다.
 - `MeetingStatus`는 `entities/meeting/model/meeting.ts`의 string `enum` 하나로 정의한다. Domain·ViewModel은 enum member를 사용하고, SQLite Row와 서버 DTO의 raw string은 adapter 경계에서 검증해 enum으로 변환한다.
 - `MeetingStatus.LocalOnly`는 모바일이 소유한다. 그 외 처리 상태는 Gateway 작업 상태를 반영하며 모바일이 임의로 전이시키지 않는다.
 - SQLite outbox의 전송 상태는 `MeetingStatus`와 별도 타입으로 관리한다. `pending`, `sending`, `failed` 같은 outbox 상태를 회의 처리 상태에 추가하지 않는다.
@@ -190,7 +190,7 @@ recording-service.android.ts Android만 달라야 할 때
 - `createdAt`은 Meeting이 EchoNote에 등록된 시각이며 생성 뒤 바꾸지 않는다. 회의 목록 날짜·정렬·연도 조회·cursor·기본 제목 기준은 `createdAt`이다. `updatedAt`은 마지막 수정 시각이므로 목록 정렬이나 duration 계산에 사용하지 않는다.
 - 외부에서 과거 녹음을 가져와도 가져와 등록한 시각을 Meeting의 `createdAt`으로 사용한다. 실제 녹음 시각은 MVP Meeting 관리 기준이 아니며 요구가 생기기 전 `Recording.recordedAt` 같은 미래 필드를 추가하지 않는다.
 - 빈 Meeting 제목은 생성 당시 기기 IANA time zone의 `createdAt`을 `yyyy-MM-dd 오전/오후 hh:mm:ss_녹음` 형식으로 한 번 만들며, 이후 time zone 변경으로 자동 수정하지 않는다.
-- 목록 use case는 선택 연도와 기기 현재 IANA time zone을 `[연도 시작, 다음 연도 시작)` UTC epoch millisecond 범위로 바꿔 `ListMeetingsQuery`로 repository에 전달한다. repository는 year나 time zone을 해석하지 않고 SQLite에서 `createdAt DESC, id DESC`로 조회하며, 전체 Row를 읽은 뒤 ViewModel에서 연도를 거르지 않는다.
+- 목록 기능은 선택 연도와 기기 현재 IANA time zone을 `[연도 시작, 다음 연도 시작)` UTC epoch millisecond 범위로 바꿔 `ListMeetingsQuery`로 repository에 전달한다. repository는 year나 time zone을 해석하지 않고 SQLite에서 `createdAt DESC, id DESC`로 조회하며, 전체 Row를 읽은 뒤 ViewModel에서 연도를 거르지 않는다.
 - 목록 query의 `cursor`는 그 cursor가 가리키는 Meeting부터 결과에 포함한다. repository는 `limit + 1`건을 읽고, 반환하지 않은 lookahead Meeting이 있으면 그 Meeting을 `nextCursor`로 제공하며 없으면 `null`을 제공한다.
 - 1B 검색은 이미 불러온 page를 ViewModel에서 거르지 않는다. 기존 SQLite 목록 query에 정규화한 title filter를 추가하고 `연도·filter → inclusive cursor → createdAt DESC, id DESC → limit + 1` 순서로 조회한다. `%`, `_`, escape 문자는 literal로 처리하며 검색어 변경 시 items·cursor를 초기화한다.
 - 생성·제목 변경·삭제는 SQLite commit 성공 뒤 현재 목록 조건으로 실제 DB를 재조회한다. 화면에만 optimistic 성공 행을 확정하지 않는다.

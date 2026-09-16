@@ -95,7 +95,7 @@ describe('useMeetingDetailViewModel', () => {
     );
   });
 
-  it('error 결과는 use case의 원인 문구 대신 고정된 안내 문구가 된다', async () => {
+  it('error 결과는 기능이 준 원인 문구 대신 고정된 안내 문구가 된다', async () => {
     const loadMeetingDetail = jest.fn(
       async () => ({ kind: 'error', message: 'DB가 깨졌습니다' }) satisfies MeetingDetailResult,
     );

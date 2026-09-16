@@ -6,7 +6,7 @@ export type ListMeetingsParams = {
   cursor?: MeetingListCursor;
 };
 
-export type ListMeetingsUseCaseResult = ListMeetingsResult & {
+export type ListMeetingsOutput = ListMeetingsResult & {
   // 이 조회의 UTC 범위 계산에 실제 사용한 기기 time zone이다.
   timeZone: string;
 };
@@ -72,9 +72,7 @@ export function getMeetingYearRangeMs(year: number, timeZone: string) {
 }
 
 export function makeListMeetings(repository: MeetingRepository) {
-  return async function listMeetings(
-    params: ListMeetingsParams,
-  ): Promise<ListMeetingsUseCaseResult> {
+  return async function listMeetings(params: ListMeetingsParams): Promise<ListMeetingsOutput> {
     const timeZone = getCurrentTimeZone();
     const range = getMeetingYearRangeMs(params.year, timeZone);
     const result = await repository.list({
