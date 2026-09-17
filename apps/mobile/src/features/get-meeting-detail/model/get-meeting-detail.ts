@@ -14,7 +14,6 @@ export type GetMeetingDetailDependencies = {
   recordings: Pick<RecordingRepository, 'getSavedByMeetingId'>;
 };
 
-// Meeting이 없으면 Recording을 조회하지 않는다.
 export async function getMeetingDetail(
   deps: GetMeetingDetailDependencies,
   meetingId: string,
@@ -22,6 +21,7 @@ export async function getMeetingDetail(
   try {
     const meeting = await deps.meetings.getByMeetingId(meetingId);
 
+    // Meeting이 없으면 Recording을 조회하지 않는다.
     if (!meeting) return { kind: 'not-found' };
 
     const recording = await deps.recordings.getSavedByMeetingId(meetingId);
