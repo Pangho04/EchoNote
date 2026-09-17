@@ -25,7 +25,7 @@
 | 3   | `useDialog` 팝업 도입, native `Alert` 제거 | 문구형·컴포넌트형 두 입구                                       |
 | 4   | 제목 입력 모달을 팝업 `content`로 이전     | ViewModel 표면 5개 축소                                         |
 | 5   | Maestro E2E flow 5개 작성                  | Android 실기기 5/5                                              |
-| 6   | iOS 27 대응 후 시뮬레이터 E2E              | iOS 5/5                                                         |
+| 6   | iOS 27 대응 후 시뮬레이터 E2E              | 5/5 통과. 이후 suite에서 `02`만 간헐 실패(J)                    |
 | 7   | 오류 상황별 시나리오 3종 추가              | 권한 차단·목록 조회 실패 증명                                   |
 | 8   | DB 복구 화면 구현                          | 부팅 실패 경로 제거                                             |
 
@@ -118,5 +118,5 @@
 ### 최종 상태
 
 - vitest 25 files / 139 tests, jest 12 suites / 54 tests
-- E2E suite: Android 실기기 5/5, iOS 시뮬레이터 5/5
+- E2E suite: Android 실기기 5/5. iOS 시뮬레이터는 4/5 + `02` 단독 통과(J 참고)
 - 시나리오: 권한 차단·목록 조회 실패·DB 손상 복구 — 양 플랫폼 통과
