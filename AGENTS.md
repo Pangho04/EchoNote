@@ -272,3 +272,13 @@ pnpm verify
 - 승인 범위 밖의 새 파일·공개 API·DB schema·package/config·사용자 동작이 필요하면 구현을 멈추고 수정 설계안을 다시 승인받는다.
 
 가이드 checkpoint 본문에 남아 있는 「사용자가 해 줄 것」 제출물 표, 0~4점 채점, takeover 문구는 폐기된 레거시다. 그 분담을 따르지 않고 기술 내용만 사용한다.
+
+### 11.1 학습 문서와 퀴즈 범위
+
+학습 문서는 단계(checkpoint)마다 하나씩 `docs/learning/`에 둔다. 주제별 통합 문서는 전체 구현이 끝난 뒤에 만든다.
+
+- 학습 범주는 셋이다. **아키텍처**(FSD 계층·의존 방향·경계·합성 루트), **RN·Expo 고유**(expo-router, expo-sqlite, expo-audio, expo-file-system, 플랫폼 파일 분리, native 어댑터), **DB**(schema·migration·PRAGMA·transaction·Row 매핑·조회 조건).
+- 단계 문서는 세 범주를 절로 나누어 구성하고, 그 단계에서 실제로 새로 등장한 것만 담는다.
+- 퀴즈 배점은 아키텍처 40, RN·Expo 30, DB 30이다. 문법·스타일 문항은 출제하지 않는다.
+- 학습 문서에 넣지 않는 것: TypeScript 문법(union·제네릭·`as const`), React 훅 기본 사용법(`useMemo`와 `useCallback` 차이, deps 규칙), 스타일 수치, 네이밍·주석 규약. 이 규칙들은 §7이 소유한다.
+- 코드 참조는 심볼 이름(함수·타입·상수)으로 쓴다. 줄 번호를 적지 않는다. 코드가 바뀔 때 문서가 함께 깨지기 때문이다.
