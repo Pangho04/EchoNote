@@ -92,6 +92,12 @@ maestro --device <simulator-udid> test e2e/scenarios/list-load-failed.yaml
 
 **DB 파일을 깨뜨리지 않고 테이블만 지우는 이유** — 파일을 훼손하면 `SQLiteProvider`의 `onInit` migration이 실패해 앱이 아예 뜨지 않는다. 목록 조회 실패 화면에 도달하려면 DB는 열려야 한다.
 
+## 함께 보는 문서
+
+- `../JOURNAL.md` — 검증에서 드러난 문제와 조치 기록. 같은 함정을 다시 밟지 않기 위한 것
+- `../FOLLOW-UPS.md` — 지금 고치지 않기로 판단한 것과 그 사유
+- `device-e2e` 스킬 — 기기 연결·상태 조작·실패 원인 분리 절차
+
 ## 자동화하지 않는 것
 
 **마이크 권한 «거부»(재요청 가능) 상태.** 차단은 위 시나리오로 자동화했지만 거부는 양쪽 다 막힌다 — Android는 거부 이력이 남은 기기에서 OS 창을 건너뛰고 곧장 차단으로 처리하고, iOS 시뮬레이터는 `simctl privacy` 변경이 앱을 종료시켜 거부 직후 화면을 확인할 수 없다. `RecordingTitleForm`의 jest 테스트가 denied 분기를 덮고, 실제 화면은 `docs/testing/device-check-dialog.md` B절로 본다.

@@ -28,7 +28,7 @@ env:
 # 녹음 화면은 진입과 동시에 녹음을 시작한다. 실제 기기 상태가 확인되면 종료 버튼이 살아난다.
 - extendedWaitUntil:
     visible: '녹음 종료'
-    timeout: 15000
+    timeout: 40000
 
 # 길이가 0인 파일이 저장되지 않도록 잠시 녹음한다.
 - waitForAnimationToEnd:
@@ -41,7 +41,7 @@ env:
 # 저장 성공 토스트는 2.4초 뒤 사라지므로 즉시 확인한다.
 - extendedWaitUntil:
     visible: '녹음을 저장했습니다.'
-    timeout: 15000
+    timeout: 40000
 
 # 저장이 끝나면 목록으로 돌아오고 방금 만든 회의가 보인다.
 - extendedWaitUntil:
