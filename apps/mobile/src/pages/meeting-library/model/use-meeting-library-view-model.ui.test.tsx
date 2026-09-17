@@ -115,7 +115,7 @@ describe('useMeetingLibraryViewModel', () => {
       monthLabel: '8월',
       dayLabel: '08',
       metaLabel: '녹음 대기',
-      accessory: { kind: 'disclosure' },
+      accessory: { kind: 'arrow' },
     });
 
     const { result } = await renderHook(() =>
