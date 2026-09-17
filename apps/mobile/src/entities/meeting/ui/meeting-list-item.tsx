@@ -43,7 +43,7 @@ export function MeetingListItem({ item, onPress }: Props) {
           </AppText>
         </View>
       ) : (
-        <AppText aria-hidden color="textSecondary" style={styles.disclosure} variant="caption">
+        <AppText aria-hidden color="textSecondary" style={styles.arrow} variant="caption">
           ›
         </AppText>
       )}
@@ -96,7 +96,7 @@ const useStyles = createThemedStyles((theme) =>
       backgroundColor: theme.colors.accentMuted,
     },
     // 목업 16/20은 실기기에서 판독이 어려워 22/26을 쓴다.
-    disclosure: {
+    arrow: {
       fontSize: 22,
       lineHeight: 26,
     },

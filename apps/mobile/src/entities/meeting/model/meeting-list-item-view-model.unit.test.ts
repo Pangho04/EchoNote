@@ -102,7 +102,7 @@ describe('toMeetingListItemVM', () => {
       ),
     ).toMatchObject({
       metaLabel: '녹음 대기',
-      accessory: { kind: 'disclosure' },
+      accessory: { kind: 'arrow' },
     });
   });
 

@@ -51,7 +51,7 @@ type MeetingStatusLabels = {
 const MEETING_STATUS_LABELS: Record<MeetingStatus, MeetingStatusLabels> = {
   [MeetingStatus.LocalOnly]: {
     metaLabel: '녹음만 저장됨',
-    // LocalOnly는 항상 disclosure라 이 label은 렌더되지 않는다. 표를 전수로 유지하려고 남긴다.
+    // LocalOnly는 chip 대신 화살표를 그려 이 label은 렌더되지 않는다. 표를 전수로 유지하려고 남긴다.
     statusLabel: '로컬',
   },
   [MeetingStatus.WaitingForNode]: {
@@ -128,7 +128,7 @@ export function toMeetingListItemVM(meeting: Meeting, timeZone: string): Meeting
     // local-only는 chip 없이 상세 이동 표시만 둔다.
     accessory:
       meeting.status === MeetingStatus.LocalOnly
-        ? { kind: 'disclosure' }
+        ? { kind: 'arrow' }
         : { kind: 'chip', label: statusLabels.statusLabel },
   };
 }
