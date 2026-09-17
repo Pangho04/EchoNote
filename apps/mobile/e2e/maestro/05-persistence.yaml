@@ -5,6 +5,8 @@ env:
 ---
 - launchApp:
     clearState: false
+
+- runFlow: ../subflows/dismiss-link-prompt.yaml
 - extendedWaitUntil:
     visible: '회의'
     timeout: 30000
@@ -18,12 +20,12 @@ env:
     clearState: false
 
 - extendedWaitUntil:
-    visible: ${TITLE}
+    visible: .*${TITLE}.*
     timeout: 30000
-- tapOn: ${TITLE}
+- tapOn: .*${TITLE}.*
 
 # 재실행 뒤에도 같은 meetingId로 Meeting과 saved Recording을 다시 읽어야 한다.
 - assertVisible: '회의 기록'
-- assertVisible: ${TITLE}
+- assertVisible: .*${TITLE}.*
 - assertVisible: '.*녹음만 저장됨.*'
 - assertNotVisible: '회의를 열 수 없습니다'

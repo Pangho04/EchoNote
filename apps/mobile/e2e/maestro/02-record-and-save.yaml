@@ -7,6 +7,8 @@ env:
 - launchApp:
     clearState: false
 
+- runFlow: ../subflows/dismiss-link-prompt.yaml
+
 - extendedWaitUntil:
     visible: '회의'
     timeout: 30000
@@ -14,7 +16,13 @@ env:
 - tapOn: '새 회의 녹음'
 - tapOn: '기본 이름으로 저장'
 - inputText: ${TITLE}
-- hideKeyboard
+# iOS 시뮬레이터는 하드웨어 키보드를 쓰므로 내릴 소프트 키보드가 없다.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+
 - tapOn: '녹음 시작'
 
 # 녹음 화면은 진입과 동시에 녹음을 시작한다. 실제 기기 상태가 확인되면 종료 버튼이 살아난다.
@@ -37,5 +45,5 @@ env:
 
 # 저장이 끝나면 목록으로 돌아오고 방금 만든 회의가 보인다.
 - extendedWaitUntil:
-    visible: ${TITLE}
+    visible: .*${TITLE}.*
     timeout: 10000

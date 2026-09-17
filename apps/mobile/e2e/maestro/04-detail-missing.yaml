@@ -4,6 +4,8 @@ name: 없는 회의를 열면 오류 팝업
 - launchApp:
     clearState: false
 
+- runFlow: ../subflows/dismiss-link-prompt.yaml
+
 # 번들 로드가 끝나 목록이 보인 뒤에 deep link를 보낸다.
 - extendedWaitUntil:
     visible: '회의'
@@ -11,6 +13,8 @@ name: 없는 회의를 열면 오류 팝업
 
 # 존재하지 않는 meetingId로 진입한다. 뒤로 갈 화면이 없는 경로다.
 - openLink: echonote://meetings/no-such-meeting-id
+
+- runFlow: ../subflows/dismiss-link-prompt.yaml
 
 - extendedWaitUntil:
     visible: '회의를 열 수 없습니다'

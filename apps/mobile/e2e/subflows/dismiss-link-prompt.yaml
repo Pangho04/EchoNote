@@ -1,0 +1,10 @@
+appId: dev.pangho.echonote
+name: iOS 링크 확인 창 정리
+---
+# iOS는 커스텀 스킴 링크를 열 때 시스템 확인 창을 띄운다.
+# 앞선 flow가 남긴 창이 있으면 화면 전체를 덮어 이후 단계가 모두 실패한다.
+- runFlow:
+    when:
+      visible: '열기'
+    commands:
+      - tapOn: '열기'

@@ -6,19 +6,23 @@ env:
 # 상세·재조회 flow가 쓸 회의를 만든다. 이미 있으면 그대로 둔다.
 - runFlow:
     when:
-      notVisible: ${TITLE}
+      notVisible: .*${TITLE}.*
     commands:
       - tapOn: '새 회의 녹음'
       - tapOn: '기본 이름으로 저장'
       - inputText: ${TITLE}
-      - hideKeyboard
+      - runFlow:
+          when:
+            platform: Android
+          commands:
+            - hideKeyboard
       - tapOn: '녹음 시작'
       - extendedWaitUntil:
           visible: '녹음 종료'
-          timeout: 20000
+          timeout: 40000
       - waitForAnimationToEnd:
           timeout: 3000
       - tapOn: '녹음 종료'
       - extendedWaitUntil:
-          visible: ${TITLE}
-          timeout: 20000
+          visible: .*${TITLE}.*
+          timeout: 40000

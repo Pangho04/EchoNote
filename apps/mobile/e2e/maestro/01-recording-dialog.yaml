@@ -4,6 +4,8 @@ name: 제목 입력 팝업
 - launchApp:
     clearState: false
 
+- runFlow: ../subflows/dismiss-link-prompt.yaml
+
 # dev client는 번들을 받아 첫 화면을 그릴 때까지 시간이 걸린다.
 - extendedWaitUntil:
     visible: '회의'

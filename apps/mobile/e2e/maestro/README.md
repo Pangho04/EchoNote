@@ -2,6 +2,10 @@
 
 선택자는 `src/shared/config/ui-strings.ts`의 문구와 `accessibilityLabel`을 그대로 쓴다. 문구를 바꾸면 이 flow도 같이 고친다.
 
+대상 플랫폼 둘 다 실측으로 5/5 통과한다 — Android 실기기(SM-F731N / Android 16), iOS 시뮬레이터(iPhone 17 Pro / iOS 26.5).
+
+**iOS 실기기는 Maestro가 지원하지 않는다.** 공식 문서의 Known limitations에 "Physical Devices … not supported yet"으로 적혀 있고, `--apple-team-id`는 `record` 명령 전용이라 team ID를 줘도 드라이버 빌드에서 막힌다. iOS는 시뮬레이터로 돌리고, 실기기는 `docs/testing/device-check-dialog.md`로 눈으로 본다.
+
 ## 준비
 
 기기 1대만 연결한다. 여러 대면 `--device`로 지정해야 한다.
@@ -21,7 +25,9 @@ iOS는 개발자 프로파일을 기기에서 신뢰한 뒤(설정 → 일반 �
 ## 실행
 
 ```bash
-pnpm -F mobile e2e              # 전체 (실측 2분 46초)
+pnpm -F mobile e2e              # 연결된 기기가 하나일 때
+maestro --device <udid> test e2e/maestro          # 기기가 여럿일 때 지정
+xcrun simctl list devices available | grep iPhone # 시뮬레이터 udid 확인
 maestro test e2e/maestro/04-detail-missing.yaml   # 단건
 maestro studio                  # 선택자 탐색
 ```
@@ -45,6 +51,24 @@ Metro가 떠 있어야 한다. 없으면 `pnpm -F mobile start`를 먼저 실행
 모든 flow가 `clearState: false`다. `true`로 두면 SQLite가 지워져 `05`의 재조회 검증이 성립하지 않는다. 기기 데이터를 비우려면 앱을 지우고 다시 설치한다.
 
 dev client는 번들을 받아 첫 화면을 그리기까지 시간이 걸린다. 모든 flow가 `회의` 헤더를 30초까지 기다린 뒤 조작을 시작한다. 타임아웃을 10초로 줄이면 `04`가 간헐적으로 실패한다.
+
+## 플랫폼 차이로 flow에 넣은 장치
+
+| 장치                                   | 이유                                                                                                                                             |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 제목 선택자를 `.*${TITLE}.*` 로 감쌈   | iOS는 목록 셀 자식을 하나의 접근성 요소로 합친다(`"9월, 17, E2E 녹음, 녹음 대기"`). Maestro는 전체 일치 정규식이라 부분 문자열이 매칭되지 않는다 |
+| `hideKeyboard`를 Android에서만 실행    | iOS 시뮬레이터는 Mac 하드웨어 키보드를 쓰므로 내릴 소프트 키보드가 없고, 호출하면 실패한다                                                       |
+| 모든 flow 시작에 `dismiss-link-prompt` | iOS는 커스텀 스킴 링크에 시스템 확인 창(`열기`)을 띄운다. 앞선 flow가 남기면 화면 전체를 덮어 이후 flow가 모두 실패한다                          |
+| 대기 30~40초                           | dev client 번들 로드와 시뮬레이터 녹음 시작이 실기기보다 느리다                                                                                  |
+
+## 실행 전 확인
+
+**Android 기기 화면이 꺼져 있으면 전부 실패한다.** 잠금 화면에서는 앱이 보이지 않는다.
+
+```bash
+adb shell input keyevent KEYCODE_WAKEUP
+adb shell input keyevent 82
+```
 
 ## 자동화하지 않는 것
 

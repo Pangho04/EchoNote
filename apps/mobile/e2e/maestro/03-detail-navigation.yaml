@@ -6,6 +6,8 @@ env:
 - launchApp:
     clearState: false
 
+- runFlow: ../subflows/dismiss-link-prompt.yaml
+
 # dev client는 번들을 받아 첫 화면을 그릴 때까지 시간이 걸린다.
 - extendedWaitUntil:
     visible: '회의'
@@ -14,10 +16,10 @@ env:
 # flow 실행 순서는 보장되지 않는다. 필요한 회의를 이 flow가 직접 준비한다.
 - runFlow: ../subflows/create-recording.yaml
 
-- tapOn: ${TITLE}
+- tapOn: .*${TITLE}.*
 
 - assertVisible: '회의 기록'
-- assertVisible: ${TITLE}
+- assertVisible: .*${TITLE}.*
 # 상세는 길이와 상태를 함께 보여준다.
 - assertVisible: '.*녹음만 저장됨.*'
 
