@@ -2,6 +2,9 @@
 // throw new Error(...)에 쓰는 개발자용 진단 문구는 여기에 넣지 않는다.
 
 export const UI_STRINGS = {
+  common: {
+    confirm: '확인',
+  },
   meetingLibrary: {
     loadFailed: '회의 목록을 불러오지 못했습니다.',
     permissionDenied: '마이크 권한을 허용해야 녹음을 시작할 수 있습니다.',

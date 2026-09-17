@@ -1,8 +1,8 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { Alert } from 'react-native';
 
+import { DialogProvider } from '@/shared/ui/dialog';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
 import { createMeetingDetailLoader } from '../model/create-meeting-detail-loader';
@@ -37,7 +37,9 @@ const database = {} as ReturnType<typeof useSQLiteContext>;
 async function renderPage() {
   return render(
     <ThemeProvider mode="light">
-      <MeetingDetailPage meetingId="m1" />
+      <DialogProvider>
+        <MeetingDetailPage meetingId="m1" />
+      </DialogProvider>
     </ThemeProvider>,
   );
 }
@@ -55,7 +57,6 @@ describe('MeetingDetailPage', () => {
     mockedCreateMeetingDetailLoader.mockReturnValue(mockedLoad);
     // 뒤로 갈 화면이 없는 deep link 진입을 기본값으로 둔다. back 경로는 개별 케이스가 켠다.
     mockedCanGoBack.mockReturnValue(false);
-    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   });
 
   it('같은 database로 다시 렌더하면 loader를 새로 만들지 않고 meetingId·timeZone과 함께 넘겨 ready를 렌더한다', async () => {
@@ -71,7 +72,9 @@ describe('MeetingDetailPage', () => {
     // 다시 렌더해도 loader는 database가 그대로면 새로 만들지 않는다.
     await rerender(
       <ThemeProvider mode="light">
-        <MeetingDetailPage meetingId="m1" />
+        <DialogProvider>
+          <MeetingDetailPage meetingId="m1" />
+        </DialogProvider>
       </ThemeProvider>,
     );
 
@@ -92,24 +95,18 @@ describe('MeetingDetailPage', () => {
   it.each([
     ['not-found', '회의를 찾을 수 없습니다.'],
     ['error', '회의를 불러오지 못했습니다.'],
-  ] as const)('%s 상태면 본문 없이 Alert으로만 안내한다', async (kind, message) => {
+  ] as const)('%s 상태면 본문 없이 팝업으로만 안내한다', async (kind, message) => {
     mockedUseMeetingDetailViewModel.mockReturnValue({ kind, message } as MeetingDetailViewModel);
 
-    const { queryByText } = await renderPage();
+    const { getByText } = await renderPage();
 
-    expect(queryByText('회의를 찾을 수 없습니다.')).toBeNull();
-    expect(queryByText('회의를 불러오지 못했습니다.')).toBeNull();
-    expect(Alert.alert).toHaveBeenCalledTimes(1);
+    // 본문이 아니라 팝업이 문구를 소유한다.
+    expect(getByText('회의를 열 수 없습니다')).toBeTruthy();
+    expect(getByText(message)).toBeTruthy();
 
-    const alertArgs = jest.mocked(Alert.alert).mock.calls[0];
-    const buttons = alertArgs?.[2];
-    const options = alertArgs?.[3];
+    await fireEvent.press(getByText('확인'));
 
-    buttons?.[0]?.onPress?.();
     expect(mockedReplace).toHaveBeenCalledWith('/');
-
-    options?.onDismiss?.();
-    expect(mockedReplace).toHaveBeenCalledTimes(2);
   });
 
   it('canGoBack이 true면 back을, false면 replace를 호출한다', async () => {
