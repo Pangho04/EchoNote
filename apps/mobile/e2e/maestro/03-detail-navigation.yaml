@@ -3,21 +3,23 @@ name: 목록에서 상세로 이동
 env:
   TITLE: 'E2E 녹음'
 ---
-# 02가 만든 회의를 사용한다. 단독 실행하려면 먼저 02를 돌린다.
 - launchApp:
     clearState: false
 
+# dev client는 번들을 받아 첫 화면을 그릴 때까지 시간이 걸린다.
 - extendedWaitUntil:
-    visible: ${TITLE}
-    timeout: 10000
+    visible: '회의'
+    timeout: 30000
+
+# flow 실행 순서는 보장되지 않는다. 필요한 회의를 이 flow가 직접 준비한다.
+- runFlow: ../subflows/create-recording.yaml
 
 - tapOn: ${TITLE}
 
 - assertVisible: '회의 기록'
 - assertVisible: ${TITLE}
-# 상세는 길이를 초까지 표시한다.
-- assertVisible:
-    text: '.*녹음만 저장됨.*'
+# 상세는 길이와 상태를 함께 보여준다.
+- assertVisible: '.*녹음만 저장됨.*'
 
 - tapOn: '회의 목록으로 이동'
 - assertVisible: '회의'

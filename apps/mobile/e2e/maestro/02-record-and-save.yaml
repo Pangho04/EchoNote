@@ -7,6 +7,10 @@ env:
 - launchApp:
     clearState: false
 
+- extendedWaitUntil:
+    visible: '회의'
+    timeout: 30000
+
 - tapOn: '새 회의 녹음'
 - tapOn: '기본 이름으로 저장'
 - inputText: ${TITLE}
