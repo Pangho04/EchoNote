@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { InvalidMigrationListError, UnsupportedDatabaseVersionError } from './database-failure';
 import { DATABASE_MIGRATIONS } from './migrations';
 
 type UserVersionRow = {
@@ -15,7 +16,7 @@ for (const [index, migration] of DATABASE_MIGRATIONS.entries()) {
   const expectedVersion = index + 1;
 
   if (migration.version !== expectedVersion) {
-    throw new Error('순서가 어긋난 DB migration입니다: ' + migration.version);
+    throw new InvalidMigrationListError('순서가 어긋난 DB migration입니다: ' + migration.version);
   }
 }
 
@@ -32,7 +33,9 @@ export async function migrateDatabase(database: SQLiteDatabase) {
 
   // 더 최신 앱이 만든 DB를 구버전 코드로 열면 schema 해석이 틀릴 수 있다.
   if (currentVersion > DATABASE_VERSION) {
-    throw new Error('현재 앱이 지원하지 않는 DB version입니다: ' + currentVersion);
+    throw new UnsupportedDatabaseVersionError(
+      '현재 앱이 지원하지 않는 DB version입니다: ' + currentVersion,
+    );
   }
 
   // 이미 최신이면 schema SQL을 다시 실행하지 않고 끝낸다.
@@ -51,7 +54,9 @@ export async function migrateDatabase(database: SQLiteDatabase) {
 
       // version 1 다음에 3이 오는 migration 목록 실수를 SQL 실행 전에 막는다.
       if (migration.version !== nextVersion) {
-        throw new Error('순서가 어긋난 DB migration입니다: ' + migration.version);
+        throw new InvalidMigrationListError(
+          '순서가 어긋난 DB migration입니다: ' + migration.version,
+        );
       }
 
       // 현재 version에 필요한 version 함수만 실행한다.
@@ -62,7 +67,7 @@ export async function migrateDatabase(database: SQLiteDatabase) {
 
     // migration 목록 누락으로 최신 version에 도달하지 못한 개발 오류를 드러낸다.
     if (nextVersion !== DATABASE_VERSION + 1) {
-      throw new Error('적용되지 않은 DB migration이 있습니다.');
+      throw new InvalidMigrationListError('적용되지 않은 DB migration이 있습니다.');
     }
 
     // 모든 schema 변경이 성공한 뒤에만 DB version을 확정한다.

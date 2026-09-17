@@ -11,7 +11,7 @@ TMP_DB=/tmp/echonote-e2e.db
 usage() {
   echo "usage: $0 <android|ios> <action> [device]"
   echo "  action: permission-grant | permission-deny | permission-block"
-  echo "          table-drop | table-restore"
+  echo "          db-corrupt | table-drop | table-restore"
   exit 1
 }
 
@@ -39,6 +39,11 @@ case "$PLATFORM:$ACTION" in
     # user-fixed는 "다시 묻지 않음"이라 요청이 창 없이 즉시 거부된다.
     adb ${DEVICE:+-s "$DEVICE"} shell pm revoke "$APP_ID" android.permission.RECORD_AUDIO
     adb ${DEVICE:+-s "$DEVICE"} shell pm set-permission-flags "$APP_ID" android.permission.RECORD_AUDIO user-fixed ;;
+  android:db-corrupt)
+    # DB 파일 자체를 못 읽게 만든다. migration이 실패해 복구 화면이 떠야 한다.
+    android_db "cp $DB_DIR_ANDROID/$DB_NAME $DB_DIR_ANDROID/$DB_NAME.e2ebak"
+    android_db "sh -c 'printf corrupted > $DB_DIR_ANDROID/$DB_NAME'"
+    android_db "rm -f $DB_DIR_ANDROID/$DB_NAME-wal $DB_DIR_ANDROID/$DB_NAME-shm" ;;
   android:table-drop)
     # 파일을 깨뜨리면 migration이 실패해 앱이 아예 뜨지 않는다. DB는 정상으로 두고 테이블만 없애
     # 목록 조회만 실패시킨다. user_version은 그대로라 migration이 다시 만들지 않는다.
@@ -60,6 +65,11 @@ case "$PLATFORM:$ACTION" in
     xcrun simctl privacy "${DEVICE:-booted}" reset microphone "$APP_ID" ;;
   ios:permission-block)
     xcrun simctl privacy "${DEVICE:-booted}" revoke microphone "$APP_ID" ;;
+  ios:db-corrupt)
+    DIR="$(ios_container)/Documents/SQLite"
+    cp "$DIR/$DB_NAME" "$DIR/$DB_NAME.e2ebak"
+    printf corrupted > "$DIR/$DB_NAME"
+    rm -f "$DIR/$DB_NAME-wal" "$DIR/$DB_NAME-shm" ;;
   ios:table-drop)
     DIR="$(ios_container)/Documents/SQLite"
     cp "$DIR/$DB_NAME" "$DIR/$DB_NAME.e2ebak"

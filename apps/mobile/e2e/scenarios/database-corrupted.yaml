@@ -1,0 +1,28 @@
+appId: dev.pangho.echonote
+name: DB가 손상되면 복구 화면을 띄운다
+env:
+  DEV_CLIENT_URL: 'exp+echonote://expo-development-client/?url=http%3A%2F%2F192.168.0.195%3A8081'
+---
+# 선행: e2e/device-state.sh <platform> db-corrupt
+# 초기화가 성공하면 DB가 새로 만들어지므로 후행 복구 조작은 필요 없다.
+- stopApp
+- openLink: ${DEV_CLIENT_URL}
+- runFlow: ../subflows/dismiss-link-prompt.yaml
+
+# 예전에는 여기서 앱이 통째로 죽어 아무 화면도 뜨지 않았다.
+- extendedWaitUntil:
+    visible: '저장된 회의를 열 수 없습니다'
+    timeout: 40000
+- assertVisible: '초기화하고 계속'
+
+- tapOn: '초기화하고 계속'
+
+# 초기화 뒤에는 빈 목록으로 정상 진입해야 한다.
+- extendedWaitUntil:
+    visible: '회의'
+    timeout: 40000
+- assertNotVisible: '저장된 회의를 열 수 없습니다'
+
+# 목록 헤더는 DB 없이도 그려진다. 새 회의를 만들어 DB가 실제로 다시 쓰이는지 확인한다.
+- runFlow: ../subflows/create-recording.yaml
+- assertVisible: '.*E2E 녹음.*'

@@ -7,6 +7,17 @@ export const UI_STRINGS = {
     cancel: '취소',
     retry: '다시 시도',
   },
+  database: {
+    corruptedTitle: '저장된 회의를 열 수 없습니다',
+    corrupted:
+      '저장 공간이 손상되어 회의 목록을 읽지 못했습니다. 초기화하면 앱을 다시 쓸 수 있지만 회의 목록은 사라집니다.',
+    reset: '초기화하고 계속',
+    unsupportedVersionTitle: '앱을 업데이트해 주세요',
+    unsupportedVersion:
+      '더 새로운 버전에서 만든 데이터입니다. 이 버전에서는 열 수 없으며 초기화하면 기록이 사라집니다.',
+    unknownTitle: '앱을 시작하지 못했습니다',
+    unknown: '저장 공간을 여는 중 문제가 생겼습니다.',
+  },
   meetingLibrary: {
     heading: '회의',
     loadFailedTitle: '회의 목록을 열 수 없습니다',
