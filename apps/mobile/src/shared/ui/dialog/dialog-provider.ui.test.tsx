@@ -1,0 +1,121 @@
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { PropsWithChildren, ReactElement } from 'react';
+import { Pressable, Text } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { ThemeProvider } from '@/shared/ui/theme-provider';
+
+import { type DialogOptions, DialogProvider, useDialog } from './dialog-provider';
+
+jest.mock('react-native-safe-area-context', () => {
+  const mock = jest.requireActual('react-native-safe-area-context/jest/mock');
+
+  return mock.default ?? mock;
+});
+
+describe('DialogProvider', () => {
+  it('openDialog 호출 시 제목·본문·액션이 표시된다', async () => {
+    await render(
+      <Wrapper>
+        <DialogTrigger
+          options={{
+            title: '회의를 열 수 없습니다',
+            message: '회의를 찾을 수 없습니다.',
+            actions: [{ label: '확인' }],
+          }}
+        />
+      </Wrapper>,
+    );
+
+    await fireEvent.press(screen.getByText('열기'));
+
+    expect(screen.getByText('회의를 열 수 없습니다')).toBeOnTheScreen();
+    expect(screen.getByText('회의를 찾을 수 없습니다.')).toBeOnTheScreen();
+    expect(screen.getByText('확인')).toBeOnTheScreen();
+  });
+
+  it('액션을 누르면 팝업이 닫히고 onPress가 실행된다', async () => {
+    const onPress = jest.fn();
+
+    await render(
+      <Wrapper>
+        <DialogTrigger
+          options={{ message: '삭제할까요?', actions: [{ label: '삭제', onPress }] }}
+        />
+      </Wrapper>,
+    );
+
+    await fireEvent.press(screen.getByText('열기'));
+    await fireEvent.press(screen.getByText('삭제'));
+
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('삭제할까요?')).toBeNull();
+  });
+
+  it('content로 넘긴 컴포넌트를 그대로 그린다', async () => {
+    await render(
+      <Wrapper>
+        <DialogTrigger options={{ content: <Text>제목 입력 폼</Text> }} />
+      </Wrapper>,
+    );
+
+    await fireEvent.press(screen.getByText('열기'));
+
+    expect(screen.getByText('제목 입력 폼')).toBeOnTheScreen();
+  });
+
+  it('closeDialog로도 닫을 수 있다', async () => {
+    await render(
+      <Wrapper>
+        <DialogTrigger options={{ message: '진행 중입니다.' }} />
+      </Wrapper>,
+    );
+
+    await fireEvent.press(screen.getByText('열기'));
+    await fireEvent.press(screen.getByText('닫기'));
+
+    expect(screen.queryByText('진행 중입니다.')).toBeNull();
+  });
+
+  it('DialogProvider 밖에서 useDialog를 호출하면 오류를 던진다', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(render(<UnwrappedDialogConsumer />)).rejects.toThrow(
+      'useDialog는 DialogProvider 내부에서 사용해야 합니다.',
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
+});
+
+function Wrapper({ children }: PropsWithChildren): ReactElement {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider mode="light">
+        <DialogProvider>{children}</DialogProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
+  );
+}
+
+function DialogTrigger({ options }: { options: DialogOptions }): ReactElement {
+  const { openDialog, closeDialog } = useDialog();
+
+  return (
+    <>
+      <Pressable onPress={() => openDialog(options)}>
+        <Text>열기</Text>
+      </Pressable>
+
+      <Pressable onPress={closeDialog}>
+        <Text>닫기</Text>
+      </Pressable>
+    </>
+  );
+}
+
+function UnwrappedDialogConsumer(): ReactElement {
+  useDialog();
+
+  return <Text>never</Text>;
+}
