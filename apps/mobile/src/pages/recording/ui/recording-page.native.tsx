@@ -59,7 +59,7 @@ function RecordingSessionScreen({ draft }: { draft: RecordingDraft }): ReactElem
   /**
    * @when 녹음 원본 저장이 완료되어 savedRecording이 생겼을 때
    * @expect 저장 완료를 토스트로 알리고 회의 목록 화면으로 되돌아간다.
-   * @clear 화면이 stack에서 빠지므로 별도 정리가 없다.
+   * @clear -
    */
   useEffect(() => {
     if (!savedRecording) return;

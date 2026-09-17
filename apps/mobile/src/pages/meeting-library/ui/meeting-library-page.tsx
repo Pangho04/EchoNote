@@ -32,7 +32,7 @@ export function MeetingLibraryPage() {
   /**
    * @when 회의 목록 화면이 포커스를 얻을 때마다(녹음 화면에서 돌아온 직후 포함)
    * @expect 방금 저장한 녹음까지 반영되도록 목록을 다시 읽는다.
-   * @clear 진행 중인 조회는 결과를 버리므로 별도 정리가 없다.
+   * @clear -
    */
   useFocusEffect(
     useCallback(() => {

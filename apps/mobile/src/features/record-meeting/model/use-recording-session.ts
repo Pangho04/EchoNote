@@ -164,7 +164,7 @@ export function useRecordingSession(input: UseRecordingSessionInput): RecordingS
   /**
    * @when 녹음 화면 mount 시 1회
    * @expect prepare→record를 명시적 체인으로 실행해 자동 녹음을 시작한다.
-   * @clear 네이티브 recorder 정리는 useNativeRecordingService가 dispose로 담당한다.
+   * @clear -
    */
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

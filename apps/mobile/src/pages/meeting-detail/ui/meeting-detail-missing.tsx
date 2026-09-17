@@ -15,12 +15,13 @@ export function MeetingDetailMissing({
   onLeave,
 }: MeetingDetailMissingProps): ReactElement {
   const styles = useStyles();
+  // 같은 mount 안에서 effect가 다시 실행돼도 Alert을 한 번만 띄우는 가드다.
   const alerted = useRef(false);
 
   /**
    * @when 회의를 열 수 없다고 판정된 화면이 처음 표시될 때
    * @expect 이유를 native Alert으로 알리고 닫히면 목록으로 되돌린다.
-   * @clear 정리할 구독이 없다. ref 가드는 같은 mount 안에서 effect가 다시 실행돼도 Alert을 한 번만 띄운다.
+   * @clear -
    */
   useEffect(() => {
     if (alerted.current) return;
