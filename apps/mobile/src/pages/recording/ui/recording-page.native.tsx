@@ -9,6 +9,7 @@ import {
   type RecordingDraft,
 } from '@/features/record-meeting/model/recording-draft';
 import { useRecordingSession } from '@/features/record-meeting/model/use-recording-session';
+import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 import { useToast } from '@/shared/ui/toast';
@@ -64,7 +65,7 @@ function RecordingSessionScreen({ draft }: { draft: RecordingDraft }): ReactElem
   useEffect(() => {
     if (!savedRecording) return;
 
-    showToast('녹음을 저장했습니다.');
+    showToast(UI_STRINGS.recording.saved);
     router.dismissTo('/');
   }, [router, savedRecording, showToast]);
 

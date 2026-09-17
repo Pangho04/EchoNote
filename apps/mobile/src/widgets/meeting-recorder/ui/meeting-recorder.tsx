@@ -5,6 +5,7 @@ import type { RecordingSessionViewModel } from '@/features/record-meeting';
 import { RecordingControls } from '@/features/record-meeting/ui/recording-controls';
 import { RecordingSaveError } from '@/features/record-meeting/ui/recording-save-error';
 import { RecordingTitleEditor } from '@/features/record-meeting/ui/recording-title-editor';
+import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
@@ -19,7 +20,7 @@ export function MeetingRecorder({ viewModel }: MeetingRecorderProps): ReactEleme
     return (
       <View style={styles.container}>
         <RecordingSaveError
-          message={viewModel.errorMessage ?? '저장하지 못했습니다.'}
+          message={viewModel.errorMessage ?? UI_STRINGS.recording.saveFailed}
           onRetry={viewModel.retrySave}
         />
       </View>

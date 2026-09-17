@@ -9,6 +9,7 @@ import {
 import { makeListMeetings } from '@/features/list-meetings';
 import type { RecordingIdFactory, RecordingPermissionService } from '@/features/record-meeting';
 import { startRecording } from '@/features/record-meeting';
+import { UI_STRINGS } from '@/shared/config/ui-strings';
 
 const FIRST_PAGE_LIMIT = 20;
 
@@ -56,7 +57,9 @@ export function useMeetingLibraryViewModel(
       setItems(result.meetings.map((meeting) => toMeetingListItemVM(meeting, result.timeZone)));
       setErrorMessage(null);
     } catch (error: unknown) {
-      setErrorMessage(error instanceof Error ? error.message : '회의 목록을 불러오지 못했습니다.');
+      setErrorMessage(
+        error instanceof Error ? error.message : UI_STRINGS.meetingLibrary.loadFailed,
+      );
     }
   }, [listMeetings]);
 
@@ -88,13 +91,13 @@ export function useMeetingLibraryViewModel(
       }
 
       if (result.kind === 'blocked') {
-        setPermissionMessage('설정에서 마이크 권한을 허용해 주세요.');
+        setPermissionMessage(UI_STRINGS.meetingLibrary.permissionBlocked);
         setIsPermissionBlocked(true);
 
         return result;
       }
 
-      setPermissionMessage('마이크 권한을 허용해야 녹음을 시작할 수 있습니다.');
+      setPermissionMessage(UI_STRINGS.meetingLibrary.permissionDenied);
       setIsPermissionBlocked(false);
 
       return result;

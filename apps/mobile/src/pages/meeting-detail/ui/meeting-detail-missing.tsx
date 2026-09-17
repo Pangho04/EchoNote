@@ -1,6 +1,7 @@
 import { type ReactElement, useEffect, useRef } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
+import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 export interface MeetingDetailMissingProps {
@@ -28,10 +29,15 @@ export function MeetingDetailMissing({
 
     alerted.current = true;
 
-    Alert.alert('회의를 열 수 없습니다', message, [{ text: '확인', onPress: onLeave }], {
-      cancelable: true,
-      onDismiss: onLeave,
-    });
+    Alert.alert(
+      UI_STRINGS.meetingDetail.openFailedTitle,
+      message,
+      [{ text: '확인', onPress: onLeave }],
+      {
+        cancelable: true,
+        onDismiss: onLeave,
+      },
+    );
   }, [message, onLeave]);
 
   return <View style={styles.container} />;

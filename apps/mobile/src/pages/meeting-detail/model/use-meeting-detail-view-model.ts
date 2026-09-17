@@ -3,9 +3,7 @@ import { useEffect, useState } from 'react';
 import type { Meeting } from '@/entities/meeting';
 import type { Recording } from '@/entities/recording';
 import type { MeetingDetailResult } from '@/features/get-meeting-detail';
-
-const NOT_FOUND_MESSAGE = '회의를 찾을 수 없습니다.';
-const ERROR_MESSAGE = '회의를 불러오지 못했습니다.';
+import { UI_STRINGS } from '@/shared/config/ui-strings';
 
 export type MeetingDetailViewModel =
   | { kind: 'loading' }
@@ -73,9 +71,11 @@ function toReadyViewModel(
 }
 
 function toViewModel(result: MeetingDetailResult, timeZone: string): MeetingDetailViewModel {
-  if (result.kind === 'not-found') return { kind: 'not-found', message: NOT_FOUND_MESSAGE };
+  if (result.kind === 'not-found')
+    return { kind: 'not-found', message: UI_STRINGS.meetingDetail.notFound };
 
-  if (result.kind === 'error') return { kind: 'error', message: ERROR_MESSAGE };
+  if (result.kind === 'error')
+    return { kind: 'error', message: UI_STRINGS.meetingDetail.loadFailed };
 
   return toReadyViewModel(result.meeting, result.recording, timeZone);
 }
@@ -111,7 +111,11 @@ export function useMeetingDetailViewModel(
 
         if (active) setLoaded({ key, viewModel: toViewModel(result, timeZone) });
       } catch {
-        if (active) setLoaded({ key, viewModel: { kind: 'error', message: ERROR_MESSAGE } });
+        if (active)
+          setLoaded({
+            key,
+            viewModel: { kind: 'error', message: UI_STRINGS.meetingDetail.loadFailed },
+          });
       }
     }
 
