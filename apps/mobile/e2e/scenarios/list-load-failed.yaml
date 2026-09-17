@@ -1,0 +1,23 @@
+appId: dev.pangho.echonote
+name: 목록 조회가 실패하면 팝업으로 알린다
+---
+# 선행: e2e/device-state.sh <platform> table-drop
+# 후행: e2e/device-state.sh <platform> table-restore
+- launchApp:
+    clearState: false
+- runFlow: ../subflows/dismiss-link-prompt.yaml
+
+- extendedWaitUntil:
+    visible: '회의 목록을 열 수 없습니다'
+    timeout: 30000
+- assertVisible: '회의 목록을 불러오지 못했습니다.'
+- assertVisible: '다시 시도'
+
+# DB가 여전히 깨져 있으므로 다시 시도하면 같은 팝업이 돌아온다.
+- tapOn: '다시 시도'
+- extendedWaitUntil:
+    visible: '회의 목록을 열 수 없습니다'
+    timeout: 30000
+
+- tapOn: '확인'
+- assertNotVisible: '회의 목록을 열 수 없습니다'

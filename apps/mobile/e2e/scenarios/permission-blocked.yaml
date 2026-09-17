@@ -1,0 +1,28 @@
+appId: dev.pangho.echonote
+env:
+  DEV_CLIENT_URL: 'exp+echonote://expo-development-client/?url=http%3A%2F%2F192.168.0.195%3A8081'
+name: 권한 차단이면 설정 열기를 안내한다
+---
+# 선행: e2e/device-state.sh <platform> permission-block
+# launchApp은 Maestro가 권한을 자동 허용하므로 쓸 수 없다.
+# dev 빌드는 콜드 스타트가 dev launcher로 가므로 개발 서버 URL로 직접 띄운다.
+# 다른 개발 PC에서는 -e DEV_CLIENT_URL=... 로 덮어쓴다.
+- stopApp
+- openLink: ${DEV_CLIENT_URL}
+- runFlow: ../subflows/dismiss-link-prompt.yaml
+- extendedWaitUntil:
+    visible: '회의'
+    timeout: 30000
+
+- tapOn: '새 회의 녹음'
+- tapOn: '녹음 시작'
+
+# 차단 상태는 OS 창 없이 즉시 거부되므로 팝업 안 안내만 바뀐다.
+- extendedWaitUntil:
+    visible: '설정에서 마이크 권한을 허용해 주세요.'
+    timeout: 20000
+- assertVisible: '설정 열기'
+- assertNotVisible: '녹음 시작'
+
+- tapOn: '취소'
+- assertVisible: '회의'

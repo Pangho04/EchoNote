@@ -70,8 +70,32 @@ adb shell input keyevent KEYCODE_WAKEUP
 adb shell input keyevent 82
 ```
 
+## 기기 상태가 필요한 시나리오 (`../scenarios`)
+
+권한과 DB 상태는 flow 안에서 바꿀 수 없어 `e2e/device-state.sh`로 준비한 뒤 단건 실행한다. suite 폴더 밖에 두어 순서 무작위 실행에 섞이지 않게 했다.
+
+```bash
+# 권한 차단 안내
+./e2e/device-state.sh android permission-block <device>
+maestro --device <device> test e2e/scenarios/permission-blocked.yaml
+./e2e/device-state.sh android permission-grant <device>
+
+# 목록 조회 실패 팝업
+./e2e/device-state.sh ios table-drop <simulator-udid>
+maestro --device <simulator-udid> test e2e/scenarios/list-load-failed.yaml
+./e2e/device-state.sh ios table-restore <simulator-udid>
+```
+
+두 시나리오 모두 Android 실기기·iOS 시뮬레이터에서 통과를 확인했다.
+
+**`launchApp`을 쓰지 않는 이유** — Maestro는 앱을 실행할 때 권한을 자동으로 허용한다. 권한 시나리오에서 `launchApp`을 쓰면 차단 상태가 풀려버려 `stopApp` + 개발 서버 URL `openLink`로 띄운다. 개발 PC가 바뀌면 `-e DEV_CLIENT_URL=...`로 덮어쓴다.
+
+**DB 파일을 깨뜨리지 않고 테이블만 지우는 이유** — 파일을 훼손하면 `SQLiteProvider`의 `onInit` migration이 실패해 앱이 아예 뜨지 않는다. 목록 조회 실패 화면에 도달하려면 DB는 열려야 한다.
+
 ## 자동화하지 않는 것
 
-**마이크 권한 거부·차단 시나리오.** OS 시스템 다이얼로그라 버튼 문구가 로케일·OS 버전마다 다르고, Android는 두 번 거부해야 차단으로 바뀌는 등 상태 조작이 기기에 묶인다. `docs/testing/device-check-dialog.md` B절의 수동 절차로 확인한다.
+**마이크 권한 «거부»(재요청 가능) 상태.** 차단은 위 시나리오로 자동화했지만 거부는 양쪽 다 막힌다 — Android는 거부 이력이 남은 기기에서 OS 창을 건너뛰고 곧장 차단으로 처리하고, iOS 시뮬레이터는 `simctl privacy` 변경이 앱을 종료시켜 거부 직후 화면을 확인할 수 없다. `RecordingTitleForm`의 jest 테스트가 denied 분기를 덮고, 실제 화면은 `docs/testing/device-check-dialog.md` B절로 본다.
+
+**녹음 저장 실패.** 파일 시스템을 실패시키는 조작이 플랫폼마다 지저분하고 되돌리기 어렵다. `meeting-recorder`의 인라인 오류 표시는 jest가 덮는다.
 
 **키보드가 버튼을 가리는지.** Maestro는 겹침을 판정하지 못한다. 같은 문서 A2·A3으로 눈으로 본다.
