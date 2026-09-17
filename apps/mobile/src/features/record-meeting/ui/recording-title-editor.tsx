@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
+import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
@@ -23,7 +24,7 @@ export function RecordingTitleEditor(props: RecordingTitleEditorProps): ReactEle
       <TextInput
         value={value}
         onChangeText={onChangeText}
-        placeholder="기본 이름으로 저장"
+        placeholder={UI_STRINGS.recording.titlePlaceholder}
         placeholderTextColor={styles.placeholder.color}
         editable={editable}
         autoFocus={autoFocus}

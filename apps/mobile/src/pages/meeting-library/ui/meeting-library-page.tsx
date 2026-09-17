@@ -40,7 +40,7 @@ export function MeetingLibraryPage() {
 
   function openRecordingTitleDialog() {
     openDialog({
-      title: UI_STRINGS.meetingLibrary.newRecordingTitle,
+      title: UI_STRINGS.meetingLibrary.newRecording,
       avoidKeyboard: true,
       // 제목을 입력하던 중 바깥을 눌러 팝업이 사라지지 않게 한다.
       dismissible: false,
@@ -67,7 +67,7 @@ export function MeetingLibraryPage() {
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       <View style={styles.header}>
         <AppText variant="display" color="textPrimary" accessibilityRole="header">
-          회의
+          {UI_STRINGS.meetingLibrary.heading}
         </AppText>
       </View>
 

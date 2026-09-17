@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { palette } from '@/shared/config/theme';
+import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 type Props = {
@@ -12,7 +13,7 @@ export function RecordingButton({ openTitleDialog }: Props) {
 
   return (
     <Pressable
-      accessibilityLabel="새 회의 녹음"
+      accessibilityLabel={UI_STRINGS.meetingLibrary.newRecording}
       accessibilityRole="button"
       onPress={openTitleDialog}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}

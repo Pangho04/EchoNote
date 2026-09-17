@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
@@ -19,14 +20,14 @@ export function RecordingSaveError(props: RecordingSaveErrorProps): ReactElement
         {message}
       </AppText>
       <Pressable
-        accessibilityLabel="다시 시도"
+        accessibilityLabel={UI_STRINGS.common.retry}
         accessibilityRole="button"
         accessibilityState={{ disabled: false }}
         onPress={onRetry}
         style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}
       >
         <AppText color="accent" variant="body">
-          다시 시도
+          {UI_STRINGS.common.retry}
         </AppText>
       </Pressable>
     </View>

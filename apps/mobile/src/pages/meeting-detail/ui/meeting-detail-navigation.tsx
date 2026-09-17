@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
@@ -14,19 +15,19 @@ export function MeetingDetailNavigation({ onBack }: MeetingDetailNavigationProps
   return (
     <View style={styles.container}>
       <Pressable
-        accessibilityLabel="회의 목록으로 이동"
+        accessibilityLabel={UI_STRINGS.meetingDetail.backLabel}
         accessibilityRole="button"
         hitSlop={5}
         onPress={onBack}
         style={styles.action}
       >
         <AppText color="accent" variant="body">
-          ‹ 회의
+          {UI_STRINGS.meetingDetail.back}
         </AppText>
       </Pressable>
 
       <AppText accessibilityRole="header" variant="title">
-        회의 기록
+        {UI_STRINGS.meetingDetail.heading}
       </AppText>
 
       {/** 목업의 더보기 버튼 자리를 비워 두는 고정 여백 */}

@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { palette } from '@/shared/config/theme';
+import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 export interface RecordingControlsProps {
@@ -28,7 +29,7 @@ export function RecordingControls(props: RecordingControlsProps): ReactElement {
   return (
     <View style={styles.row}>
       <Pressable
-        accessibilityLabel={isPausing ? '일시정지' : '재개'}
+        accessibilityLabel={isPausing ? UI_STRINGS.recording.pause : UI_STRINGS.recording.resume}
         accessibilityRole="button"
         accessibilityState={{ disabled: !toggleEnabled }}
         disabled={!toggleEnabled}
@@ -51,7 +52,7 @@ export function RecordingControls(props: RecordingControlsProps): ReactElement {
       </Pressable>
 
       <Pressable
-        accessibilityLabel="녹음 종료"
+        accessibilityLabel={UI_STRINGS.recording.stop}
         accessibilityRole="button"
         accessibilityState={{ disabled: !canStop }}
         disabled={!canStop}
