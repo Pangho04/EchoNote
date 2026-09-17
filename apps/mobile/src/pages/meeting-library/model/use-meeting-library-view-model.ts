@@ -21,6 +21,7 @@ export interface MeetingLibraryViewModel {
   items: MeetingListVMItem[];
   errorMessage: string | null;
   refresh(): Promise<void>;
+  clearErrorMessage(): void;
   confirmRecordingTitle(title: string): Promise<ConfirmRecordingResult>;
 }
 
@@ -48,12 +49,15 @@ export function useMeetingLibraryViewModel(
 
       setItems(result.meetings.map((meeting) => toMeetingListItemVM(meeting, result.timeZone)));
       setErrorMessage(null);
-    } catch (error: unknown) {
-      setErrorMessage(
-        error instanceof Error ? error.message : UI_STRINGS.meetingLibrary.loadFailed,
-      );
+    } catch {
+      // 사용자에게는 고정 문구만 보인다. 원인 문구는 화면에 노출하지 않는다.
+      setErrorMessage(UI_STRINGS.meetingLibrary.loadFailed);
     }
   }, [listMeetings]);
+
+  const clearErrorMessage = useCallback(() => {
+    setErrorMessage(null);
+  }, []);
 
   // 권한 요청과 ID 생성만 맡는다. 결과 표시와 navigate는 호출부가 정한다.
   const confirmRecordingTitle = useCallback(
@@ -66,6 +70,7 @@ export function useMeetingLibraryViewModel(
     items,
     errorMessage,
     refresh,
+    clearErrorMessage,
     confirmRecordingTitle,
   };
 }

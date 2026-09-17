@@ -129,4 +129,30 @@ describe('useMeetingLibraryViewModel', () => {
     await waitFor(() => expect(result.current.items).toHaveLength(1));
     expect(listMeetings).toHaveBeenCalledTimes(1);
   });
+  it('조회가 실패하면 원인 문구 대신 고정 안내를 남기고 clearErrorMessage로 지운다', async () => {
+    setupMeetings(null);
+    mockedMakeListMeetings.mockReturnValue(
+      jest.fn(async () => {
+        throw new Error('SQLITE_CORRUPT: database disk image is malformed');
+      }),
+    );
+
+    const { result } = await renderHook(() =>
+      useMeetingLibraryViewModel(permissionService, () => 'm1'),
+    );
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    await waitFor(() =>
+      expect(result.current.errorMessage).toBe('회의 목록을 불러오지 못했습니다.'),
+    );
+
+    await act(async () => {
+      result.current.clearErrorMessage();
+    });
+
+    expect(result.current.errorMessage).toBeNull();
+  });
 });

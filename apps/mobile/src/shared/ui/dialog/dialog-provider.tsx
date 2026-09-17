@@ -14,9 +14,7 @@ import { useKeyboardAnimation } from 'react-native-keyboard-controller';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 import { type DialogAction, DialogView } from './dialog-view';
-
-// 키보드 위로 남길 최소 간격.
-const KEYBOARD_GAP = 24;
+import { resolveDialogKeyboardOffset, resolveDialogSlack } from './keyboard-offset';
 
 // interpolate 입력 범위의 상한. 어떤 기기 키보드도 넘지 않는 값이면 된다.
 const MAX_KEYBOARD_HEIGHT = 1000;
@@ -57,18 +55,26 @@ export function DialogProvider({ children }: PropsWithChildren): ReactElement {
     setDialog(null);
   }, []);
 
-  // 카드를 중앙에 뒀을 때 카드 아래에 남는 여유. 키보드가 이보다 높을 때만 그 차이만큼 올린다.
-  const slack = Math.max(1, (backdropHeight - cardHeight) / 2 - KEYBOARD_GAP);
+  const slack = resolveDialogSlack({ backdropHeight, cardHeight });
 
   // keyboardOffset은 0(닫힘) ~ -키보드높이(열림)로 움직인다.
+  // 가려지기 시작하는 지점(slack)까지는 0을 유지하고, 그 뒤로는 가린 만큼만 따라 올린다.
   const translateY = useMemo(
     () =>
       keyboardOffset.interpolate({
         inputRange: [-MAX_KEYBOARD_HEIGHT, -slack, 0],
-        outputRange: [slack - MAX_KEYBOARD_HEIGHT, 0, 0],
+        outputRange: [
+          resolveDialogKeyboardOffset({
+            backdropHeight,
+            cardHeight,
+            keyboardHeight: MAX_KEYBOARD_HEIGHT,
+          }),
+          0,
+          0,
+        ],
         extrapolate: 'clamp',
       }),
-    [keyboardOffset, slack],
+    [backdropHeight, cardHeight, keyboardOffset, slack],
   );
 
   const value = useMemo(() => ({ openDialog, closeDialog }), [closeDialog, openDialog]);

@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,10 +18,8 @@ import { RecordingTitleForm } from './recording-title-form';
 
 export function MeetingLibraryPage() {
   const router = useRouter();
-  const { items, refresh, confirmRecordingTitle } = useMeetingLibraryViewModel(
-    recordingPermissionService,
-    () => Crypto.randomUUID(),
-  );
+  const { items, refresh, errorMessage, clearErrorMessage, confirmRecordingTitle } =
+    useMeetingLibraryViewModel(recordingPermissionService, () => Crypto.randomUUID());
 
   const { openDialog, closeDialog } = useDialog();
 
@@ -37,6 +35,32 @@ export function MeetingLibraryPage() {
       void refresh();
     }, [refresh]),
   );
+
+  /**
+   * @when 목록 조회가 실패해 안내할 문구가 생겼을 때
+   * @expect 이유를 팝업으로 알리고 다시 시도할 기회를 준다.
+   * @clear -
+   */
+  useEffect(() => {
+    if (!errorMessage) return;
+
+    openDialog({
+      title: UI_STRINGS.meetingLibrary.loadFailedTitle,
+      message: errorMessage,
+      actions: [
+        { label: UI_STRINGS.common.confirm, onPress: clearErrorMessage },
+        {
+          label: UI_STRINGS.common.retry,
+          emphasis: 'primary',
+          onPress: () => {
+            clearErrorMessage();
+            void refresh();
+          },
+        },
+      ],
+      onDismiss: clearErrorMessage,
+    });
+  }, [clearErrorMessage, errorMessage, openDialog, refresh]);
 
   function openRecordingTitleDialog() {
     openDialog({
