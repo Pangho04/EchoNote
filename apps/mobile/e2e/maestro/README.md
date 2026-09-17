@@ -1,0 +1,47 @@
+# 실기기 E2E (Maestro)
+
+선택자는 `src/shared/config/ui-strings.ts`의 문구와 `accessibilityLabel`을 그대로 쓴다. 문구를 바꾸면 이 flow도 같이 고친다.
+
+## 준비
+
+기기 1대만 연결한다. 여러 대면 `--device`로 지정해야 한다.
+
+```bash
+# Android 무선
+adb pair <IP>:<페어링포트>
+adb connect <IP>:<디버깅포트>
+adb devices -l
+
+# 마이크 권한 미리 허용 (02가 시스템 다이얼로그를 다루지 않는다)
+adb shell pm grant dev.pangho.echonote android.permission.RECORD_AUDIO
+```
+
+iOS는 개발자 프로파일을 기기에서 신뢰한 뒤(설정 → 일반 → VPN 및 기기 관리) 한 번 직접 실행해 마이크 권한을 허용해 둔다.
+
+## 실행
+
+```bash
+pnpm -F mobile e2e              # 전체
+maestro test e2e/maestro/04-detail-missing.yaml   # 단건
+maestro studio                  # 선택자 탐색
+```
+
+## flow 순서와 의존
+
+| 파일                        | 다루는 것                                 | 선행             |
+| --------------------------- | ----------------------------------------- | ---------------- |
+| `01-recording-dialog.yaml`  | 제목 팝업 표시, 바깥 탭으로 안 닫힘, 취소 | 없음             |
+| `02-record-and-save.yaml`   | 녹음 → 종료 → 저장 토스트 → 목록 반영     | 마이크 권한 허용 |
+| `03-detail-navigation.yaml` | 목록 → 상세 → 뒤로                        | 02               |
+| `04-detail-missing.yaml`    | deep link로 없는 ID → 오류 팝업           | 없음             |
+| `05-persistence.yaml`       | 앱 종료 후 재조회                         | 02               |
+
+`02`가 만든 `E2E 녹음` 회의를 `03`·`05`가 재사용한다. 전체 실행은 파일 이름 순서라 그대로 맞는다.
+
+모든 flow가 `clearState: false`다. `true`로 두면 SQLite가 지워져 `05`의 재조회 검증이 성립하지 않는다. 기기 데이터를 비우려면 앱을 지우고 다시 설치한다.
+
+## 자동화하지 않는 것
+
+**마이크 권한 거부·차단 시나리오.** OS 시스템 다이얼로그라 버튼 문구가 로케일·OS 버전마다 다르고, Android는 두 번 거부해야 차단으로 바뀌는 등 상태 조작이 기기에 묶인다. `docs/testing/device-check-dialog.md` B절의 수동 절차로 확인한다.
+
+**키보드가 버튼을 가리는지.** Maestro는 겹침을 판정하지 못한다. 같은 문서 A2·A3으로 눈으로 본다.

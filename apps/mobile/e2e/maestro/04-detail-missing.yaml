@@ -1,0 +1,19 @@
+appId: dev.pangho.echonote
+name: 없는 회의를 열면 오류 팝업
+---
+- launchApp:
+    clearState: false
+
+# deep link로 존재하지 않는 meetingId를 연다. 뒤로 갈 화면이 없는 진입 경로다.
+- openLink: echonote://meetings/no-such-meeting-id
+
+- extendedWaitUntil:
+    visible: '회의를 열 수 없습니다'
+    timeout: 10000
+- assertVisible: '회의를 찾을 수 없습니다.'
+
+# native Alert이 아니라 앱 팝업이어야 한다. 확인은 DialogView가 그리는 버튼이다.
+- tapOn: '확인'
+
+- assertNotVisible: '회의를 열 수 없습니다'
+- assertVisible: '회의'

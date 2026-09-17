@@ -1,0 +1,24 @@
+appId: dev.pangho.echonote
+name: 제목 입력 팝업
+---
+- launchApp:
+    clearState: false
+
+- assertVisible: '회의'
+
+# 녹음 버튼은 accessibilityLabel로 찾는다. 아이콘뿐이라 보이는 문구가 없다.
+- tapOn: '새 회의 녹음'
+
+- assertVisible: '새 회의 녹음'
+- assertVisible: '기본 이름으로 저장'
+- assertVisible: '녹음 시작'
+- assertVisible: '취소'
+
+# 카드 바깥을 눌러도 닫히지 않아야 한다(dismissible: false).
+- tapOn:
+    point: '50%,8%'
+- assertVisible: '녹음 시작'
+
+- tapOn: '취소'
+- assertNotVisible: '녹음 시작'
+- assertVisible: '회의'

@@ -1,0 +1,29 @@
+appId: dev.pangho.echonote
+name: 앱 재시작 뒤 상세 재조회
+env:
+  TITLE: 'E2E 녹음'
+---
+# 02가 만든 회의를 사용한다.
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: ${TITLE}
+    timeout: 10000
+
+- stopApp
+
+# clearState를 하지 않아야 SQLite 파일이 남는다. 메모리 상태만 사라진다.
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible: ${TITLE}
+    timeout: 10000
+- tapOn: ${TITLE}
+
+# 재실행 뒤에도 같은 meetingId로 Meeting과 saved Recording을 다시 읽어야 한다.
+- assertVisible: '회의 기록'
+- assertVisible: ${TITLE}
+- assertVisible:
+    text: '.*녹음만 저장됨.*'
+- assertNotVisible: '회의를 열 수 없습니다'
