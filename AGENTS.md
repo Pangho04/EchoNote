@@ -115,6 +115,8 @@ entities/inference-job
 - `_layout.tsx`에는 Stack·Tabs·Provider·전역 오류 경계만 둔다.
 - 경로 매개변수는 라우트에서 파싱한 뒤 page의 명시적 props로 전달한다.
 - Expo Router를 우회하는 별도 내비게이션 시스템을 추가하지 않는다.
+- 이동 경로는 `shared/config/routes.ts`의 `ROUTES`로만 만든다. `router.push`·`replace`·`Link`에 경로 문자열을 직접 조립하지 않는다.
+- `ROUTES`는 `ROUTES.<도메인>.<하위 경로>` 형태로 중첩한다. 경로 생성 함수는 `as const`로 template literal 타입을 유지해 `typedRoutes`의 `Href`와 맞춘다.
 
 ```tsx
 import { MeetingLibraryPage } from '@/pages/meeting-library';
@@ -157,6 +159,13 @@ recording-service.android.ts Android만 달라야 할 때
   시작하고, 검색·정렬·현재 선택이 실제로 여러 화면을 넘을 때만 Zustand를 사용한다.
 - SQLite·Supabase에 영속해야 하는 데이터를 Zustand나 Query cache만으로 보존하지 않는다.
 - `useEffect`를 사용할 때는 전역 규칙의 `@when`, `@expect`, `@clear` JSDoc을 바로 위에 작성한다.
+
+- **주석 위치**: 주석은 설명 대상 바로 위에 둔다. 여러 줄을 설명하는 주석을 함수 상단에 모아 두지 않는다.
+- **주석 용어**: 실제 동작보다 큰 낱말을 쓰지 않는다. 타입만 확인하는 코드를 `parse`나 `정규화`로 부르지 않는다.
+- **중간 변수**: 한 줄에 들어가고 한 번만 쓰이는 식은 변수로 빼지 않고 사용처에 인라인한다.
+- **주입 함수 이름**: 인자로 받는 함수는 무엇을 하는지까지 이름에 담는다. `load`가 아니라 `loadMeetingDetail`을 쓴다.
+- **판별 union 분기**: `kind` 같은 판별 필드 분기는 `switch`로 전수 처리한다. 삼항과 `null`을 나열해 분기하지 않는다. 새 멤버가 생기면 반환 타입에서 누락이 드러나야 한다.
+- **용어**: 「유스케이스」·「use case」 대신 「기능」을 쓴다. feature 계층이 소유하는 함수는 「기능 함수」다.
 
 - **import 그룹화**: `외부 패키지 → @/ 별칭 → 상대 경로` 순서로 그룹화하고 **그룹 사이에만 빈 줄**을 둔다. 같은 그룹 내부는 빈 줄 없이 연속. `simple-import-sort` 자동수정 기준.
 
