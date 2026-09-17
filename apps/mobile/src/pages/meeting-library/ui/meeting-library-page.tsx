@@ -6,26 +6,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { recordingPermissionService } from '@/features/record-meeting/api/recording-permission-service.native';
 import { ROUTES } from '@/shared/config/routes';
+import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { AppText } from '@/shared/ui/app-text';
+import { useDialog } from '@/shared/ui/dialog';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 import { MeetingList } from '@/widgets/meeting-list';
 
 import { useMeetingLibraryViewModel } from '../model/use-meeting-library-view-model';
 import { RecordingButton } from './recording-button';
-import { RecordingTitleDialog } from './recording-title-dialog';
+import { RecordingTitleForm } from './recording-title-form';
 
 export function MeetingLibraryPage() {
   const router = useRouter();
-  const {
-    items,
-    refresh,
-    permissionMessage,
-    isPermissionBlocked,
-    isTitleDialogOpen,
-    openRecordingTitleDialog,
-    cancelRecordingTitleDialog,
-    confirmRecordingTitle,
-  } = useMeetingLibraryViewModel(recordingPermissionService, () => Crypto.randomUUID());
+  const { items, refresh, confirmRecordingTitle } = useMeetingLibraryViewModel(
+    recordingPermissionService,
+    () => Crypto.randomUUID(),
+  );
+
+  const { openDialog, closeDialog } = useDialog();
 
   const styles = useStyles();
 
@@ -40,12 +38,29 @@ export function MeetingLibraryPage() {
     }, [refresh]),
   );
 
-  async function handleConfirmTitle(title: string) {
-    const result = await confirmRecordingTitle(title);
-
-    if (result.kind === 'granted') {
-      router.push(ROUTES.recording.session(result.meetingId));
-    }
+  function openRecordingTitleDialog() {
+    openDialog({
+      title: UI_STRINGS.meetingLibrary.newRecordingTitle,
+      avoidKeyboard: true,
+      // 제목을 입력하던 중 바깥을 눌러 팝업이 사라지지 않게 한다.
+      dismissible: false,
+      content: (
+        <RecordingTitleForm
+          confirmRecordingTitle={confirmRecordingTitle}
+          onCancel={closeDialog}
+          onGranted={(meetingId) => {
+            closeDialog();
+            router.push(ROUTES.recording.session(meetingId));
+          }}
+          onOpenSettings={() => {
+            // 설정에서 권한을 바꾸고 돌아와도 이 팝업에는 권한을 다시 확인할 버튼이 없다.
+            // 팝업을 닫아 녹음 버튼부터 다시 시작하게 한다.
+            closeDialog();
+            void recordingPermissionService.openSettings();
+          }}
+        />
+      ),
+    });
   }
 
   return (
@@ -68,21 +83,6 @@ export function MeetingLibraryPage() {
           <RecordingButton openTitleDialog={openRecordingTitleDialog} />
         </View>
       </View>
-
-      {isTitleDialogOpen ? (
-        <RecordingTitleDialog
-          canOpenSettings={isPermissionBlocked}
-          permissionMessage={permissionMessage}
-          onCancel={cancelRecordingTitleDialog}
-          onConfirm={handleConfirmTitle}
-          onOpenSettings={() => {
-            // 설정에서 권한을 바꾸고 돌아와도 이 모달에는 권한을 다시 확인할 버튼이 없다.
-            // 모달을 닫아 녹음 버튼부터 다시 시작하게 한다.
-            cancelRecordingTitleDialog();
-            void recordingPermissionService.openSettings();
-          }}
-        />
-      ) : null}
     </SafeAreaView>
   );
 }

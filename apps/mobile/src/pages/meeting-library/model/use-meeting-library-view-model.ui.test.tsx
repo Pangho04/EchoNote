@@ -81,68 +81,21 @@ describe('useMeetingLibraryViewModel', () => {
     expect(outcome).toEqual({ kind: 'granted', meetingId: 'meeting-id' });
   });
 
-  it('blocked면 dialog를 열어 둔 채 설정 안내를 노출한다', async () => {
+  it.each([['blocked'], ['denied']] as const)('%s 결과를 그대로 반환한다', async (kind) => {
     setupMeetings(null);
-    mockedStartRecording.mockResolvedValue({ kind: 'blocked' });
+    mockedStartRecording.mockResolvedValue({ kind });
 
     const { result } = await renderHook(() =>
       useMeetingLibraryViewModel(permissionService, () => 'm1'),
     );
 
-    await act(async () => {
-      result.current.openRecordingTitleDialog();
-    });
+    let outcome: Awaited<ReturnType<typeof result.current.confirmRecordingTitle>> | undefined;
 
     await act(async () => {
-      await result.current.confirmRecordingTitle('제목');
+      outcome = await result.current.confirmRecordingTitle('제목');
     });
 
-    expect(result.current.isTitleDialogOpen).toBe(true);
-    expect(result.current.permissionMessage).toBe('설정에서 마이크 권한을 허용해 주세요.');
-    expect(result.current.isPermissionBlocked).toBe(true);
-  });
-
-  it('denied면 dialog를 열어 둔 채 재시도 안내를 노출한다', async () => {
-    setupMeetings(null);
-    mockedStartRecording.mockResolvedValue({ kind: 'denied' });
-
-    const { result } = await renderHook(() =>
-      useMeetingLibraryViewModel(permissionService, () => 'm1'),
-    );
-
-    await act(async () => {
-      result.current.openRecordingTitleDialog();
-    });
-
-    await act(async () => {
-      await result.current.confirmRecordingTitle('제목');
-    });
-
-    expect(result.current.isTitleDialogOpen).toBe(true);
-    expect(result.current.permissionMessage).toBe(
-      '마이크 권한을 허용해야 녹음을 시작할 수 있습니다.',
-    );
-    expect(result.current.isPermissionBlocked).toBe(false);
-  });
-
-  it('granted면 dialog를 닫는다', async () => {
-    setupMeetings(null);
-    mockedStartRecording.mockResolvedValue({ kind: 'granted', meetingId: 'meeting-id' });
-
-    const { result } = await renderHook(() =>
-      useMeetingLibraryViewModel(permissionService, () => 'm1'),
-    );
-
-    await act(async () => {
-      result.current.openRecordingTitleDialog();
-    });
-
-    await act(async () => {
-      await result.current.confirmRecordingTitle('제목');
-    });
-
-    expect(result.current.isTitleDialogOpen).toBe(false);
-    expect(result.current.permissionMessage).toBeNull();
+    expect(outcome).toEqual({ kind });
   });
 
   it('refresh가 끝나면 목록을 보여준다', async () => {

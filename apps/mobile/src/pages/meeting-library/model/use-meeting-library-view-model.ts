@@ -21,11 +21,6 @@ export interface MeetingLibraryViewModel {
   items: MeetingListVMItem[];
   errorMessage: string | null;
   refresh(): Promise<void>;
-  isTitleDialogOpen: boolean;
-  permissionMessage: string | null;
-  isPermissionBlocked: boolean;
-  openRecordingTitleDialog(): void;
-  cancelRecordingTitleDialog(): void;
   confirmRecordingTitle(title: string): Promise<ConfirmRecordingResult>;
 }
 
@@ -37,9 +32,6 @@ export function useMeetingLibraryViewModel(
 
   const [items, setItems] = useState<MeetingListVMItem[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isTitleDialogOpen, setIsTitleDialogOpen] = useState(false);
-  const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
-  const [isPermissionBlocked, setIsPermissionBlocked] = useState(false);
 
   const repository = useMemo(() => createSQLiteMeetingRepository(database), [database]);
   const listMeetings = useMemo(() => makeListMeetings(repository), [repository]);
@@ -63,57 +55,17 @@ export function useMeetingLibraryViewModel(
     }
   }, [listMeetings]);
 
-  const clearPermissionNotice = useCallback(() => {
-    setPermissionMessage(null);
-    setIsPermissionBlocked(false);
-  }, []);
-
-  const openRecordingTitleDialog = useCallback(() => {
-    clearPermissionNotice();
-    setIsTitleDialogOpen(true);
-  }, [clearPermissionNotice]);
-
-  const cancelRecordingTitleDialog = useCallback(() => {
-    setIsTitleDialogOpen(false);
-    clearPermissionNotice();
-  }, [clearPermissionNotice]);
-
-  // 권한을 얻은 경우에만 dialog를 닫는다. 거부·차단은 dialog 안에서 안내해야 사용자가 볼 수 있다.
+  // 권한 요청과 ID 생성만 맡는다. 결과 표시와 navigate는 호출부가 정한다.
   const confirmRecordingTitle = useCallback(
-    async (title: string): Promise<ConfirmRecordingResult> => {
-      const result = await startRecording(permissionService, title, createRecordingId);
-
-      if (result.kind === 'granted') {
-        setIsTitleDialogOpen(false);
-        clearPermissionNotice();
-
-        return result;
-      }
-
-      if (result.kind === 'blocked') {
-        setPermissionMessage(UI_STRINGS.meetingLibrary.permissionBlocked);
-        setIsPermissionBlocked(true);
-
-        return result;
-      }
-
-      setPermissionMessage(UI_STRINGS.meetingLibrary.permissionDenied);
-      setIsPermissionBlocked(false);
-
-      return result;
-    },
-    [clearPermissionNotice, permissionService, createRecordingId],
+    (title: string): Promise<ConfirmRecordingResult> =>
+      startRecording(permissionService, title, createRecordingId),
+    [permissionService, createRecordingId],
   );
 
   return {
     items,
     errorMessage,
     refresh,
-    isTitleDialogOpen,
-    permissionMessage,
-    isPermissionBlocked,
-    openRecordingTitleDialog,
-    cancelRecordingTitleDialog,
     confirmRecordingTitle,
   };
 }

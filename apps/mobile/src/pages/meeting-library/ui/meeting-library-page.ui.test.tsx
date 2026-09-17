@@ -4,6 +4,7 @@ import type React from 'react';
 
 import { MeetingStatus } from '@/entities/meeting';
 import { makeListMeetings } from '@/features/list-meetings';
+import { DialogProvider } from '@/shared/ui/dialog';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
 import { MeetingLibraryPage } from './meeting-library-page';
@@ -51,7 +52,9 @@ describe('MeetingLibraryPage', () => {
   it('녹음 버튼을 누르면 제목 모달을 연다', async () => {
     const { getByLabelText, queryByText } = await render(
       <ThemeProvider mode="light">
-        <MeetingLibraryPage />
+        <DialogProvider>
+          <MeetingLibraryPage />
+        </DialogProvider>
       </ThemeProvider>,
     );
 
@@ -70,7 +73,9 @@ describe('MeetingLibraryPage', () => {
 
     const { getByLabelText, getByPlaceholderText, getByText } = await render(
       <ThemeProvider mode="light">
-        <MeetingLibraryPage />
+        <DialogProvider>
+          <MeetingLibraryPage />
+        </DialogProvider>
       </ThemeProvider>,
     );
 
@@ -101,7 +106,9 @@ describe('MeetingLibraryPage', () => {
 
     const { getByText } = await render(
       <ThemeProvider mode="light">
-        <MeetingLibraryPage />
+        <DialogProvider>
+          <MeetingLibraryPage />
+        </DialogProvider>
       </ThemeProvider>,
     );
 
@@ -124,7 +131,9 @@ describe('MeetingLibraryPage', () => {
 
     const { getByLabelText, getByText, queryByText } = await render(
       <ThemeProvider mode="light">
-        <MeetingLibraryPage />
+        <DialogProvider>
+          <MeetingLibraryPage />
+        </DialogProvider>
       </ThemeProvider>,
     );
 
