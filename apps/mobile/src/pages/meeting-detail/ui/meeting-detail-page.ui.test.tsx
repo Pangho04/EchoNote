@@ -2,6 +2,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
+import { RecordingPlayer } from '@/features/play-recording';
 import { DialogProvider } from '@/shared/ui/dialog';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
@@ -19,6 +20,10 @@ jest.mock('expo-sqlite', () => ({
 }));
 jest.mock('expo-router', () => ({
   useRouter: jest.fn(),
+}));
+// native player hook을 품고 있어 page test에서는 uri만 받는 placeholder로 바꾼다.
+jest.mock('@/features/play-recording', () => ({
+  RecordingPlayer: jest.fn(() => null),
 }));
 jest.mock('../model/create-meeting-detail-loader', () => ({
   createMeetingDetailLoader: jest.fn(),
@@ -64,6 +69,7 @@ describe('MeetingDetailPage', () => {
       dateLabel: '2026년 9월 9일 · 오후 3:00',
       kind: 'ready',
       metaLabel: '12분 · 녹음만 저장됨',
+      recordingUri: 'file://recording.m4a',
       title: '주간 회의',
     });
 
@@ -90,6 +96,7 @@ describe('MeetingDetailPage', () => {
     expect(getByText('주간 회의')).toBeTruthy();
     expect(getByText('2026년 9월 9일 · 오후 3:00')).toBeTruthy();
     expect(getByText('12분 · 녹음만 저장됨')).toBeTruthy();
+    expect(RecordingPlayer).toHaveBeenCalledWith({ uri: 'file://recording.m4a' }, undefined);
   });
 
   it.each([
@@ -114,6 +121,7 @@ describe('MeetingDetailPage', () => {
       dateLabel: '2026년 9월 9일 · 오후 3:00',
       kind: 'ready',
       metaLabel: '12분 · 녹음만 저장됨',
+      recordingUri: 'file://recording.m4a',
       title: '주간 회의',
     });
 

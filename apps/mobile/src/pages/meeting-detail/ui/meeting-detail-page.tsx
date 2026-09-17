@@ -4,6 +4,7 @@ import { type ReactElement, useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { RecordingPlayer } from '@/features/play-recording';
 import { ROUTES } from '@/shared/config/routes';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { useDialog } from '@/shared/ui/dialog';
@@ -60,11 +61,15 @@ export function MeetingDetailPage({ meetingId }: MeetingDetailPageProps): ReactE
     switch (viewModel.kind) {
       case 'ready':
         return (
-          <MeetingDetailHeader
-            dateLabel={viewModel.dateLabel}
-            metaLabel={viewModel.metaLabel}
-            title={viewModel.title}
-          />
+          <>
+            <MeetingDetailHeader
+              dateLabel={viewModel.dateLabel}
+              metaLabel={viewModel.metaLabel}
+              title={viewModel.title}
+            />
+
+            <RecordingPlayer uri={viewModel.recordingUri} />
+          </>
         );
 
       // 이 둘은 팝업이 안내를 맡는다. 본문에는 아무것도 그리지 않는다.

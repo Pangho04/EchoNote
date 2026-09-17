@@ -7,7 +7,7 @@ import { UI_STRINGS } from '@/shared/config/ui-strings';
 
 export type MeetingDetailViewModel =
   | { kind: 'loading' }
-  | { kind: 'ready'; title: string; dateLabel: string; metaLabel: string }
+  | { kind: 'ready'; title: string; dateLabel: string; metaLabel: string; recordingUri: string }
   | { kind: 'not-found'; message: string }
   | { kind: 'error'; message: string };
 
@@ -67,6 +67,7 @@ function toReadyViewModel(
     title: meeting.title,
     dateLabel: formatDateLabel(meeting.createdAt, timeZone),
     metaLabel: `${formatDurationLabel(recording.durationMs)} · 녹음만 저장됨`,
+    recordingUri: recording.uri,
   };
 }
 

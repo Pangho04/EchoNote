@@ -64,7 +64,7 @@ describe('useMeetingDetailViewModel', () => {
     await unmount();
   });
 
-  it('ready 결과가 오면 kind가 ready이고 title, dateLabel, metaLabel이 담긴다', async () => {
+  it('ready 결과가 오면 kind가 ready이고 title, dateLabel, metaLabel, recordingUri가 담긴다', async () => {
     const loadMeetingDetail = jest.fn(async () => buildReadyResult());
 
     const { result } = await renderHook(() =>
@@ -78,6 +78,7 @@ describe('useMeetingDetailViewModel', () => {
       title: '제품 회의',
       dateLabel: '2026년 8월 4일 · 오전 10:00',
       metaLabel: '52분 14초 · 녹음만 저장됨',
+      recordingUri: 'file://recording.m4a',
     });
   });
 

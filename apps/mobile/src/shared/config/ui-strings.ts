@@ -36,6 +36,17 @@ export const UI_STRINGS = {
     notFound: '회의를 찾을 수 없습니다.',
     loadFailed: '회의를 불러오지 못했습니다.',
   },
+  playback: {
+    seekBackward: '-10',
+    seekBackwardLabel: '10초 뒤로',
+    seekForward: '+10',
+    seekForwardLabel: '10초 앞으로',
+    playLabel: '재생',
+    pauseLabel: '정지',
+    unknownTime: '--:--',
+    failed: '재생할 수 없습니다.',
+    controlFailed: '재생 조작에 실패했습니다.',
+  },
   recording: {
     titlePlaceholder: '기본 이름으로 저장',
     pause: '일시정지',
