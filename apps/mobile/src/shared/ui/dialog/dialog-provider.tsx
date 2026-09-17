@@ -8,7 +8,15 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { Animated, Keyboard, type LayoutChangeEvent, Modal, StyleSheet, View } from 'react-native';
+import {
+  Animated,
+  Keyboard,
+  type LayoutChangeEvent,
+  Modal,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useKeyboardAnimation } from 'react-native-keyboard-controller';
 
 import { createThemedStyles } from '@/shared/ui/theme-provider';
@@ -42,10 +50,11 @@ export function DialogProvider({ children }: PropsWithChildren): ReactElement {
   const styles = useStyles();
   const [dialog, setDialog] = useState<DialogOptions | null>(null);
 
-  const { height: keyboardOffset } = useKeyboardAnimation();
-
-  const [backdropHeight, setBackdropHeight] = useState(0);
+  // 화면 높이는 키보드나 Modal 프레임에 영향을 받지 않는다. 카드 높이만 잰다.
+  const { height: screenHeight } = useWindowDimensions();
   const [cardHeight, setCardHeight] = useState(0);
+
+  const { height: keyboardOffset } = useKeyboardAnimation();
 
   const openDialog = useCallback((options: DialogOptions) => {
     setDialog(options);
@@ -55,17 +64,19 @@ export function DialogProvider({ children }: PropsWithChildren): ReactElement {
     setDialog(null);
   }, []);
 
-  const slack = resolveDialogSlack({ backdropHeight, cardHeight });
+  const value = useMemo(() => ({ openDialog, closeDialog }), [closeDialog, openDialog]);
 
+  // 키보드가 카드를 가리기 시작하는 지점까지는 움직이지 않고, 그 뒤로 가린 만큼만 따라 올린다.
   // keyboardOffset은 0(닫힘) ~ -키보드높이(열림)로 움직인다.
-  // 가려지기 시작하는 지점(slack)까지는 0을 유지하고, 그 뒤로는 가린 만큼만 따라 올린다.
+  const slack = resolveDialogSlack({ screenHeight, cardHeight });
+
   const translateY = useMemo(
     () =>
       keyboardOffset.interpolate({
         inputRange: [-MAX_KEYBOARD_HEIGHT, -slack, 0],
         outputRange: [
           resolveDialogKeyboardOffset({
-            backdropHeight,
+            screenHeight,
             cardHeight,
             keyboardHeight: MAX_KEYBOARD_HEIGHT,
           }),
@@ -74,10 +85,8 @@ export function DialogProvider({ children }: PropsWithChildren): ReactElement {
         ],
         extrapolate: 'clamp',
       }),
-    [backdropHeight, cardHeight, keyboardOffset, slack],
+    [cardHeight, keyboardOffset, screenHeight, slack],
   );
-
-  const value = useMemo(() => ({ openDialog, closeDialog }), [closeDialog, openDialog]);
 
   function handleDismiss() {
     if (dialog?.dismissible === false) return;
@@ -91,10 +100,6 @@ export function DialogProvider({ children }: PropsWithChildren): ReactElement {
     action.onPress?.();
   }
 
-  function handleBackdropLayout(event: LayoutChangeEvent) {
-    setBackdropHeight(event.nativeEvent.layout.height);
-  }
-
   function handleCardLayout(event: LayoutChangeEvent) {
     setCardHeight(event.nativeEvent.layout.height);
   }
@@ -106,7 +111,6 @@ export function DialogProvider({ children }: PropsWithChildren): ReactElement {
       {dialog ? (
         <Modal animationType="fade" onRequestClose={handleDismiss} transparent visible>
           <View
-            onLayout={handleBackdropLayout}
             // 카드 바깥을 누르면 키보드를 닫고 dismiss를 시도한다.
             // responder를 가져가지 않으므로 안쪽 터치는 그대로 동작한다.
             onStartShouldSetResponder={() => {
