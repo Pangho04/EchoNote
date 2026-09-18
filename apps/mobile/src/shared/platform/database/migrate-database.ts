@@ -21,7 +21,9 @@ for (const [index, migration] of DATABASE_MIGRATIONS.entries()) {
 }
 
 export async function migrateDatabase(database: SQLiteDatabase) {
-  // WAL은 쓰기 중 읽기 차단을 줄인다.
+  // WAL은 커밋마다 DB 파일을 덮어쓰는 대신 변경을 덧붙여 fsync 횟수를 줄인다.
+  // 연결이 하나인 지금은 읽기·쓰기 동시성 이득이 없다. outbox처럼 두 번째 연결이
+  // 생기면 그때 의미가 커진다.
   await database.execAsync('PRAGMA journal_mode = WAL');
 
   // SQLite FK 검사는 connection마다 꺼져 있을 수 있어 open 때 활성화한다.
