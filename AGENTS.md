@@ -166,6 +166,7 @@ recording-service.android.ts Android만 달라야 할 때
 - **주입 함수 이름**: 인자로 받는 함수는 무엇을 하는지까지 이름에 담는다. `load`가 아니라 `loadMeetingDetail`을 쓴다.
 - **판별 union 분기**: `kind` 같은 판별 필드 분기는 `switch`로 전수 처리한다. 삼항과 `null`을 나열해 분기하지 않는다. 새 멤버가 생기면 반환 타입에서 누락이 드러나야 한다.
 - **용어**: 「유스케이스」·「use case」 대신 「기능」을 쓴다. feature 계층이 소유하는 함수는 「기능 함수」다.
+- **UI 기준**: 화면은 `docs/ui/echonote-ui-plan.html`의 RN 구현 Inspector 명세(`data-spec-id`별 component·tokens·rn·structure)를 따른다. 목업과 다르게 만들 부분은 설계 카드의 파일별 변경 칸에 편차로 적고 승인받는다. FSD 위치는 목업보다 현재 코드 구조가 우선한다.
 - **화면 문구**: 사용자에게 보이는 문구는 `shared/config/ui-strings.ts`의 `UI_STRINGS`에 도메인별로 둔다. 버튼 라벨, 접근성 라벨, placeholder도 포함한다. `throw new Error(...)`에 쓰는 개발자용 진단 문구는 넣지 않는다.
 - **팝업**: 모든 팝업은 `shared/ui/dialog`의 `useDialog`로 띄운다. 화면이 `Modal`이나 native `Alert`을 직접 쓰지 않는다. native `Alert`은 react-native-web에서 동작하지 않아 Electron에서 안내가 사라진다.
 - 문구형 팝업은 `title`·`message`·`actions`로, 자체 상태가 필요한 팝업은 `content`로 컴포넌트를 넘긴다. `content`에 넘긴 JSX는 열릴 때 캡처되므로, 팝업이 열린 뒤 바뀌는 값은 바깥에서 props로 내리지 않고 그 컴포넌트가 직접 소유한다.
