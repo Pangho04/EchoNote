@@ -266,22 +266,26 @@ pnpm verify
 
 ## 11. 구현 가이드 학습 방식
 
-`docs/guides/echonote-job-mvp-implementation-guide.html`는 v5 「구현 뒤 학습」 방식으로 운영한다.
+`docs/guides/echonote-job-mvp-implementation-guide.html`는 v6 「구현 선행 + 결정 기록」 방식으로 운영한다.
 
 - 에이전트가 production·test·migration·통합·검증을 전부 구현한다.
-- 사용자는 구현 전 설계 승인과 구현 뒤 학습·실기기 확인만 맡는다.
-- checkpoint 진행 순서는 설계안 제시 → 사용자 승인 → 구현 → 자동 검증 → 구현 학습 → 사용자 확인 → 재학습 → 제품 PASS·학습 PASS 별도 기록이다.
+- 사용자는 구현 전 설계 승인, 구현 뒤 결정 기록 확인, 실기기 확인을 맡는다.
+- checkpoint 진행 순서는 설계안 제시 → 사용자 승인 → 구현 → 자동 검증 → 결정 기록 → 사용자 확인 → 제품 PASS다. 학습 단계가 다음 checkpoint 착수를 막지 않는다.
 - 설계 승인 카드는 목적·완료 동작, 처리 흐름, 파일별 변경, 실패·제외 범위, 검증·사용자 확인 다섯 칸을 포함한다.
 - 승인 범위 밖의 새 파일·공개 API·DB schema·package/config·사용자 동작이 필요하면 구현을 멈추고 수정 설계안을 다시 승인받는다.
+- 이력서 반영 기준점은 Gate(A·B·C) 공개다. Gate 사이의 checkpoint는 연속으로 진행한다.
 
 가이드 checkpoint 본문에 남아 있는 「사용자가 해 줄 것」 제출물 표, 0~4점 채점, takeover 문구는 폐기된 레거시다. 그 분담을 따르지 않고 기술 내용만 사용한다.
 
-### 11.1 학습 문서와 퀴즈 범위
+### 11.1 결정 기록과 퀴즈 범위
 
-학습 문서는 단계(checkpoint)마다 하나씩 `docs/learning/`에 둔다. 주제별 통합 문서는 전체 구현이 끝난 뒤에 만든다.
+결정 기록은 checkpoint마다 하나씩 `docs/learning/<checkpoint>-결정기록.md`에 둔다.
 
-- 학습 범주는 셋이다. **아키텍처**(FSD 계층·의존 방향·경계·합성 루트), **RN·Expo 고유**(expo-router, expo-sqlite, expo-audio, expo-file-system, 플랫폼 파일 분리, native 어댑터), **DB**(schema·migration·PRAGMA·transaction·Row 매핑·조회 조건).
-- 단계 문서는 세 범주를 절로 나누어 구성하고, 그 단계에서 실제로 새로 등장한 것만 담는다.
-- 퀴즈 배점은 아키텍처 40, RN·Expo 30, DB 30이다. 문법·스타일 문항은 출제하지 않는다.
-- 학습 문서에 넣지 않는 것: TypeScript 문법(union·제네릭·`as const`), React 훅 기본 사용법(`useMemo`와 `useCallback` 차이, deps 규칙), 스타일 수치, 네이밍·주석 규약. 이 규칙들은 §7이 소유한다.
+- 항목은 그 checkpoint에서 새로 내린 설계 선택만 담고, 3~5개로 제한한다.
+- 항목 형식은 네 줄이다. 문제 / 선택 / 버린 대안 / 트레이드오프.
+- 항목마다 범주 하나를 붙인다. **아키텍처**(FSD 계층·의존 방향·경계·합성 루트), **RN·Expo 고유**(expo-router, expo-sqlite, expo-audio, expo-file-system, 플랫폼 파일 분리, native 어댑터), **DB**(schema·migration·PRAGMA·transaction·Row 매핑·조회 조건).
+- 퀴즈는 Gate 공개 시점에 그 Gate에 속한 결정 기록 범위로만 출제한다. 배점은 아키텍처 40, RN·Expo 30, DB 30이다. 문법·스타일 문항은 출제하지 않는다.
+- 주제별 통합 학습 문서(아키텍처 → DB → RN·Expo 순)는 Gate A 공개 뒤에 만든다.
+- 결정 기록에 넣지 않는 것: TypeScript 문법(union·제네릭·`as const`), React 훅 기본 사용법(`useMemo`와 `useCallback` 차이, deps 규칙), 스타일 수치, 네이밍·주석 규약. 이 규칙들은 §7이 소유한다.
 - 코드 참조는 심볼 이름(함수·타입·상수)으로 쓴다. 줄 번호를 적지 않는다. 코드가 바뀔 때 문서가 함께 깨지기 때문이다.
+- G1-1~G1-6의 기존 학습플랜 문서는 그대로 두고, 더 갱신하지 않는다.
