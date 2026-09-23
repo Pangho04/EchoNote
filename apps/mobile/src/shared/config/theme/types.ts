@@ -7,6 +7,7 @@ export type ThemeColors = {
   accentMuted: string;
   background: string;
   border: string;
+  playbackBar: string;
   recording: string;
   recordingMuted: string;
   success: string;

@@ -24,6 +24,7 @@ export function RecordingPlayer({ uri }: RecordingPlayerProps): ReactElement {
       onSeekBackward={() => void viewModel.seekBackward()}
       onSeekForward={() => void viewModel.seekForward()}
       positionLabel={viewModel.positionLabel}
+      progressRatio={viewModel.progressRatio}
     />
   );
 }

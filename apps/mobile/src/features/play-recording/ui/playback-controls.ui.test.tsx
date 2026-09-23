@@ -8,6 +8,7 @@ async function renderControls(overrides: Partial<PlaybackControlsProps> = {}) {
   const props: PlaybackControlsProps = {
     positionLabel: '0:20',
     durationLabel: '1:00',
+    progressRatio: 0.33,
     errorMessage: null,
     canPlay: true,
     canPause: false,

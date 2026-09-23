@@ -14,6 +14,8 @@ export const palette = {
   accentLightMuted: '#E9EDFF',
   accentDark: '#8DA0FF',
   accentDarkMuted: '#30375A',
+  playbackBarLight: '#1E3A8A',
+  playbackBarDark: '#5B78D6',
   recordingLight: '#D33844',
   recordingLightMuted: '#FFEBED',
   recordingDark: '#FF6670',

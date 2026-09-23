@@ -9,6 +9,7 @@ import { createThemedStyles } from '@/shared/ui/theme-provider';
 export interface PlaybackControlsProps {
   positionLabel: string;
   durationLabel: string;
+  progressRatio: number;
   errorMessage: string | null;
   canPlay: boolean;
   canPause: boolean;
@@ -19,11 +20,12 @@ export interface PlaybackControlsProps {
   onSeekForward(): void;
 }
 
-// 현재/전체 시간 한 줄과 -10초·재생/정지·+10초 버튼 세 개. Slider는 두지 않는다.
+// 위에서 아래로 진행 막대(표시 전용)·현재/전체 시간·-10초·재생/정지·+10초 버튼 순으로 쌓는다. Slider는 두지 않는다.
 export function PlaybackControls(props: PlaybackControlsProps): ReactElement {
   const {
     positionLabel,
     durationLabel,
+    progressRatio,
     errorMessage,
     canPlay,
     canPause,
@@ -39,6 +41,16 @@ export function PlaybackControls(props: PlaybackControlsProps): ReactElement {
 
   return (
     <View style={styles.container}>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.track}
+      >
+        <View style={[styles.fill, { width: `${progressRatio * 100}%` }]}>
+          <View style={styles.fillHighlight} />
+        </View>
+      </View>
+
       <AppText color="textSecondary" style={styles.time} variant="caption">
         {positionLabel} / {durationLabel}
       </AppText>
@@ -57,9 +69,15 @@ export function PlaybackControls(props: PlaybackControlsProps): ReactElement {
             pressed && styles.pressed,
           ]}
         >
-          <AppText color="accent" variant="body">
-            {UI_STRINGS.playback.seekBackward}
-          </AppText>
+          <View style={styles.seekIcon}>
+            <View style={styles.seekArc} />
+            <View style={styles.seekArrow} />
+          </View>
+          <View pointerEvents="none" style={styles.seekLabelBox}>
+            <AppText color="accent" style={styles.seekLabel} variant="caption">
+              {UI_STRINGS.playback.seekBackward}
+            </AppText>
+          </View>
         </Pressable>
 
         <Pressable
@@ -100,9 +118,15 @@ export function PlaybackControls(props: PlaybackControlsProps): ReactElement {
             pressed && styles.pressed,
           ]}
         >
-          <AppText color="accent" variant="body">
-            {UI_STRINGS.playback.seekForward}
-          </AppText>
+          <View style={[styles.seekIcon, styles.seekIconMirrored]}>
+            <View style={styles.seekArc} />
+            <View style={styles.seekArrow} />
+          </View>
+          <View pointerEvents="none" style={styles.seekLabelBox}>
+            <AppText color="accent" style={styles.seekLabel} variant="caption">
+              {UI_STRINGS.playback.seekForward}
+            </AppText>
+          </View>
         </Pressable>
       </View>
 
@@ -123,6 +147,26 @@ const useStyles = createThemedStyles((theme) =>
       paddingHorizontal: theme.spacing[5],
       paddingVertical: theme.spacing[5],
     },
+    track: {
+      alignSelf: 'stretch',
+      backgroundColor: theme.colors.border,
+      borderRadius: theme.radii.round,
+      height: 6,
+      overflow: 'hidden',
+    },
+    fill: {
+      backgroundColor: theme.colors.playbackBar,
+      borderRadius: theme.radii.round,
+      height: '100%',
+    },
+    fillHighlight: {
+      backgroundColor: 'rgba(255,255,255,0.35)',
+      height: 1,
+      left: 0,
+      position: 'absolute',
+      right: 0,
+      top: 0,
+    },
     time: {
       fontVariant: ['tabular-nums'],
     },
@@ -134,12 +178,53 @@ const useStyles = createThemedStyles((theme) =>
     },
     seekButton: {
       alignItems: 'center',
-      borderColor: theme.colors.accent,
-      borderRadius: theme.radii.round,
-      borderWidth: 2,
       height: 48,
       justifyContent: 'center',
       width: 48,
+    },
+    seekIcon: {
+      height: 36,
+      width: 36,
+    },
+    seekIconMirrored: {
+      transform: [{ scaleX: -1 }],
+    },
+    seekArc: {
+      borderColor: theme.colors.accent,
+      borderRadius: 18,
+      borderTopColor: 'transparent',
+      borderWidth: 2,
+      height: 36,
+      transform: [{ rotate: '-45deg' }],
+      width: 36,
+    },
+    seekArrow: {
+      borderBottomColor: 'transparent',
+      borderBottomWidth: 6,
+      borderRightColor: theme.colors.accent,
+      borderRightWidth: 7,
+      borderTopColor: 'transparent',
+      borderTopWidth: 6,
+      height: 0,
+      left: 15,
+      position: 'absolute',
+      top: -5,
+      width: 0,
+    },
+    // textAlignVertical은 Android 전용이라 iOS에서도 가운데 오도록 감싼 View가 정렬한다.
+    seekLabelBox: {
+      alignItems: 'center',
+      bottom: 0,
+      justifyContent: 'center',
+      left: 0,
+      position: 'absolute',
+      right: 0,
+      top: 0,
+    },
+    seekLabel: {
+      fontVariant: ['tabular-nums'],
+      fontWeight: theme.typography.fontWeight.semibold,
+      lineHeight: 12,
     },
     toggleButton: {
       alignItems: 'center',

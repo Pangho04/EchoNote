@@ -60,6 +60,17 @@ describe('usePlaybackSession', () => {
     expect(result.current.canSeek).toBe(false);
     expect(result.current.durationLabel).toBe('--:--');
     expect(result.current.positionLabel).toBe('0:00');
+    expect(result.current.progressRatio).toBe(0);
+  });
+
+  it.each([
+    ['길이를 모르면 0', { durationMs: null, positionMs: 0 }, 0],
+    ['재생 위치 비율을 계산한다', { positionMs: 30_000, durationMs: 120_000 }, 0.25],
+    ['위치가 길이를 넘으면 1로 clamp한다', { positionMs: 130_000, durationMs: 120_000 }, 1],
+  ])('progressRatio: %s', async (_label, overrides, expected) => {
+    const { result } = await renderHook(() => usePlaybackSession(buildPlayback(overrides)));
+
+    expect(result.current.progressRatio).toBe(expected);
   });
 
   it('±10초는 0..durationMs로 clamp해 seekTo 한곳으로 보낸다', async () => {

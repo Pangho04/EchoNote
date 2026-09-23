@@ -11,6 +11,7 @@ export interface PlaybackSessionViewModel {
   status: PlaybackStatusKind;
   positionLabel: string;
   durationLabel: string;
+  progressRatio: number;
   errorMessage: string | null;
   canPlay: boolean;
   canPause: boolean;
@@ -103,6 +104,7 @@ export function usePlaybackSession(playback: AudioPlayback): PlaybackSessionView
     status: kind,
     positionLabel: formatClockLabel(positionMs),
     durationLabel: formatClockLabel(durationMs),
+    progressRatio: durationMs === null ? 0 : Math.min(Math.max(positionMs / durationMs, 0), 1),
     errorMessage: statusError ?? commandError,
     ...toButtonState(kind, durationMs !== null),
     play,
