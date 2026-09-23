@@ -14,7 +14,7 @@ export interface RecordingControlsProps {
   onStop(): void;
 }
 
-// 녹음 화면 중앙의 단일 원형 버튼(내부 도형이 단계에 따라 변화) + 작은 종료 버튼.
+// 녹음 화면의 큰 종료 버튼 + 작은 일시정지·재개 토글 버튼(내부 도형이 단계에 따라 변화).
 export function RecordingControls(props: RecordingControlsProps): ReactElement {
   const { canPause, canResume, canStop, onPause, onResume, onStop } = props;
   const styles = useStyles();
@@ -28,6 +28,22 @@ export function RecordingControls(props: RecordingControlsProps): ReactElement {
 
   return (
     <View style={styles.row}>
+      <Pressable
+        accessibilityLabel={UI_STRINGS.recording.stop}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !canStop }}
+        disabled={!canStop}
+        hitSlop={12}
+        onPress={onStop}
+        style={({ pressed }) => [
+          styles.stopButton,
+          !canStop && styles.disabled,
+          pressed && styles.pressed,
+        ]}
+      >
+        <View style={styles.stopIndicator} />
+      </Pressable>
+
       <Pressable
         accessibilityLabel={isPausing ? UI_STRINGS.recording.pause : UI_STRINGS.recording.resume}
         accessibilityRole="button"
@@ -50,22 +66,6 @@ export function RecordingControls(props: RecordingControlsProps): ReactElement {
           <View style={styles.resumeIcon} />
         )}
       </Pressable>
-
-      <Pressable
-        accessibilityLabel={UI_STRINGS.recording.stop}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !canStop }}
-        disabled={!canStop}
-        hitSlop={12}
-        onPress={onStop}
-        style={({ pressed }) => [
-          styles.stopButton,
-          !canStop && styles.disabled,
-          pressed && styles.pressed,
-        ]}
-      >
-        <View style={styles.stopIndicator} />
-      </Pressable>
     </View>
   );
 }
@@ -75,53 +75,53 @@ const useStyles = createThemedStyles((theme) =>
     row: {
       alignItems: 'center',
       flexDirection: 'row',
-      gap: theme.spacing[5],
+      gap: 18,
       justifyContent: 'center',
     },
     toggleButton: {
       alignItems: 'center',
-      backgroundColor: theme.colors.recording,
+      backgroundColor: theme.colors.surfaceMuted,
       borderRadius: theme.radii.round,
-      height: 72,
+      height: 52,
       justifyContent: 'center',
-      width: 72,
+      width: 52,
     },
     pauseIcon: {
       flexDirection: 'row',
-      gap: 7,
+      gap: 4,
     },
     pauseBar: {
-      backgroundColor: palette.white,
-      borderRadius: 2,
-      height: 24,
-      width: 7,
+      backgroundColor: theme.colors.textPrimary,
+      borderRadius: 1,
+      height: 16,
+      width: 4,
     },
     resumeIcon: {
       borderBottomColor: 'transparent',
-      borderBottomWidth: 12,
-      borderLeftColor: palette.white,
-      borderLeftWidth: 20,
+      borderBottomWidth: 9,
+      borderLeftColor: theme.colors.textPrimary,
+      borderLeftWidth: 14,
       borderTopColor: 'transparent',
-      borderTopWidth: 12,
+      borderTopWidth: 9,
       height: 0,
-      marginLeft: 5,
+      marginLeft: 4,
       width: 0,
     },
     stopButton: {
       alignItems: 'center',
-      backgroundColor: theme.colors.surface,
-      borderColor: theme.colors.recording,
+      backgroundColor: theme.colors.recording,
+      borderColor: theme.colors.recordingMuted,
       borderRadius: theme.radii.round,
-      borderWidth: 2,
-      height: 56,
+      borderWidth: 4,
+      height: 74,
       justifyContent: 'center',
-      width: 56,
+      width: 74,
     },
     stopIndicator: {
-      backgroundColor: theme.colors.recording,
-      borderRadius: 3,
-      height: 18,
-      width: 18,
+      backgroundColor: palette.white,
+      borderRadius: 4,
+      height: 20,
+      width: 20,
     },
     disabled: {
       opacity: 0.4,

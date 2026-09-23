@@ -4,7 +4,7 @@ import { Keyboard, StyleSheet, View } from 'react-native';
 import type { RecordingSessionViewModel } from '@/features/record-meeting';
 import { RecordingControls } from '@/features/record-meeting/ui/recording-controls';
 import { RecordingSaveError } from '@/features/record-meeting/ui/recording-save-error';
-import { RecordingTitleEditor } from '@/features/record-meeting/ui/recording-title-editor';
+import { RecordingTitleInline } from '@/features/record-meeting/ui/recording-title-inline';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
@@ -38,15 +38,13 @@ export function MeetingRecorder({ viewModel }: MeetingRecorderProps): ReactEleme
       }}
       style={styles.container}
     >
-      <View style={styles.titleArea}>
-        <RecordingTitleEditor
+      <View style={styles.controlArea}>
+        <RecordingTitleInline
           editable={viewModel.saveStatus === 'idle' || viewModel.saveStatus === 'saving'}
           onChangeText={viewModel.changeTitle}
           value={viewModel.titleInput}
         />
-      </View>
 
-      <View style={styles.controlArea}>
         <AppText
           accessibilityRole="header"
           adjustsFontSizeToFit
@@ -78,18 +76,16 @@ const useStyles = createThemedStyles((theme) =>
       paddingHorizontal: theme.spacing[5],
       paddingVertical: theme.spacing[6],
     },
-    titleArea: {
-      gap: theme.spacing[4],
-    },
     elapsed: {
       fontSize: theme.typography.fontSize.timer,
       lineHeight: theme.typography.lineHeight.timer,
+      marginBottom: theme.spacing[6],
+      marginTop: 26,
       textAlign: 'center',
     },
     controlArea: {
       alignItems: 'center',
       flex: 1,
-      gap: theme.spacing[6],
       justifyContent: 'center',
     },
   }),

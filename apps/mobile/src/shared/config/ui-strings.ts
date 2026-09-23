@@ -48,6 +48,7 @@ export const UI_STRINGS = {
     controlFailed: '재생 조작에 실패했습니다.',
   },
   recording: {
+    titleLabel: '녹음 제목',
     titlePlaceholder: '기본 이름으로 저장',
     pause: '일시정지',
     resume: '재개',
