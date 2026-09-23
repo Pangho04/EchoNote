@@ -61,7 +61,6 @@ describe('useAudioPlayback', () => {
       kind: PlaybackStatusKind.PLAYING,
       positionMs: 12_500,
       durationMs: 30_000,
-      errorMessage: null,
     });
     expect(result.current.getPositionMs()).toBe(12_500);
 

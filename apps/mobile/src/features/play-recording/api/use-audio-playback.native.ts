@@ -18,6 +18,15 @@ export function useAudioPlayback(uri: string): AudioPlayback {
     setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => undefined);
   }, []);
 
+  /**
+   * @when native player가 오류를 보고할 때
+   * @expect 화면은 앱 문구만 보여주므로 native 원문은 개발 로그로만 남긴다.
+   * @clear -
+   */
+  useEffect(() => {
+    if (__DEV__ && expoStatus.error !== null) console.warn(`[playback] ${expoStatus.error}`);
+  }, [expoStatus.error]);
+
   return {
     status: toPlaybackStatus(expoStatus),
     getPositionMs: () => secondsToMs(player.currentTime),

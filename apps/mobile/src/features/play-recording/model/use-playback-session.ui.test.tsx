@@ -12,7 +12,6 @@ function buildPlayback(overrides: Partial<AudioPlaybackStatus> = {}): AudioPlayb
     kind: PlaybackStatusKind.READY,
     positionMs: 20_000,
     durationMs: 60_000,
-    errorMessage: null,
     ...overrides,
   };
 
@@ -150,7 +149,7 @@ describe('usePlaybackSession', () => {
     expect(result.current.errorMessage).toBeNull();
   });
 
-  it('ERROR인데 native가 이유를 주지 않으면 기본 문구를 보여준다', async () => {
+  it('ERROR면 앱 문구를 보여준다', async () => {
     const { result } = await renderHook(() =>
       usePlaybackSession(buildPlayback({ kind: PlaybackStatusKind.ERROR })),
     );
@@ -158,14 +157,14 @@ describe('usePlaybackSession', () => {
     expect(result.current.errorMessage).toBe('재생할 수 없습니다.');
   });
 
-  it('pause와 errorMessage를 그대로 넘긴다', async () => {
-    const playback = buildPlayback({ kind: PlaybackStatusKind.ERROR, errorMessage: '재생 실패' });
+  it('ERROR에서도 pause를 player에 넘긴다', async () => {
+    const playback = buildPlayback({ kind: PlaybackStatusKind.ERROR });
     const { result } = await renderHook(() => usePlaybackSession(playback));
 
     await act(async () => result.current.pause());
 
     expect(playback.pause).toHaveBeenCalledTimes(1);
-    expect(result.current.errorMessage).toBe('재생 실패');
+    expect(result.current.errorMessage).toBe('재생할 수 없습니다.');
   });
 
   it('pause가 동기로 throw해도 화면까지 올리지 않고 errorMessage로 알린다', async () => {

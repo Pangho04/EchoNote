@@ -28,6 +28,5 @@ export function toPlaybackStatus(status: ExpoAudioStatus): AudioPlaybackStatus {
     kind: toKind(status),
     positionMs: secondsToMs(status.currentTime),
     durationMs: hasDuration ? secondsToMs(status.duration) : null,
-    errorMessage: status.error,
   };
 }

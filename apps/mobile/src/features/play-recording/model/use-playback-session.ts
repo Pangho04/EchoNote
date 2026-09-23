@@ -58,7 +58,7 @@ export function formatClockLabel(ms: number | null): string {
 }
 
 export function usePlaybackSession(playback: AudioPlayback): PlaybackSessionViewModel {
-  const { kind, positionMs, durationMs, errorMessage } = playback.status;
+  const { kind, positionMs, durationMs } = playback.status;
   const [commandError, setCommandError] = useState<string | null>(null);
 
   // native 호출 실패는 status에 실리지 않으므로 여기서 잡아 화면에 알린다.
@@ -96,9 +96,8 @@ export function usePlaybackSession(playback: AudioPlayback): PlaybackSessionView
     );
   }
 
-  // mediaServicesDidReset처럼 native가 이유 없이 ERROR만 보고하는 경우를 기본 문구로 채운다.
-  const statusError =
-    kind === PlaybackStatusKind.ERROR ? (errorMessage ?? UI_STRINGS.playback.failed) : null;
+  // native 오류 원문은 영어이고 플랫폼마다 달라 사용자가 할 일을 알려주지 않는다. 앱 문구로만 알린다.
+  const statusError = kind === PlaybackStatusKind.ERROR ? UI_STRINGS.playback.failed : null;
 
   return {
     status: kind,
