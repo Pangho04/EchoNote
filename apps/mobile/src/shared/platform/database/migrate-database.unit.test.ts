@@ -81,7 +81,7 @@ describe('migrateDatabase createdAt schema', () => {
 
     await migrateDatabase(adapter);
 
-    expect(database.prepare('PRAGMA user_version').get()).toEqual({ user_version: 3 });
+    expect(database.prepare('PRAGMA user_version').get()).toEqual({ user_version: 4 });
     expect(getColumnNames(database)).toEqual(['id', 'title', 'created_at_ms', 'updated_at_ms']);
     expect(getIndexNames(database)).toContain('idx_meetings_created_at_id');
     expect(getIndexNames(database)).not.toContain('idx_meetings_started_at_id');
@@ -99,7 +99,7 @@ describe('migrateDatabase createdAt schema', () => {
     const firstIndexes = getIndexNames(database);
     await migrateDatabase(adapter);
 
-    expect(database.prepare('PRAGMA user_version').get()).toEqual({ user_version: 3 });
+    expect(database.prepare('PRAGMA user_version').get()).toEqual({ user_version: 4 });
     expect(getColumnNames(database)).toEqual(firstColumns);
     expect(getIndexNames(database)).toEqual(firstIndexes);
   });

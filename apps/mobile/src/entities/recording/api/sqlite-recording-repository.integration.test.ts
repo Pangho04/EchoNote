@@ -1,11 +1,13 @@
 import { DatabaseSync } from 'node:sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { migrateDatabase } from '@/shared/platform/database/migrate-database';
 
 import { createSQLiteRecordingPersistence } from './sqlite-recording-persistence';
 import { createSQLiteRecordingRepository } from './sqlite-recording-repository';
+
+vi.mock('expo-file-system', () => ({ Paths: { document: { uri: 'file:///document/' } } }));
 
 type SQLiteValue = string | number | null;
 

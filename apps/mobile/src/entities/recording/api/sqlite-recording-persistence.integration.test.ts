@@ -1,10 +1,12 @@
 import { DatabaseSync } from 'node:sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { migrateDatabase } from '@/shared/platform/database/migrate-database';
 
 import { createSQLiteRecordingPersistence } from './sqlite-recording-persistence';
+
+vi.mock('expo-file-system', () => ({ Paths: { document: { uri: 'file:///document/' } } }));
 
 type SQLiteValue = string | number | null;
 
@@ -80,7 +82,7 @@ describe('SQLiteRecordingPersistence integration', () => {
     });
     expect(recordingRow).toEqual({
       meeting_id: recording.meetingId,
-      uri: recording.uri,
+      relative_path: 'recordings/meeting-1.m4a',
       mime_type: recording.mimeType,
       sha256: recording.sha256,
       duration_ms: recording.durationMs,
@@ -102,7 +104,7 @@ describe('SQLiteRecordingPersistence integration', () => {
       },
       recording: {
         meetingId: 'meeting-1',
-        uri: 'file:///a.m4a',
+        uri: 'file:///document/recordings/a.m4a',
         mimeType: 'audio/mp4',
         sha256: 'abc',
         durationMs: 1000,
@@ -115,7 +117,7 @@ describe('SQLiteRecordingPersistence integration', () => {
     await expect(
       persistence.saveMeetingWithRecording({
         ...params,
-        recording: { ...params.recording, uri: 'file:///b.m4a' },
+        recording: { ...params.recording, uri: 'file:///document/recordings/b.m4a' },
       }),
     ).rejects.toThrow(/UNIQUE constraint failed/);
 
@@ -123,7 +125,9 @@ describe('SQLiteRecordingPersistence integration', () => {
     expect(database.prepare('SELECT COUNT(*) AS count FROM recordings').get()).toEqual({
       count: 1,
     });
-    expect(database.prepare('SELECT uri FROM recordings').get()).toEqual({ uri: 'file:///a.m4a' });
+    expect(database.prepare('SELECT relative_path FROM recordings').get()).toEqual({
+      relative_path: 'recordings/a.m4a',
+    });
   });
 
   it('잘못된 createdAt은 SQLite에 bind하기 전에 거부한다', async () => {
@@ -138,7 +142,35 @@ describe('SQLiteRecordingPersistence integration', () => {
         meeting: { meetingId: 'meeting-1', title: '제품 회의', createdAt: 'invalid' },
         recording: {
           meetingId: 'meeting-1',
-          uri: 'file:///a.m4a',
+          uri: 'file:///document/recordings/a.m4a',
+          mimeType: 'audio/mp4',
+          sha256: 'abc',
+          durationMs: 1000,
+          byteSize: 1024,
+        },
+      }),
+    ).rejects.toThrow(RangeError);
+
+    expect(database.prepare('SELECT COUNT(*) AS count FROM meetings').get()).toEqual({ count: 0 });
+  });
+
+  it('문서 폴더 밖의 URI는 저장하지 않고 롤백한다', async () => {
+    const database = new DatabaseSync(':memory:');
+    databases.push(database);
+    const adapter = createSQLiteAdapter(database);
+    await migrateDatabase(adapter);
+    const persistence = createSQLiteRecordingPersistence(adapter);
+
+    await expect(
+      persistence.saveMeetingWithRecording({
+        meeting: {
+          meetingId: 'meeting-1',
+          title: '제품 회의',
+          createdAt: '2026-08-08T00:11:00.000Z',
+        },
+        recording: {
+          meetingId: 'meeting-1',
+          uri: 'file:///tmp/a.m4a',
           mimeType: 'audio/mp4',
           sha256: 'abc',
           durationMs: 1000,

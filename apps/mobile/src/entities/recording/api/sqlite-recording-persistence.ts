@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { toRecordingRelativePath } from './recording-file-location';
 import type {
   MeetingRecordingPersistence,
   SaveMeetingWithRecordingParams,
@@ -37,10 +38,10 @@ export function createSQLiteRecordingPersistence(
 
         await database.runAsync(
           `INSERT INTO recordings (
-            meeting_id, uri, mime_type, sha256, duration_ms, byte_size
+            meeting_id, relative_path, mime_type, sha256, duration_ms, byte_size
           ) VALUES (?, ?, ?, ?, ?, ?)`,
           params.recording.meetingId,
-          params.recording.uri,
+          toRecordingRelativePath(params.recording.uri),
           params.recording.mimeType,
           params.recording.sha256,
           params.recording.durationMs,

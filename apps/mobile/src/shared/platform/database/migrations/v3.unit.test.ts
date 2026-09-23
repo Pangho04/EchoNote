@@ -48,8 +48,8 @@ describe('migrateToVersion3', () => {
     databases.splice(0).forEach((database) => database.close());
   });
 
-  it('v1 다음에 v2, v3를 연속 등록한다', () => {
-    expect(DATABASE_MIGRATIONS.map(({ version }) => version)).toEqual([1, 2, 3]);
+  it('v1 다음에 v2, v3, v4를 연속 등록한다', () => {
+    expect(DATABASE_MIGRATIONS.map(({ version }) => version)).toEqual([1, 2, 3, 4]);
   });
 
   it('v1 Meeting row와 created_at index를 보존하며 v3 recordings table로 올린다', async () => {
@@ -64,7 +64,7 @@ describe('migrateToVersion3', () => {
 
     await migrateDatabase(adapter);
 
-    expect(database.prepare('PRAGMA user_version').get()).toEqual({ user_version: 3 });
+    expect(database.prepare('PRAGMA user_version').get()).toEqual({ user_version: 4 });
     expect(database.prepare('SELECT * FROM meetings').all()).toEqual([
       { id: 'meeting-1', title: '제품 회의', created_at_ms: 200, updated_at_ms: 300 },
     ]);
@@ -76,7 +76,7 @@ describe('migrateToVersion3', () => {
     ).toContain('idx_meetings_created_at_id');
     expect(getRecordingColumns(database)).toEqual([
       'meeting_id',
-      'uri',
+      'relative_path',
       'mime_type',
       'sha256',
       'duration_ms',
@@ -93,7 +93,7 @@ describe('migrateToVersion3', () => {
     const firstColumns = getRecordingColumns(database);
     await migrateDatabase(adapter);
 
-    expect(database.prepare('PRAGMA user_version').get()).toEqual({ user_version: 3 });
+    expect(database.prepare('PRAGMA user_version').get()).toEqual({ user_version: 4 });
     expect(getRecordingColumns(database)).toEqual(firstColumns);
   });
 
@@ -107,7 +107,7 @@ describe('migrateToVersion3', () => {
       .prepare('INSERT INTO meetings (id, title, created_at_ms, updated_at_ms) VALUES (?, ?, ?, ?)')
       .run('meeting-1', '제품 회의', 100, 100);
     const insertRecording = database.prepare(`
-      INSERT INTO recordings (meeting_id, uri, mime_type, sha256, duration_ms, byte_size)
+      INSERT INTO recordings (meeting_id, relative_path, mime_type, sha256, duration_ms, byte_size)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
 
@@ -128,7 +128,7 @@ describe('migrateToVersion3', () => {
       database
         .prepare(
           `
-          INSERT INTO recordings (meeting_id, uri, mime_type, sha256, duration_ms, byte_size)
+          INSERT INTO recordings (meeting_id, relative_path, mime_type, sha256, duration_ms, byte_size)
           VALUES (?, ?, ?, ?, ?, ?)
         `,
         )
@@ -149,7 +149,7 @@ describe('migrateToVersion3', () => {
       database
         .prepare(
           `
-          INSERT INTO recordings (meeting_id, uri, mime_type, sha256, duration_ms, byte_size)
+          INSERT INTO recordings (meeting_id, relative_path, mime_type, sha256, duration_ms, byte_size)
           VALUES (?, ?, ?, ?, ?, ?)
         `,
         )
@@ -168,7 +168,7 @@ describe('migrateToVersion3', () => {
     database
       .prepare(
         `
-        INSERT INTO recordings (meeting_id, uri, mime_type, sha256, duration_ms, byte_size)
+        INSERT INTO recordings (meeting_id, relative_path, mime_type, sha256, duration_ms, byte_size)
         VALUES (?, ?, ?, ?, ?, ?)
       `,
       )
