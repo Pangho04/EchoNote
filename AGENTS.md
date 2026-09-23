@@ -282,7 +282,7 @@ pnpm verify
 
 결정 기록은 checkpoint마다 하나씩 `docs/learning/<checkpoint>-결정기록.md`에 둔다.
 
-- 항목은 그 checkpoint에서 새로 내린 설계 선택만 담고, 3~5개로 제한한다.
+- 항목은 그 checkpoint에서 새로 내린 설계 선택만 담는다. 개수는 제한하지 않는다. 같은 선택에서 파생된 세부 결정은 별도 항목으로 쪼개지 않고 한 항목에 묶는다.
 - 항목 형식은 결정 / 흐름(호출 사슬) / 핵심 코드 발췌 / 입력별 추적 / 왜·버린 대안·트레이드오프다.
 - 주제가 바뀌면 소제목으로 끊는다. 흐름·구조는 다이어그램, 비교·추적·분기는 표로 쓴다.
 - 항목마다 범주 하나를 붙인다. **아키텍처**(FSD 계층·의존 방향·경계·합성 루트), **RN·Expo 고유**(expo-router, expo-sqlite, expo-audio, expo-file-system, 플랫폼 파일 분리, native 어댑터), **DB**(schema·migration·PRAGMA·transaction·Row 매핑·조회 조건).
