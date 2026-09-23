@@ -2,13 +2,16 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createSQLiteMeetingRepository } from '@/entities/meeting';
-import { createSQLiteRecordingRepository } from '@/entities/recording';
+import { createSQLiteRecordingRepository, recordingFileExists } from '@/entities/recording';
 import { getMeetingDetail } from '@/features/get-meeting-detail';
 
 import { createMeetingDetailLoader } from './create-meeting-detail-loader';
 
 vi.mock('@/entities/meeting', () => ({ createSQLiteMeetingRepository: vi.fn() }));
-vi.mock('@/entities/recording', () => ({ createSQLiteRecordingRepository: vi.fn() }));
+vi.mock('@/entities/recording', () => ({
+  createSQLiteRecordingRepository: vi.fn(),
+  recordingFileExists: vi.fn(),
+}));
 vi.mock('@/features/get-meeting-detail', () => ({ getMeetingDetail: vi.fn() }));
 
 describe('createMeetingDetailLoader', () => {
@@ -28,7 +31,10 @@ describe('createMeetingDetailLoader', () => {
 
     expect(createSQLiteMeetingRepository).toHaveBeenCalledWith(database);
     expect(createSQLiteRecordingRepository).toHaveBeenCalledWith(database);
-    expect(getMeetingDetail).toHaveBeenCalledWith({ meetings, recordings }, 'meeting-1');
+    expect(getMeetingDetail).toHaveBeenCalledWith(
+      { meetings, recordings, recordingFileExists },
+      'meeting-1',
+    );
     expect(result).toEqual({ kind: 'not-found' });
   });
 });

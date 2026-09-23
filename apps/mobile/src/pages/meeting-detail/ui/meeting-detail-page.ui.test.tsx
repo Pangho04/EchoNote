@@ -101,6 +101,7 @@ describe('MeetingDetailPage', () => {
 
   it.each([
     ['not-found', '회의를 찾을 수 없습니다.'],
+    ['recording-missing', '녹음 파일을 찾을 수 없습니다.'],
     ['error', '회의를 불러오지 못했습니다.'],
   ] as const)('%s 상태면 본문 없이 팝업으로만 안내한다', async (kind, message) => {
     mockedUseMeetingDetailViewModel.mockReturnValue({ kind, message } as MeetingDetailViewModel);

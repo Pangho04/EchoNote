@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { createSQLiteMeetingRepository } from '@/entities/meeting';
-import { createSQLiteRecordingRepository } from '@/entities/recording';
+import { createSQLiteRecordingRepository, recordingFileExists } from '@/entities/recording';
 import { getMeetingDetail, type MeetingDetailResult } from '@/features/get-meeting-detail';
 
 export type MeetingDetailLoader = (meetingId: string) => Promise<MeetingDetailResult>;
@@ -12,5 +12,5 @@ export function createMeetingDetailLoader(database: SQLiteDatabase): MeetingDeta
   const meetings = createSQLiteMeetingRepository(database);
   const recordings = createSQLiteRecordingRepository(database);
 
-  return (meetingId) => getMeetingDetail({ meetings, recordings }, meetingId);
+  return (meetingId) => getMeetingDetail({ meetings, recordings, recordingFileExists }, meetingId);
 }

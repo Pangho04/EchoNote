@@ -30,7 +30,11 @@ describe('getMeetingDetail', () => {
   it('Meeting과 saved Recording이 둘 다 있으면 ready를 반환한다', async () => {
     const getByMeetingId = vi.fn(async () => meeting);
     const getSavedByMeetingId = vi.fn(async () => recording);
-    const deps = { meetings: { getByMeetingId }, recordings: { getSavedByMeetingId } };
+    const deps = {
+      meetings: { getByMeetingId },
+      recordings: { getSavedByMeetingId },
+      recordingFileExists: () => true,
+    };
 
     const result = await getMeetingDetail(deps, meetingId);
 
@@ -44,7 +48,11 @@ describe('getMeetingDetail', () => {
   it('Meeting이 없으면 not-found를 반환하고 Recording을 조회하지 않는다', async () => {
     const getByMeetingId = vi.fn(async () => null);
     const getSavedByMeetingId = vi.fn(async () => recording);
-    const deps = { meetings: { getByMeetingId }, recordings: { getSavedByMeetingId } };
+    const deps = {
+      meetings: { getByMeetingId },
+      recordings: { getSavedByMeetingId },
+      recordingFileExists: () => true,
+    };
 
     const result = await getMeetingDetail(deps, meetingId);
 
@@ -55,7 +63,11 @@ describe('getMeetingDetail', () => {
   it('Meeting은 있는데 saved Recording이 없으면 error다', async () => {
     const getByMeetingId = vi.fn(async () => meeting);
     const getSavedByMeetingId = vi.fn(async () => null);
-    const deps = { meetings: { getByMeetingId }, recordings: { getSavedByMeetingId } };
+    const deps = {
+      meetings: { getByMeetingId },
+      recordings: { getSavedByMeetingId },
+      recordingFileExists: () => true,
+    };
 
     const result = await getMeetingDetail(deps, meetingId);
 
@@ -70,7 +82,11 @@ describe('getMeetingDetail', () => {
       throw new Error('meeting 조회 실패');
     });
     const getSavedByMeetingId = vi.fn(async () => recording);
-    const deps = { meetings: { getByMeetingId }, recordings: { getSavedByMeetingId } };
+    const deps = {
+      meetings: { getByMeetingId },
+      recordings: { getSavedByMeetingId },
+      recordingFileExists: () => true,
+    };
 
     const result = await getMeetingDetail(deps, meetingId);
 
@@ -83,7 +99,11 @@ describe('getMeetingDetail', () => {
     const getSavedByMeetingId = vi.fn(async () => {
       throw new Error('recording 조회 실패');
     });
-    const deps = { meetings: { getByMeetingId }, recordings: { getSavedByMeetingId } };
+    const deps = {
+      meetings: { getByMeetingId },
+      recordings: { getSavedByMeetingId },
+      recordingFileExists: () => true,
+    };
 
     const result = await getMeetingDetail(deps, meetingId);
 
@@ -95,10 +115,28 @@ describe('getMeetingDetail', () => {
       throw '문자열 에러';
     });
     const getSavedByMeetingId = vi.fn(async () => recording);
-    const deps = { meetings: { getByMeetingId }, recordings: { getSavedByMeetingId } };
+    const deps = {
+      meetings: { getByMeetingId },
+      recordings: { getSavedByMeetingId },
+      recordingFileExists: () => true,
+    };
 
     const result = await getMeetingDetail(deps, meetingId);
 
     expect(result).toEqual({ kind: 'error', message: String('문자열 에러') });
+  });
+
+  it('Recording 행은 있는데 파일이 없으면 recording-missing이다', async () => {
+    const recordingFileExists = vi.fn(() => false);
+    const deps = {
+      meetings: { getByMeetingId: vi.fn(async () => meeting) },
+      recordings: { getSavedByMeetingId: vi.fn(async () => recording) },
+      recordingFileExists,
+    };
+
+    const result = await getMeetingDetail(deps, meetingId);
+
+    expect(result).toEqual({ kind: 'recording-missing' });
+    expect(recordingFileExists).toHaveBeenCalledWith(recording.uri);
   });
 });

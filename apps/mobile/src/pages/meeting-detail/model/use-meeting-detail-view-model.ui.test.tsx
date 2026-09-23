@@ -96,6 +96,23 @@ describe('useMeetingDetailViewModel', () => {
     );
   });
 
+  it('recording-missing 결과는 녹음 파일을 찾을 수 없다는 안내가 된다', async () => {
+    const loadMeetingDetail = jest.fn(
+      async () => ({ kind: 'recording-missing' }) satisfies MeetingDetailResult,
+    );
+
+    const { result } = await renderHook(() =>
+      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
+    );
+
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        kind: 'recording-missing',
+        message: '녹음 파일을 찾을 수 없습니다.',
+      }),
+    );
+  });
+
   it('error 결과는 기능이 준 원인 문구 대신 고정된 안내 문구가 된다', async () => {
     const loadMeetingDetail = jest.fn(
       async () => ({ kind: 'error', message: 'DB가 깨졌습니다' }) satisfies MeetingDetailResult,

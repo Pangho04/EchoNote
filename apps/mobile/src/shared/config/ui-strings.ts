@@ -35,6 +35,7 @@ export const UI_STRINGS = {
     openFailedTitle: '회의를 열 수 없습니다',
     notFound: '회의를 찾을 수 없습니다.',
     loadFailed: '회의를 불러오지 못했습니다.',
+    recordingMissing: '녹음 파일을 찾을 수 없습니다.',
   },
   playback: {
     seekBackward: '-10',

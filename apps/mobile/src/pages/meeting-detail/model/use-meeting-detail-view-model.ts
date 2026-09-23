@@ -9,6 +9,7 @@ export type MeetingDetailViewModel =
   | { kind: 'loading' }
   | { kind: 'ready'; title: string; dateLabel: string; metaLabel: string; recordingUri: string }
   | { kind: 'not-found'; message: string }
+  | { kind: 'recording-missing'; message: string }
   | { kind: 'error'; message: string };
 
 export interface UseMeetingDetailViewModelInput {
@@ -72,13 +73,19 @@ function toReadyViewModel(
 }
 
 function toViewModel(result: MeetingDetailResult, timeZone: string): MeetingDetailViewModel {
-  if (result.kind === 'not-found')
-    return { kind: 'not-found', message: UI_STRINGS.meetingDetail.notFound };
+  switch (result.kind) {
+    case 'ready':
+      return toReadyViewModel(result.meeting, result.recording, timeZone);
 
-  if (result.kind === 'error')
-    return { kind: 'error', message: UI_STRINGS.meetingDetail.loadFailed };
+    case 'not-found':
+      return { kind: 'not-found', message: UI_STRINGS.meetingDetail.notFound };
 
-  return toReadyViewModel(result.meeting, result.recording, timeZone);
+    case 'recording-missing':
+      return { kind: 'recording-missing', message: UI_STRINGS.meetingDetail.recordingMissing };
+
+    case 'error':
+      return { kind: 'error', message: UI_STRINGS.meetingDetail.loadFailed };
+  }
 }
 
 // 조회 대상이 같은지 판단하는 키다. 둘 중 하나만 바뀌어도 다시 읽어야 한다.

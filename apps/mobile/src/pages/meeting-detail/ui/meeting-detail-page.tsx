@@ -46,7 +46,7 @@ export function MeetingDetailPage({ meetingId }: MeetingDetailPageProps): ReactE
    * @clear -
    */
   useEffect(() => {
-    if (viewModel.kind !== 'not-found' && viewModel.kind !== 'error') return;
+    if (viewModel.kind === 'loading' || viewModel.kind === 'ready') return;
 
     openDialog({
       title: UI_STRINGS.meetingDetail.openFailedTitle,
@@ -72,8 +72,9 @@ export function MeetingDetailPage({ meetingId }: MeetingDetailPageProps): ReactE
           </>
         );
 
-      // 이 둘은 팝업이 안내를 맡는다. 본문에는 아무것도 그리지 않는다.
+      // 이 셋은 팝업이 안내를 맡는다. 본문에는 아무것도 그리지 않는다.
       case 'not-found':
+      case 'recording-missing':
       case 'error':
       case 'loading':
         return <View style={styles.body} />;
