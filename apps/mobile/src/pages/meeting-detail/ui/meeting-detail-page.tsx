@@ -8,12 +8,12 @@ import { RecordingPlayer } from '@/features/play-recording';
 import { ROUTES } from '@/shared/config/routes';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { useDialog } from '@/shared/ui/dialog';
+import { NavigationHeader } from '@/shared/ui/navigation-header';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 import { createMeetingDetailLoader } from '../model/create-meeting-detail-loader';
 import { useMeetingDetailViewModel } from '../model/use-meeting-detail-view-model';
 import { MeetingDetailHeader } from './meeting-detail-header';
-import { MeetingDetailNavigation } from './meeting-detail-navigation';
 
 export interface MeetingDetailPageProps {
   meetingId: string;
@@ -83,7 +83,14 @@ export function MeetingDetailPage({ meetingId }: MeetingDetailPageProps): ReactE
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <MeetingDetailNavigation onBack={leave} />
+      <NavigationHeader
+        title={UI_STRINGS.meetingDetail.heading}
+        action={{
+          label: UI_STRINGS.meetingDetail.back,
+          accessibilityLabel: UI_STRINGS.meetingDetail.backLabel,
+          onPress: leave,
+        }}
+      />
 
       {renderBody()}
     </SafeAreaView>

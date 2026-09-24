@@ -7,8 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { recordingPermissionService } from '@/features/record-meeting/api/recording-permission-service.native';
 import { ROUTES } from '@/shared/config/routes';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
-import { AppText } from '@/shared/ui/app-text';
 import { useDialog } from '@/shared/ui/dialog';
+import { NavigationHeader } from '@/shared/ui/navigation-header';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 import { MeetingList } from '@/widgets/meeting-list';
 
@@ -89,11 +89,7 @@ export function MeetingLibraryPage() {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <View style={styles.header}>
-        <AppText variant="display" color="textPrimary" accessibilityRole="header">
-          {UI_STRINGS.meetingLibrary.heading}
-        </AppText>
-      </View>
+      <NavigationHeader title={UI_STRINGS.meetingLibrary.heading} titleVariant="display" />
 
       <View style={styles.content}>
         <View style={styles.meetingListArea}>
@@ -116,16 +112,6 @@ const useStyles = createThemedStyles((theme) =>
     safeArea: {
       backgroundColor: theme.colors.surface,
       flex: 1,
-    },
-    header: {
-      backgroundColor: theme.colors.surface,
-      borderBottomColor: theme.colors.border,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      justifyContent: 'flex-end',
-      minHeight: 64,
-      paddingBottom: 9,
-      paddingHorizontal: 18,
-      paddingTop: 10,
     },
     content: {
       backgroundColor: theme.colors.background,
