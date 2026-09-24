@@ -184,6 +184,8 @@ function SwipeableMeetingRow({
             onMeetingDelete(item.id);
           }}
           style={styles.deleteAction}
+          // Android E2E 도구는 숨긴 버튼도 찾으므로 열린 행의 버튼에만 id를 준다.
+          testID={isOpen ? 'meeting-row-delete' : undefined}
         >
           <AppText style={styles.deleteActionLabel} variant="body">
             {UI_STRINGS.meetingLibrary.delete}

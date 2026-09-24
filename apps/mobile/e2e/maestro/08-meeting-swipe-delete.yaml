@@ -13,7 +13,9 @@ env:
 - swipe:
     from: .*${TITLE}.*
     direction: LEFT
-- tapOn: '삭제'
+# 닫힌 행 뒤의 숨은 삭제 버튼도 `삭제`로 잡히므로 열린 행의 버튼을 id로 누른다.
+- tapOn:
+    id: 'meeting-row-delete'
 
 - extendedWaitUntil:
     visible: '삭제하시겠습니까? 복구가 불가능합니다.'
