@@ -32,7 +32,8 @@
             "enableSceneSupport": true
           }
         }
-      ]
+      ],
+      "./plugins/with-user-script-sandboxing-disabled"
     ],
     "experiments": {
       "typedRoutes": true
