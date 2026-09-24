@@ -23,6 +23,9 @@ env:
 # 작년을 고르면 올해 만든 회의가 목록에서 빠진다.
 - tapOn: '조회 연도 변경.*'
 - tapOn: '^${new Date().getFullYear() - 1}년$'
+- extendedWaitUntil:
+    visible: '저장된 회의가 없습니다.'
+    timeout: 10000
 - assertNotVisible: .*${TITLE}.*
 
 # 올해로 돌아오면 다시 보인다.

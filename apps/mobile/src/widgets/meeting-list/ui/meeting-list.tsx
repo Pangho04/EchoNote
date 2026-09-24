@@ -24,6 +24,8 @@ type Props = {
   toolbar?: ReactNode;
   // 섹션 라벨 행 바로 아래 오른쪽에 목록 위로 겹쳐 그린다.
   headingOverlay?: ReactNode;
+  // 값이 있고 items가 비었을 때 목록 자리에 보인다.
+  emptyMessage?: string;
   onEndReached?: () => void;
 };
 
@@ -36,6 +38,7 @@ export function MeetingList({
   headingAccessory,
   toolbar,
   headingOverlay,
+  emptyMessage,
   onEndReached,
 }: Props) {
   const styles = useStyle();
@@ -105,6 +108,13 @@ export function MeetingList({
           extraData={selectedIds}
           renderItem={({ item }) => renderItem(item)}
           keyExtractor={(item) => item.id}
+          ListEmptyComponent={
+            emptyMessage ? (
+              <AppText color="textSecondary" style={styles.emptyMessage} variant="body">
+                {emptyMessage}
+              </AppText>
+            ) : null
+          }
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}
           onContentSizeChange={(_, contentHeight) => updateHasMoreBelow({ contentHeight })}
@@ -217,6 +227,10 @@ const useStyle = createThemedStyles((theme) =>
     },
     sectionLabel: {
       fontWeight: theme.typography.fontWeight.bold,
+    },
+    emptyMessage: {
+      paddingTop: theme.spacing[12],
+      textAlign: 'center',
     },
     deleteAction: {
       alignItems: 'center',

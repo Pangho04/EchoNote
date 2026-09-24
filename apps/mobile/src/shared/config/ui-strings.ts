@@ -28,6 +28,7 @@ export const UI_STRINGS = {
     startRecording: '녹음 시작',
     openSettings: '설정 열기',
     recentSection: '최근 기록',
+    empty: '저장된 회의가 없습니다.',
     yearSuffix: '년',
     yearFilterLabel: '조회 연도 변경, 현재',
     edit: '편집',

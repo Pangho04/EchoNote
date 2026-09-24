@@ -28,6 +28,8 @@ export type ConfirmRecordingResult =
 
 export interface MeetingLibraryViewModel {
   items: MeetingListVMItem[];
+  // 조회가 끝났는데 고른 연도에 회의가 없다. 조회 중이거나 실패했으면 false다.
+  isEmpty: boolean;
   errorMessage: string | null;
   selectedYear: number;
   // 최신 연도부터 나열한다.
@@ -55,6 +57,7 @@ export function useMeetingLibraryViewModel(
   const database = useSQLiteContext();
 
   const [items, setItems] = useState<MeetingListVMItem[]>([]);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
@@ -82,6 +85,7 @@ export function useMeetingLibraryViewModel(
 
       nextCursor.current = result.nextCursor;
       setItems(result.meetings.map((meeting) => toMeetingListItemVM(meeting, result.timeZone)));
+      setHasLoaded(true);
       setErrorMessage(null);
     } catch {
       // 사용자에게는 고정 문구만 보인다. 원인 문구는 화면에 노출하지 않는다.
@@ -123,6 +127,7 @@ export function useMeetingLibraryViewModel(
       queryYear.current = year;
       setSelectedYear(year);
       setItems([]);
+      setHasLoaded(false);
       void refresh();
     },
     [refresh],
@@ -186,6 +191,7 @@ export function useMeetingLibraryViewModel(
 
   return {
     items,
+    isEmpty: hasLoaded && items.length === 0,
     errorMessage,
     selectedYear,
     yearOptions: YEAR_OPTIONS,

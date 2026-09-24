@@ -21,6 +21,7 @@ export function MeetingLibraryPage() {
   const router = useRouter();
   const {
     items,
+    isEmpty,
     selectedYear,
     yearOptions,
     selectYear,
@@ -177,6 +178,7 @@ export function MeetingLibraryPage() {
         <View style={styles.meetingListArea}>
           <MeetingList
             items={items}
+            emptyMessage={isEmpty ? UI_STRINGS.meetingLibrary.empty : undefined}
             onEndReached={() => void loadMore()}
             onMeetingPress={(meetingId) => router.push(ROUTES.meeting.detail(meetingId))}
             onMeetingDelete={isDeleting ? undefined : (meetingId) => openDeleteDialog([meetingId])}

@@ -366,5 +366,39 @@ describe('MeetingLibraryPage', () => {
       expect(queryAllByRole('menuitem')).toHaveLength(0);
       expect(getByLabelText(`조회 연도 변경, 현재 ${currentYear}년`)).toBeDisabled();
     });
+
+    it('회의가 없는 연도를 고르면 조회가 끝난 뒤 빈 목록 문구를 보인다', async () => {
+      let resolveEmpty: (
+        value: Awaited<ReturnType<ReturnType<typeof makeListMeetings>>>,
+      ) => void = () => {};
+      const listMeetings = jest.fn(({ year }: { year: number }) =>
+        year === currentYear
+          ? Promise.resolve({
+              meetings: [meeting('m1', '제품 회의')],
+              nextCursor: null,
+              timeZone: 'Asia/Seoul',
+            })
+          : new Promise((resolve) => {
+              resolveEmpty = resolve;
+            }),
+      );
+
+      mockedMakeListMeetings.mockReturnValue(
+        listMeetings as unknown as ReturnType<typeof makeListMeetings>,
+      );
+
+      const { getByLabelText, getByText, queryByText } = await renderPage();
+
+      await waitFor(() => expect(getByText('제품 회의')).toBeTruthy());
+
+      await fireEvent.press(getByLabelText(`조회 연도 변경, 현재 ${currentYear}년`));
+      await fireEvent.press(getByText(`${currentYear - 1}년`));
+
+      expect(queryByText('저장된 회의가 없습니다.')).toBeNull();
+
+      resolveEmpty({ meetings: [], nextCursor: null, timeZone: 'Asia/Seoul' });
+
+      await waitFor(() => expect(getByText('저장된 회의가 없습니다.')).toBeTruthy());
+    });
   });
 });
