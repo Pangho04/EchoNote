@@ -1,0 +1,16 @@
+appId: dev.pangho.echonote
+name: 목록 화면에서 시작
+---
+# 모든 flow는 이 subflow로 시작한다. 실행 순서가 무작위이고 앞 flow가 어느 화면에서 끝났는지
+# 알 수 없으므로, 앞 flow의 정리에 기대지 않고 앱을 새로 띄워 시작 화면을 맞춘다.
+- stopApp
+- launchApp:
+    clearState: false
+
+- runFlow: dismiss-link-prompt.yaml
+
+# 녹음 버튼은 목록 화면에만 있다. `회의`는 상세 화면의 `회의 기록`에도 부분 일치하는 러너가 있어
+# 시작 화면 판별에 쓰지 않는다. dev client는 번들을 받아 첫 화면을 그릴 때까지 시간이 걸린다.
+- extendedWaitUntil:
+    visible: '새 회의 녹음'
+    timeout: 30000

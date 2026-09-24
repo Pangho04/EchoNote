@@ -3,13 +3,7 @@ name: 앱 재시작 뒤 상세 재조회
 env:
   TITLE: 'E2E 녹음'
 ---
-- launchApp:
-    clearState: false
-
-- runFlow: ../subflows/dismiss-link-prompt.yaml
-- extendedWaitUntil:
-    visible: '회의'
-    timeout: 30000
+- runFlow: ../subflows/start-at-list.yaml
 
 - runFlow: ../subflows/create-recording.yaml
 

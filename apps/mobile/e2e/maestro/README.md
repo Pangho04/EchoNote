@@ -2,9 +2,9 @@
 
 선택자는 `src/shared/config/ui-strings.ts`의 문구와 `accessibilityLabel`을 그대로 쓴다. 문구를 바꾸면 이 flow도 같이 고친다.
 
-대상 플랫폼 둘 다 실측으로 5/5 통과한다 — Android 실기기(SM-F731N / Android 16), iOS 시뮬레이터(iPhone 17 Pro / iOS 26.5).
+실측으로 6/6 통과한다 — Android 실기기(SM-F731N / Android 16), iPhone 실기기(iOS 27.0, maestro-runner). iOS 시뮬레이터(iPhone 17 Pro / iOS 26.5)는 시작 규칙과 재생 중 seek 검증을 넣기 전 판에서 6/6을 확인했다.
 
-**iOS 실기기는 Maestro가 지원하지 않는다.** 공식 문서의 Known limitations에 "Physical Devices … not supported yet"으로 적혀 있고, `--apple-team-id`는 `record` 명령 전용이라 team ID를 줘도 드라이버 빌드에서 막힌다. iOS는 시뮬레이터로 돌리고, 실기기는 `docs/testing/device-check-dialog.md`로 눈으로 본다.
+**iOS 실기기는 공식 Maestro가 지원하지 않는다.** 공식 문서의 Known limitations에 "Physical Devices … not supported yet"으로 적혀 있다. 실기기는 오픈소스 대체 러너 [maestro-runner](https://github.com/devicelab-dev/maestro-runner)(Apache-2.0, DeviceLab)로 같은 flow를 돌린다. 아래 「iPhone 실기기」 절을 본다.
 
 ## 준비
 
@@ -43,6 +43,7 @@ Metro가 떠 있어야 한다. 없으면 `pnpm -F mobile start`를 먼저 실행
 | `03-detail-navigation.yaml` | 목록 → 상세 → 뒤로                        | 없음        |
 | `04-detail-missing.yaml`    | deep link로 없는 ID → 오류 팝업           | 없음        |
 | `05-persistence.yaml`       | 앱 종료 후 재조회                         | 없음        |
+| `06-gate-a-full.yaml`       | 30초 녹음 → 재시작 → 상세 → seek·재생     | 마이크 권한 |
 
 **Maestro는 폴더 안 flow를 파일 이름 순으로 실행하지 않는다.** 실측에서 `05 → 03 → 04 → 01 → 02` 순으로 돌았다. 그래서 회의 데이터가 필요한 flow는 `subflows/create-recording.yaml`을 `runFlow`로 불러 스스로 준비한다. 그 subflow는 회의가 이미 보이면 아무것도 하지 않는다.
 
@@ -50,16 +51,17 @@ Metro가 떠 있어야 한다. 없으면 `pnpm -F mobile start`를 먼저 실행
 
 모든 flow가 `clearState: false`다. `true`로 두면 SQLite가 지워져 `05`의 재조회 검증이 성립하지 않는다. 기기 데이터를 비우려면 앱을 지우고 다시 설치한다.
 
-dev client는 번들을 받아 첫 화면을 그리기까지 시간이 걸린다. 모든 flow가 `회의` 헤더를 30초까지 기다린 뒤 조작을 시작한다. 타임아웃을 10초로 줄이면 `04`가 간헐적으로 실패한다.
+**모든 flow는 `subflows/start-at-list.yaml`로 시작한다.** 앱을 끄고 다시 띄워 목록 화면(`새 회의 녹음` 버튼)이 보일 때까지 30초까지 기다린다. 앞 flow가 어느 화면에서 끝났는지에 기대지 않으려고 끝날 때 정리하지 않고 시작할 때 맞춘다. 새 flow도 첫 단계로 이 subflow를 부른다. dev client 번들 로드 때문에 타임아웃을 10초로 줄이면 `04`가 간헐적으로 실패한다.
 
 ## 플랫폼 차이로 flow에 넣은 장치
 
-| 장치                                   | 이유                                                                                                                                             |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 제목 선택자를 `.*${TITLE}.*` 로 감쌈   | iOS는 목록 셀 자식을 하나의 접근성 요소로 합친다(`"9월, 17, E2E 녹음, 녹음 대기"`). Maestro는 전체 일치 정규식이라 부분 문자열이 매칭되지 않는다 |
-| `hideKeyboard`를 Android에서만 실행    | iOS 시뮬레이터는 Mac 하드웨어 키보드를 쓰므로 내릴 소프트 키보드가 없고, 호출하면 실패한다                                                       |
-| 모든 flow 시작에 `dismiss-link-prompt` | iOS는 커스텀 스킴 링크에 시스템 확인 창(`열기`)을 띄운다. 앞선 flow가 남기면 화면 전체를 덮어 이후 flow가 모두 실패한다                          |
-| 대기 30~40초                           | dev client 번들 로드와 시뮬레이터 녹음 시작이 실기기보다 느리다                                                                                  |
+| 장치                                      | 이유                                                                                                                                                                        |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 제목 선택자를 `.*${TITLE}.*` 로 감쌈      | iOS는 목록 셀 자식을 하나의 접근성 요소로 합친다(`"9월, 17, E2E 녹음, 녹음 대기"`). Maestro는 전체 일치 정규식이라 부분 문자열이 매칭되지 않는다                            |
+| `hideKeyboard`를 Android에서만 실행       | iOS 시뮬레이터는 Mac 하드웨어 키보드를 쓰므로 내릴 소프트 키보드가 없고, 호출하면 실패한다                                                                                  |
+| 모든 flow 시작에 `dismiss-link-prompt`    | iOS는 커스텀 스킴 링크에 시스템 확인 창(`열기`)을 띄운다. 앞선 flow가 남기면 화면 전체를 덮어 이후 flow가 모두 실패한다                                                     |
+| 대기 30~40초                              | dev client 번들 로드와 시뮬레이터 녹음 시작이 실기기보다 느리다                                                                                                             |
+| 재생 중 탭에 `waitToSettleTimeoutMs: 500` | 재생 위치 표시가 계속 바뀌어 탭이 화면 안정을 기다리느라 한 번에 10초 넘게 늦어진다. 위치는 `copyTextFrom`으로 두 번 읽고 그사이 흐른 시간을 빼서 seek 폭을 ±2초로 판정한다 |
 
 ## 실행 전 확인
 
@@ -69,6 +71,27 @@ dev client는 번들을 받아 첫 화면을 그리기까지 시간이 걸린다
 adb shell input keyevent KEYCODE_WAKEUP
 adb shell input keyevent 82
 ```
+
+## iPhone 실기기 (maestro-runner)
+
+릴리스 tarball을 받아 `.sha256`으로 대조한 뒤 압축을 풀어 `bin/maestro-runner`를 PATH에 둔다. iPhone은 개발자 모드를 켜고 Mac을 신뢰한 상태로 USB 연결하며, 실행 중에는 잠금을 풀어 둔다.
+
+```bash
+# dev client를 개발 서버에 붙여 앱 본체를 띄운다
+xcrun devicectl device process launch --terminate-existing --device <udid> \
+  --payload-url "exp+echonote://expo-development-client/?url=http%3A%2F%2F<MAC_IP>%3A8081" dev.pangho.echonote
+
+maestro-runner --platform ios --device <udid> --team-id <TEAM_ID> \
+  --wda-bundle-id <고유 번들 ID> --output /tmp/maestro-runner test e2e/maestro
+```
+
+| 막히는 곳                                                                                   | 조치                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `com.facebook.WebDriverAgentRunner.xctrunner cannot be registered to your development team` | `--wda-bundle-id`로 팀에 등록 가능한 고유 ID를 준다                                                                                                     |
+| Xcode 27: `IPHONEOS_DEPLOYMENT_TARGET is set to 12.0 … supported 15.0 to 27.0.x`            | 러너에 들어 있는 `drivers/ios/WebDriverAgent/WebDriverAgent.xcodeproj/project.pbxproj`의 배포 타깃을 `15.0`으로 올린다. 러너를 다시 설치하면 되돌아간다 |
+| 리포트가 작업 디렉터리 `reports/`에 쌓임                                                    | `--output`으로 저장소 밖을 지정한다                                                                                                                     |
+
+**공식 Maestro와 동작이 다른 점** — `launchApp`이 떠 있는 앱을 다시 시작하지 않아 앞 flow의 화면에서 출발한다. 텍스트 선택자가 부분 일치라서 `'회의'`가 `회의 기록`에도 맞는다. 시작 subflow가 `stopApp`을 먼저 하고 목록에만 있는 `새 회의 녹음`을 기다리는 이유다. 바뀐 문구에 `notVisible`을 걸면 사라진 뒤에도 보인다고 판정한다. 그래서 「위치가 바뀌었다」는 사라짐 대신 다음 위치 후보가 보이는지(`visible` 정규식)로 기다린다. 없는 요소를 `optional`로 기다려 시간을 보내면 리포트가 실패 건수에 세므로, 화면 변화가 없는 대기는 `evalScript` 안에서 보낸다.
 
 ## 기기 상태가 필요한 시나리오 (`../scenarios`)
 

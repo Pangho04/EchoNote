@@ -4,14 +4,7 @@ env:
   TITLE: 'E2E 녹음'
 ---
 # 마이크 권한은 미리 허용된 상태를 전제한다. README의 권한 준비를 먼저 실행한다.
-- launchApp:
-    clearState: false
-
-- runFlow: ../subflows/dismiss-link-prompt.yaml
-
-- extendedWaitUntil:
-    visible: '회의'
-    timeout: 30000
+- runFlow: ../subflows/start-at-list.yaml
 
 - tapOn: '새 회의 녹음'
 - tapOn: '기본 이름으로 저장'
