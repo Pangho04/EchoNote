@@ -291,4 +291,80 @@ describe('MeetingLibraryPage', () => {
 
     expect(listMeetings).toHaveBeenCalledTimes(2);
   });
+
+  describe('연도 필터', () => {
+    const currentYear = new Date().getFullYear();
+
+    function setupList() {
+      const listMeetings = jest.fn(async () => ({
+        meetings: [meeting('m1', '제품 회의')],
+        nextCursor: null,
+        timeZone: 'Asia/Seoul',
+      }));
+
+      mockedMakeListMeetings.mockReturnValue(listMeetings);
+
+      return listMeetings;
+    }
+
+    it('연도를 고르면 메뉴를 닫고 그 연도의 첫 page부터 다시 읽는다', async () => {
+      const listMeetings = setupList();
+
+      const { getByLabelText, getByText, queryAllByRole } = await renderPage();
+
+      await waitFor(() => expect(getByText('제품 회의')).toBeTruthy());
+
+      await fireEvent.press(getByLabelText(`조회 연도 변경, 현재 ${currentYear}년`));
+      await fireEvent.press(getByText(`${currentYear - 1}년`));
+
+      await waitFor(() =>
+        expect(listMeetings).toHaveBeenLastCalledWith({ year: currentYear - 1, limit: 20 }),
+      );
+
+      expect(queryAllByRole('menuitem')).toHaveLength(0);
+      expect(getByLabelText(`조회 연도 변경, 현재 ${currentYear - 1}년`)).toBeTruthy();
+    });
+
+    it('메뉴는 최신 연도부터 1970년까지 나열한다', async () => {
+      setupList();
+
+      const { getByLabelText, getAllByRole } = await renderPage();
+
+      await fireEvent.press(getByLabelText(`조회 연도 변경, 현재 ${currentYear}년`));
+
+      const options = getAllByRole('menuitem');
+
+      expect(options).toHaveLength(currentYear - 1970 + 1);
+      expect(options[0]).toHaveTextContent(`${currentYear}년`);
+      expect(options.at(-1)).toHaveTextContent('1970년');
+    });
+
+    it('메뉴 바깥을 누르면 닫는다', async () => {
+      setupList();
+
+      const { getByLabelText, getByText, queryAllByRole } = await renderPage();
+
+      await fireEvent.press(getByLabelText(`조회 연도 변경, 현재 ${currentYear}년`));
+
+      expect(queryAllByRole('menuitem')).not.toHaveLength(0);
+
+      await fireEvent(getByText('최근 기록'), 'touchStart');
+
+      expect(queryAllByRole('menuitem')).toHaveLength(0);
+    });
+
+    it('편집을 시작하면 메뉴를 닫고 편집 중에는 비활성이다', async () => {
+      setupList();
+
+      const { getByLabelText, getByText, queryAllByRole } = await renderPage();
+
+      await waitFor(() => expect(getByText('제품 회의')).toBeTruthy());
+
+      await fireEvent.press(getByLabelText(`조회 연도 변경, 현재 ${currentYear}년`));
+      await fireEvent.press(getByLabelText('편집 시작'));
+
+      expect(queryAllByRole('menuitem')).toHaveLength(0);
+      expect(getByLabelText(`조회 연도 변경, 현재 ${currentYear}년`)).toBeDisabled();
+    });
+  });
 });

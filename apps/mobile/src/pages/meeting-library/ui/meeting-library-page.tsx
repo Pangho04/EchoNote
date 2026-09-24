@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,7 +10,7 @@ import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { useDialog } from '@/shared/ui/dialog';
 import { NavigationHeader } from '@/shared/ui/navigation-header';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
-import { MeetingList } from '@/widgets/meeting-list';
+import { MeetingList, MeetingYearFilter, MeetingYearMenu } from '@/widgets/meeting-list';
 
 import { useMeetingLibraryViewModel } from '../model/use-meeting-library-view-model';
 import { MeetingEditToolbar } from './meeting-edit-toolbar';
@@ -21,6 +21,9 @@ export function MeetingLibraryPage() {
   const router = useRouter();
   const {
     items,
+    selectedYear,
+    yearOptions,
+    selectYear,
     refresh,
     loadMore,
     errorMessage,
@@ -35,6 +38,7 @@ export function MeetingLibraryPage() {
   } = useMeetingLibraryViewModel(recordingPermissionService, () => Crypto.randomUUID());
 
   const { openDialog, closeDialog } = useDialog();
+  const [isYearMenuOpen, setIsYearMenuOpen] = useState(false);
 
   const styles = useStyles();
 
@@ -143,7 +147,12 @@ export function MeetingLibraryPage() {
   }
 
   return (
-    <SafeAreaView edges={['top']} style={styles.safeArea}>
+    <SafeAreaView
+      edges={['top']}
+      // 메뉴 바깥을 누르면 닫는다. 필터 안의 터치는 필터가 여기까지 올려 보내지 않는다.
+      onTouchStart={isYearMenuOpen ? () => setIsYearMenuOpen(false) : undefined}
+      style={styles.safeArea}
+    >
       <NavigationHeader
         title={UI_STRINGS.meetingLibrary.heading}
         titleVariant="display"
@@ -154,7 +163,10 @@ export function MeetingLibraryPage() {
                 accessibilityLabel: isEditing
                   ? UI_STRINGS.meetingLibrary.cancelEditLabel
                   : UI_STRINGS.meetingLibrary.editLabel,
-                onPress: toggleEditing,
+                onPress: () => {
+                  setIsYearMenuOpen(false);
+                  toggleEditing();
+                },
                 disabled: isDeleting,
               }
             : undefined
@@ -169,6 +181,26 @@ export function MeetingLibraryPage() {
             onMeetingPress={(meetingId) => router.push(ROUTES.meeting.detail(meetingId))}
             onMeetingDelete={isDeleting ? undefined : (meetingId) => openDeleteDialog([meetingId])}
             onToggleSelection={isDeleting ? undefined : toggleSelection}
+            headingAccessory={
+              <MeetingYearFilter
+                disabled={isEditing || isDeleting}
+                isOpen={isYearMenuOpen}
+                onToggle={() => setIsYearMenuOpen((open) => !open)}
+                selectedYear={selectedYear}
+              />
+            }
+            headingOverlay={
+              isYearMenuOpen ? (
+                <MeetingYearMenu
+                  onSelectYear={(year) => {
+                    setIsYearMenuOpen(false);
+                    selectYear(year);
+                  }}
+                  selectedYear={selectedYear}
+                  years={yearOptions}
+                />
+              ) : null
+            }
             selectedIds={isEditing ? selectedIds : undefined}
             toolbar={
               isEditing ? (

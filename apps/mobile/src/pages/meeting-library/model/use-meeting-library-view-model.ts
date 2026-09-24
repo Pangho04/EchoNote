@@ -16,6 +16,12 @@ import { UI_STRINGS } from '@/shared/config/ui-strings';
 
 const PAGE_LIMIT = 20;
 
+// ponytail: 기록 시작 연도를 조회하지 않고 1970년까지 모두 나열한다. 연도 수가 부담되면 MIN(created_at_ms)로 줄인다.
+const YEAR_OPTIONS = Array.from(
+  { length: new Date().getFullYear() - new Date(0).getFullYear() + 1 },
+  (_, index) => new Date().getFullYear() - index,
+);
+
 // 열린 회의 시작 결과를 page가 consume할 수 있게 반환한다. navigate는 page 책임이다.
 export type ConfirmRecordingResult =
   { kind: 'granted'; meetingId: string } | { kind: 'denied' } | { kind: 'blocked' };
@@ -23,6 +29,11 @@ export type ConfirmRecordingResult =
 export interface MeetingLibraryViewModel {
   items: MeetingListVMItem[];
   errorMessage: string | null;
+  selectedYear: number;
+  // 최신 연도부터 나열한다.
+  yearOptions: readonly number[];
+  // 목록과 cursor를 버리고 고른 연도의 첫 page부터 다시 읽는다.
+  selectYear(year: number): void;
   refresh(): Promise<void>;
   // 다음 page가 없거나 이미 불러오는 중이면 아무것도 하지 않는다.
   loadMore(): Promise<void>;
@@ -48,6 +59,9 @@ export function useMeetingLibraryViewModel(
   const [isEditing, setIsEditing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+  // 조회 함수가 연도마다 새로 만들어지면 focus effect가 다시 돌므로 조회는 ref로 읽는다.
+  const queryYear = useRef(selectedYear);
   const nextCursor = useRef<MeetingListCursor | null>(null);
   const isLoadingMore = useRef(false);
   // refresh가 시작되면 늘린다. 그 전에 출발한 loadMore 결과는 버린다.
@@ -62,7 +76,7 @@ export function useMeetingLibraryViewModel(
     const generation = ++listGeneration.current;
 
     try {
-      const result = await listMeetings({ year: new Date().getFullYear(), limit: PAGE_LIMIT });
+      const result = await listMeetings({ year: queryYear.current, limit: PAGE_LIMIT });
 
       if (generation !== listGeneration.current) return;
 
@@ -85,7 +99,7 @@ export function useMeetingLibraryViewModel(
 
     try {
       const result = await listMeetings({
-        year: new Date().getFullYear(),
+        year: queryYear.current,
         limit: PAGE_LIMIT,
         cursor,
       });
@@ -103,6 +117,16 @@ export function useMeetingLibraryViewModel(
       isLoadingMore.current = false;
     }
   }, [listMeetings]);
+
+  const selectYear = useCallback(
+    (year: number) => {
+      queryYear.current = year;
+      setSelectedYear(year);
+      setItems([]);
+      void refresh();
+    },
+    [refresh],
+  );
 
   const clearErrorMessage = useCallback(() => {
     setErrorMessage(null);
@@ -163,6 +187,9 @@ export function useMeetingLibraryViewModel(
   return {
     items,
     errorMessage,
+    selectedYear,
+    yearOptions: YEAR_OPTIONS,
+    selectYear,
     refresh,
     loadMore,
     clearErrorMessage,

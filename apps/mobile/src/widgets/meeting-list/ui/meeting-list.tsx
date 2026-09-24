@@ -18,8 +18,12 @@ type Props = {
   onToggleSelection?: (meetingId: string) => void;
   // 없으면 스와이프 삭제를 끈다.
   onMeetingDelete?: (meetingId: string) => void;
+  // 섹션 라벨 오른쪽 끝에 그린다.
+  headingAccessory?: ReactNode;
   // 섹션 라벨과 목록 사이에 그린다.
   toolbar?: ReactNode;
+  // 섹션 라벨 행 바로 아래 오른쪽에 목록 위로 겹쳐 그린다.
+  headingOverlay?: ReactNode;
   onEndReached?: () => void;
 };
 
@@ -29,14 +33,17 @@ export function MeetingList({
   selectedIds,
   onToggleSelection,
   onMeetingDelete,
+  headingAccessory,
   toolbar,
+  headingOverlay,
   onEndReached,
 }: Props) {
   const styles = useStyle();
-  const { colors } = useTheme();
+  const { colors, spacing } = useTheme();
   const scrollMetrics = useRef({ offsetY: 0, layoutHeight: 0, contentHeight: 0 });
   const openRow = useRef<SwipeableMethods | null>(null);
   const [hasMoreBelow, setHasMoreBelow] = useState(false);
+  const [headingBottom, setHeadingBottom] = useState(0);
 
   // 아래에 가려진 행이 있을 때만 fade를 보여 끝에 닿은 마지막 행을 가리지 않는다.
   const updateHasMoreBelow = (metrics: Partial<typeof scrollMetrics.current>) => {
@@ -76,9 +83,17 @@ export function MeetingList({
 
   return (
     <View style={styles.container}>
-      <AppText color="textSecondary" style={styles.sectionLabel} variant="caption">
-        {UI_STRINGS.meetingLibrary.recentSection}
-      </AppText>
+      <View
+        onLayout={(event) =>
+          setHeadingBottom(event.nativeEvent.layout.y + event.nativeEvent.layout.height)
+        }
+        style={styles.listHeading}
+      >
+        <AppText color="textSecondary" style={styles.sectionLabel} variant="body">
+          {UI_STRINGS.meetingLibrary.recentSection}
+        </AppText>
+        {headingAccessory}
+      </View>
 
       {toolbar}
 
@@ -121,6 +136,13 @@ export function MeetingList({
           </View>
         ) : null}
       </View>
+
+      {headingOverlay ? (
+        // 라벨 행은 44pt 터치 영역 아래에 여백이 있어, 그만큼 올려 트리거 글자 바로 아래에 붙인다.
+        <View style={[styles.headingOverlay, { top: headingBottom - spacing[2] }]}>
+          {headingOverlay}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -179,10 +201,19 @@ const useStyle = createThemedStyles((theme) =>
     container: {
       flex: 1,
     },
-    sectionLabel: {
+    listHeading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       marginTop: theme.spacing[6],
       marginHorizontal: 18,
       marginBottom: theme.spacing[2],
+    },
+    headingOverlay: {
+      position: 'absolute',
+      right: 18,
+    },
+    sectionLabel: {
       fontWeight: theme.typography.fontWeight.bold,
     },
     deleteAction: {
