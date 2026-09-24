@@ -2,7 +2,7 @@
 
 선택자는 `src/shared/config/ui-strings.ts`의 문구와 `accessibilityLabel`을 그대로 쓴다. 문구를 바꾸면 이 flow도 같이 고친다.
 
-실측으로 9/9 통과한다 — Android 실기기(SM-F731N / Android 16), iPhone 실기기(iOS 27.0, maestro-runner). iOS 시뮬레이터(iPhone 17 Pro / iOS 26.5)는 시작 규칙과 재생 중 seek 검증을 넣기 전 판에서 6/6을 확인했다.
+실측으로 10/10 통과한다 — Android 실기기(SM-F731N / Android 16), iPhone 12 mini 실기기(iOS 27.0, maestro-runner). iOS 시뮬레이터(iPhone 17 Pro / iOS 26.5)는 시작 규칙과 재생 중 seek 검증을 넣기 전 판에서 6/6을 확인했다.
 
 **iOS 실기기는 공식 Maestro가 지원하지 않는다.** 공식 문서의 Known limitations에 "Physical Devices … not supported yet"으로 적혀 있다. 실기기는 오픈소스 대체 러너 [maestro-runner](https://github.com/devicelab-dev/maestro-runner)(Apache-2.0, DeviceLab)로 같은 flow를 돌린다. 아래 「iPhone 실기기」 절을 본다.
 
@@ -38,17 +38,18 @@ Metro가 떠 있어야 한다. 없으면 `pnpm -F mobile start`를 먼저 실행
 
 ## flow와 의존
 
-| 파일                           | 다루는 것                                          | 선행        |
-| ------------------------------ | -------------------------------------------------- | ----------- |
-| `01-recording-dialog.yaml`     | 제목 팝업 표시, 바깥 탭으로 안 닫힘, 취소          | 없음        |
-| `02-record-and-save.yaml`      | 녹음 → 종료 → 저장 토스트 → 목록 반영              | 마이크 권한 |
-| `03-detail-navigation.yaml`    | 목록 → 상세 → 뒤로                                 | 없음        |
-| `04-detail-missing.yaml`       | deep link로 없는 ID → 오류 팝업                    | 없음        |
-| `05-persistence.yaml`          | 앱 종료 후 재조회                                  | 없음        |
-| `06-gate-a-full.yaml`          | 30초 녹음 → 재시작 → 상세 → seek·재생              | 마이크 권한 |
-| `07-recording-cancel.yaml`     | 녹음 중 취소 → 계속 녹음 → 버리기 → 목록           | 마이크 권한 |
-| `08-meeting-swipe-delete.yaml` | 행을 왼쪽으로 밀기 → 삭제 → 확인 → 목록에서 사라짐 | 마이크 권한 |
-| `09-meeting-bulk-delete.yaml`  | 편집 → 두 행 선택 → 삭제 → 확인 → 편집 해제        | 마이크 권한 |
+| 파일                           | 다루는 것                                                              | 선행        |
+| ------------------------------ | ---------------------------------------------------------------------- | ----------- |
+| `01-recording-dialog.yaml`     | 제목 팝업 표시, 바깥 탭으로 안 닫힘, 취소                              | 없음        |
+| `02-record-and-save.yaml`      | 녹음 → 종료 → 저장 토스트 → 목록 반영                                  | 마이크 권한 |
+| `03-detail-navigation.yaml`    | 목록 → 상세 → 뒤로                                                     | 없음        |
+| `04-detail-missing.yaml`       | deep link로 없는 ID → 오류 팝업                                        | 없음        |
+| `05-persistence.yaml`          | 앱 종료 후 재조회                                                      | 없음        |
+| `06-gate-a-full.yaml`          | 30초 녹음 → 재시작 → 상세 → seek·재생                                  | 마이크 권한 |
+| `07-recording-cancel.yaml`     | 녹음 중 취소 → 계속 녹음 → 버리기 → 목록                               | 마이크 권한 |
+| `08-meeting-swipe-delete.yaml` | 행을 왼쪽으로 밀기 → 삭제 → 확인 → 목록에서 사라짐                     | 마이크 권한 |
+| `09-meeting-bulk-delete.yaml`  | 편집 → 두 행 선택 → 삭제 → 확인 → 편집 해제                            | 마이크 권한 |
+| `10-meeting-year-filter.yaml`  | 연도 메뉴 바깥 탭으로 닫기 → 작년 선택 시 올해 회의 빠짐 → 올해로 복귀 | 마이크 권한 |
 
 **Maestro는 폴더 안 flow를 파일 이름 순으로 실행하지 않는다.** 실측에서 `05 → 03 → 04 → 01 → 02` 순으로 돌았다. 그래서 회의 데이터가 필요한 flow는 `subflows/create-recording.yaml`을 `runFlow`로 불러 스스로 준비한다. 그 subflow는 회의가 이미 보이면 아무것도 하지 않는다. 제목은 호출한 flow의 `TITLE`을 쓰며, subflow에 `env` 기본값을 두면 호출부 값을 덮어쓰므로 두지 않는다.
 
@@ -92,11 +93,12 @@ maestro-runner --platform ios --device <udid> --team-id <TEAM_ID> \
   --wda-bundle-id <고유 번들 ID> --output /tmp/maestro-runner test e2e/maestro
 ```
 
-| 막히는 곳                                                                                   | 조치                                                                                                                                                    |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `com.facebook.WebDriverAgentRunner.xctrunner cannot be registered to your development team` | `--wda-bundle-id`로 팀에 등록 가능한 고유 ID를 준다                                                                                                     |
-| Xcode 27: `IPHONEOS_DEPLOYMENT_TARGET is set to 12.0 … supported 15.0 to 27.0.x`            | 러너에 들어 있는 `drivers/ios/WebDriverAgent/WebDriverAgent.xcodeproj/project.pbxproj`의 배포 타깃을 `15.0`으로 올린다. 러너를 다시 설치하면 되돌아간다 |
-| 리포트가 작업 디렉터리 `reports/`에 쌓임                                                    | `--output`으로 저장소 밖을 지정한다                                                                                                                     |
+| 막히는 곳                                                                                   | 조치                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `com.facebook.WebDriverAgentRunner.xctrunner cannot be registered to your development team` | `--wda-bundle-id`로 팀에 등록 가능한 고유 ID를 준다                                                                                                                                         |
+| Xcode 27: `IPHONEOS_DEPLOYMENT_TARGET is set to 12.0 … supported 15.0 to 27.0.x`            | 러너에 들어 있는 `drivers/ios/WebDriverAgent/WebDriverAgent.xcodeproj/project.pbxproj`의 배포 타깃을 `15.0`으로 올린다. 러너를 다시 설치하면 되돌아간다                                     |
+| 기기를 바꾼 뒤 WDA 재설치만 반복되고 테스트가 시작되지 않음                                 | WDA 빌드 캐시(`~/.maestro-runner/cache/wda-builds/`)가 기기와 무관한 키를 써서 옛 프로파일로 서명된 WDA를 재사용한다. 해당 캐시 디렉터리를 지우면 새 기기가 포함된 프로파일로 다시 빌드한다 |
+| 리포트가 작업 디렉터리 `reports/`에 쌓임                                                    | `--output`으로 저장소 밖을 지정한다                                                                                                                                                         |
 
 **공식 Maestro와 동작이 다른 점** — `launchApp`이 떠 있는 앱을 다시 시작하지 않아 앞 flow의 화면에서 출발한다. 텍스트 선택자가 부분 일치라서 `'회의'`가 `회의 기록`에도 맞는다. 시작 subflow가 `stopApp`을 먼저 하고 목록에만 있는 `새 회의 녹음`을 기다리는 이유다. 바뀐 문구에 `notVisible`을 걸면 사라진 뒤에도 보인다고 판정한다. 그래서 「위치가 바뀌었다」는 사라짐 대신 다음 위치 후보가 보이는지(`visible` 정규식)로 기다린다. 없는 요소를 `optional`로 기다려 시간을 보내면 리포트가 실패 건수에 세므로, 화면 변화가 없는 대기는 `evalScript` 안에서 보낸다.
 

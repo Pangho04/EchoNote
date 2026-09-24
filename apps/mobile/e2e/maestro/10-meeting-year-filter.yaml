@@ -1,0 +1,33 @@
+appId: dev.pangho.echonote
+name: 연도를 바꿔 회의 목록 조회
+env:
+  TITLE: 'E2E 연도 필터'
+---
+# 트리거도 `2026년`처럼 연도만 보여 주므로 메뉴는 testID로, 항목은 트리거가 보여 주지 않는 연도로 고른다.
+- runFlow: ../subflows/start-at-list.yaml
+- runFlow:
+    file: ../subflows/create-recording.yaml
+    env:
+      TITLE: ${TITLE}
+
+# 바깥을 누르면 메뉴가 닫힌다.
+- tapOn: '조회 연도 변경.*'
+- extendedWaitUntil:
+    visible:
+      id: 'meeting-year-menu'
+    timeout: 10000
+- tapOn: '최근 기록'
+- assertNotVisible:
+    id: 'meeting-year-menu'
+
+# 작년을 고르면 올해 만든 회의가 목록에서 빠진다.
+- tapOn: '조회 연도 변경.*'
+- tapOn: '^${new Date().getFullYear() - 1}년$'
+- assertNotVisible: .*${TITLE}.*
+
+# 올해로 돌아오면 다시 보인다.
+- tapOn: '조회 연도 변경.*'
+- tapOn: '^${new Date().getFullYear()}년$'
+- extendedWaitUntil:
+    visible: .*${TITLE}.*
+    timeout: 10000
