@@ -29,7 +29,19 @@ env:
 
 - tapOn: '일시정지'
 - tapOn: '재개'
-- tapOn: '녹음 종료'
+# Android는 목록으로 돌아온 뒤 화면 안정을 기다리면 그사이 저장 토스트가 사라진다.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: '녹음 종료'
+          waitToSettleTimeoutMs: 500
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: '녹음 종료'
 
 # 저장 성공 토스트는 2.4초 뒤 사라지므로 즉시 확인한다.
 - extendedWaitUntil:

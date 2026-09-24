@@ -24,5 +24,8 @@ env:
 - assertNotVisible: '저장된 회의를 열 수 없습니다'
 
 # 목록 헤더는 DB 없이도 그려진다. 새 회의를 만들어 DB가 실제로 다시 쓰이는지 확인한다.
-- runFlow: ../subflows/create-recording.yaml
+- runFlow:
+    file: ../subflows/create-recording.yaml
+    env:
+      TITLE: 'E2E 녹음'
 - assertVisible: '.*E2E 녹음.*'

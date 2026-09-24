@@ -1,0 +1,31 @@
+appId: dev.pangho.echonote
+name: 목록 행을 밀어 회의 하나 지우기
+env:
+  TITLE: 'E2E 밀기 대상'
+---
+# 제목에 `삭제`·`확인`을 넣지 않는다. maestro-runner가 부분 일치로 제목 행을 누른다.
+- runFlow: ../subflows/start-at-list.yaml
+- runFlow:
+    file: ../subflows/create-recording.yaml
+    env:
+      TITLE: ${TITLE}
+
+- swipe:
+    from: .*${TITLE}.*
+    direction: LEFT
+- tapOn: '삭제'
+
+- extendedWaitUntil:
+    visible: '삭제하시겠습니까? 복구가 불가능합니다.'
+    timeout: 10000
+- tapOn: '확인'
+
+- extendedWaitUntil:
+    visible: '새 회의 녹음'
+    timeout: 10000
+
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertNotVisible: .*${TITLE}.*

@@ -29,7 +29,19 @@ env:
     visible: '.*3[0-9]초.*'
     timeout: 60000
 
-- tapOn: '녹음 종료'
+# Android는 목록으로 돌아온 뒤 화면 안정을 기다리면 그사이 저장 토스트가 사라진다.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: '녹음 종료'
+          waitToSettleTimeoutMs: 500
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: '녹음 종료'
 
 - extendedWaitUntil:
     visible: '녹음을 저장했습니다.'

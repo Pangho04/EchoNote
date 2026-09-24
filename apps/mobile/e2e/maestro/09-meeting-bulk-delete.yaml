@@ -1,0 +1,42 @@
+appId: dev.pangho.echonote
+name: 편집 모드에서 회의 여러 개 지우기
+env:
+  FIRST: 'E2E 묶음 첫째'
+  SECOND: 'E2E 묶음 둘째'
+---
+# 헤더 버튼은 화면 문구(`편집`·`취소`)가 아니라 접근성 라벨로 누른다. 문구는 다른 버튼과 겹친다.
+- runFlow: ../subflows/start-at-list.yaml
+- runFlow:
+    file: ../subflows/create-recording.yaml
+    env:
+      TITLE: ${FIRST}
+- runFlow:
+    file: ../subflows/create-recording.yaml
+    env:
+      TITLE: ${SECOND}
+
+- tapOn: '편집 시작'
+# 선택 개수 문구는 버튼의 접근성 라벨에 가려 선택자로 잡히지 않는다. 개수 표시는 jest가 덮는다.
+- extendedWaitUntil:
+    visible: '선택한 회의 삭제'
+    timeout: 10000
+- tapOn: .*${FIRST}.*
+- tapOn: .*${SECOND}.*
+
+- tapOn: '선택한 회의 삭제'
+- extendedWaitUntil:
+    visible: '삭제하시겠습니까? 복구가 불가능합니다.'
+    timeout: 10000
+- tapOn: '확인'
+
+# 삭제가 끝나면 편집이 풀려 녹음 버튼이 돌아온다.
+- extendedWaitUntil:
+    visible: '새 회의 녹음'
+    timeout: 10000
+
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertNotVisible: .*${FIRST}.*
+      - assertNotVisible: .*${SECOND}.*
