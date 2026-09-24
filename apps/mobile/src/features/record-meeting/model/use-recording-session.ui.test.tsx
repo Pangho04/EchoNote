@@ -75,6 +75,38 @@ describe('useRecordingSession', () => {
     expect(result.current.canResume).toBe(false);
   });
 
+  it('pause native 호출을 기다리는 동안 버튼은 막고 isTransitioning으로 알린다', async () => {
+    const { service } = makeRecorder();
+    let finishPause: () => void = () => undefined;
+
+    (service.pause as jest.Mock).mockImplementation(
+      () => new Promise<void>((resolve) => (finishPause = resolve)),
+    );
+
+    const { result } = await bind(service, makeDeps());
+
+    await waitFor(() => expect(result.current.canPause).toBe(true));
+
+    let pausing: Promise<void> = Promise.resolve();
+
+    await act(async () => {
+      pausing = result.current.pause();
+    });
+
+    expect(result.current.isTransitioning).toBe(true);
+    expect(result.current.canStop).toBe(false);
+    expect(result.current.canResume).toBe(false);
+
+    await act(async () => {
+      finishPause();
+      await pausing;
+    });
+
+    expect(result.current.isTransitioning).toBe(false);
+    expect(result.current.canResume).toBe(true);
+    expect(result.current.canStop).toBe(true);
+  });
+
   it('일시정지 후 재개해도 경과 시간이 이어진다', async () => {
     jest.useFakeTimers();
 

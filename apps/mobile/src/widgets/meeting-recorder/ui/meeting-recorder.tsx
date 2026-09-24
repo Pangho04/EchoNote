@@ -60,6 +60,7 @@ export function MeetingRecorder({ viewModel }: MeetingRecorderProps): ReactEleme
           canPause={viewModel.canPause}
           canResume={viewModel.canResume}
           canStop={viewModel.canStop}
+          isTransitioning={viewModel.isTransitioning}
           onPause={viewModel.pause}
           onResume={viewModel.resume}
           onStop={viewModel.stop}

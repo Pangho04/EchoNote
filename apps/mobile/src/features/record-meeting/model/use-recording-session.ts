@@ -41,6 +41,8 @@ export interface RecordingSessionViewModel {
   canPause: boolean;
   canResume: boolean;
   canStop: boolean;
+  // record·pause native 호출을 기다리는 중. 버튼은 막되 비활성처럼 흐리게 보이지 않게 한다.
+  isTransitioning: boolean;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   stop: () => Promise<void>;
@@ -264,6 +266,9 @@ export function useRecordingSession(input: UseRecordingSessionInput): RecordingS
   const canStop =
     (session.state === RecordingState.RECORD || session.state === RecordingState.PAUSE) &&
     session.status === RecordingStatus.COMPLETED;
+  const isTransitioning =
+    (session.state === RecordingState.RECORD || session.state === RecordingState.PAUSE) &&
+    session.status === RecordingStatus.PROCESSING;
 
   return {
     session,
@@ -276,6 +281,7 @@ export function useRecordingSession(input: UseRecordingSessionInput): RecordingS
     canPause,
     canResume,
     canStop,
+    isTransitioning,
     pause,
     resume,
     stop,

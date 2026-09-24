@@ -9,6 +9,7 @@ export interface RecordingControlsProps {
   canPause: boolean;
   canResume: boolean;
   canStop: boolean;
+  isTransitioning: boolean;
   onPause(): void;
   onResume(): void;
   onStop(): void;
@@ -16,7 +17,7 @@ export interface RecordingControlsProps {
 
 // 녹음 화면의 큰 종료 버튼 + 작은 일시정지·재개 토글 버튼(내부 도형이 단계에 따라 변화).
 export function RecordingControls(props: RecordingControlsProps): ReactElement {
-  const { canPause, canResume, canStop, onPause, onResume, onStop } = props;
+  const { canPause, canResume, canStop, isTransitioning, onPause, onResume, onStop } = props;
   const styles = useStyles();
 
   // 녹음 중(pause 가능)이면 일시정지, 일시정지 상태면 재개, 그 외엔 비활성.
@@ -31,13 +32,13 @@ export function RecordingControls(props: RecordingControlsProps): ReactElement {
       <Pressable
         accessibilityLabel={UI_STRINGS.recording.stop}
         accessibilityRole="button"
-        accessibilityState={{ disabled: !canStop }}
+        accessibilityState={{ busy: isTransitioning, disabled: !canStop }}
         disabled={!canStop}
         hitSlop={12}
         onPress={onStop}
         style={({ pressed }) => [
           styles.stopButton,
-          !canStop && styles.disabled,
+          !canStop && !isTransitioning && styles.disabled,
           pressed && styles.pressed,
         ]}
       >
@@ -47,13 +48,13 @@ export function RecordingControls(props: RecordingControlsProps): ReactElement {
       <Pressable
         accessibilityLabel={isPausing ? UI_STRINGS.recording.pause : UI_STRINGS.recording.resume}
         accessibilityRole="button"
-        accessibilityState={{ disabled: !toggleEnabled }}
+        accessibilityState={{ busy: isTransitioning, disabled: !toggleEnabled }}
         disabled={!toggleEnabled}
         hitSlop={12}
         onPress={onToggle}
         style={({ pressed }) => [
           styles.toggleButton,
-          !toggleEnabled && styles.disabled,
+          !toggleEnabled && !isTransitioning && styles.disabled,
           pressed && styles.pressed,
         ]}
       >
