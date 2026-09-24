@@ -6,6 +6,8 @@ import {
   type MeetingListVMItem,
   toMeetingListItemVM,
 } from '@/entities/meeting';
+import { createSQLiteRecordingPersistence, deleteRecordingFile } from '@/entities/recording';
+import { deleteMeetings as deleteMeetingsWithFiles } from '@/features/delete-meeting';
 import { makeListMeetings } from '@/features/list-meetings';
 import type { RecordingIdFactory, RecordingPermissionService } from '@/features/record-meeting';
 import { startRecording } from '@/features/record-meeting';
@@ -23,6 +25,13 @@ export interface MeetingLibraryViewModel {
   refresh(): Promise<void>;
   clearErrorMessage(): void;
   confirmRecordingTitle(title: string): Promise<ConfirmRecordingResult>;
+  isEditing: boolean;
+  selectedIds: ReadonlySet<string>;
+  isDeleting: boolean;
+  toggleEditing(): void;
+  toggleSelection(meetingId: string): void;
+  // 성공하면 편집을 끝내고 목록을 다시 읽는다. 실패는 false로 알린다.
+  deleteMeetings(meetingIds: string[]): Promise<boolean>;
 }
 
 export function useMeetingLibraryViewModel(
@@ -33,6 +42,9 @@ export function useMeetingLibraryViewModel(
 
   const [items, setItems] = useState<MeetingListVMItem[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const repository = useMemo(() => createSQLiteMeetingRepository(database), [database]);
   const listMeetings = useMemo(() => makeListMeetings(repository), [repository]);
@@ -66,11 +78,62 @@ export function useMeetingLibraryViewModel(
     [permissionService, createRecordingId],
   );
 
+  // 편집을 시작하거나 끝낼 때 이전 선택을 남기지 않는다.
+  const toggleEditing = useCallback(() => {
+    setIsEditing((editing) => !editing);
+    setSelectedIds(new Set());
+  }, []);
+
+  const toggleSelection = useCallback((meetingId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+
+      if (!next.delete(meetingId)) next.add(meetingId);
+
+      return next;
+    });
+  }, []);
+
+  const deleteMeetings = useCallback(
+    async (meetingIds: string[]) => {
+      const persistence = createSQLiteRecordingPersistence(database);
+
+      setIsDeleting(true);
+
+      try {
+        await deleteMeetingsWithFiles(
+          {
+            deleteMeetingsWithRecordings: persistence.deleteMeetingsWithRecordings,
+            deleteRecordingFile,
+          },
+          meetingIds,
+        );
+      } catch {
+        return false;
+      } finally {
+        setIsDeleting(false);
+      }
+
+      setIsEditing(false);
+      setSelectedIds(new Set());
+      await refresh();
+
+      return true;
+    },
+    [database, refresh],
+  );
+
   return {
     items,
     errorMessage,
     refresh,
     clearErrorMessage,
     confirmRecordingTitle,
+    isEditing,
+    selectedIds,
+    isDeleting,
+    toggleEditing,
+    toggleSelection,
+    deleteMeetings,
   };
 }

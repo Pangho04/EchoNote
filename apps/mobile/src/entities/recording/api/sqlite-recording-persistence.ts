@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { toRecordingRelativePath } from './recording-file-location';
+import { toRecordingFileUri, toRecordingRelativePath } from './recording-file-location';
 import type {
   MeetingRecordingPersistence,
   SaveMeetingWithRecordingParams,
@@ -48,6 +48,31 @@ export function createSQLiteRecordingPersistence(
           params.recording.byteSize,
         );
       });
+    },
+
+    async deleteMeetingsWithRecordings(meetingIds: string[]) {
+      if (meetingIds.length === 0) return [];
+
+      const placeholders = meetingIds.map(() => '?').join(', ');
+      let relativePaths: string[] = [];
+
+      // 경로 조회와 삭제를 한 transaction으로 묶어 그사이 바뀐 행을 놓치지 않는다.
+      // recordings 행은 ON DELETE CASCADE로 함께 지워진다.
+      await database.withTransactionAsync(async () => {
+        const rows = await database.getAllAsync<{ relative_path: string }>(
+          `SELECT relative_path FROM recordings WHERE meeting_id IN (${placeholders})`,
+          ...meetingIds,
+        );
+
+        relativePaths = rows.map((row) => row.relative_path);
+
+        await database.runAsync(
+          `DELETE FROM meetings WHERE id IN (${placeholders})`,
+          ...meetingIds,
+        );
+      });
+
+      return relativePaths.map(toRecordingFileUri);
     },
   };
 }

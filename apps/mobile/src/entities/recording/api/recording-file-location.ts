@@ -25,3 +25,10 @@ export function toRecordingFileUri(relativePath: string): string {
 export function recordingFileExists(uri: string): boolean {
   return new File(uri).exists;
 }
+
+// 이미 없는 파일은 지운 것으로 본다.
+export function deleteRecordingFile(uri: string): void {
+  const file = new File(uri);
+
+  if (file.exists) file.delete();
+}

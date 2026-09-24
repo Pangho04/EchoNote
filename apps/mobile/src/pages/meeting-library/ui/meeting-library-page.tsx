@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { BackHandler, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { recordingPermissionService } from '@/features/record-meeting/api/recording-permission-service.native';
@@ -13,13 +13,25 @@ import { createThemedStyles } from '@/shared/ui/theme-provider';
 import { MeetingList } from '@/widgets/meeting-list';
 
 import { useMeetingLibraryViewModel } from '../model/use-meeting-library-view-model';
+import { MeetingEditToolbar } from './meeting-edit-toolbar';
 import { RecordingButton } from './recording-button';
 import { RecordingTitleForm } from './recording-title-form';
 
 export function MeetingLibraryPage() {
   const router = useRouter();
-  const { items, refresh, errorMessage, clearErrorMessage, confirmRecordingTitle } =
-    useMeetingLibraryViewModel(recordingPermissionService, () => Crypto.randomUUID());
+  const {
+    items,
+    refresh,
+    errorMessage,
+    clearErrorMessage,
+    confirmRecordingTitle,
+    isEditing,
+    selectedIds,
+    isDeleting,
+    toggleEditing,
+    toggleSelection,
+    deleteMeetings,
+  } = useMeetingLibraryViewModel(recordingPermissionService, () => Crypto.randomUUID());
 
   const { openDialog, closeDialog } = useDialog();
 
@@ -34,6 +46,25 @@ export function MeetingLibraryPage() {
     useCallback(() => {
       void refresh();
     }, [refresh]),
+  );
+
+  /**
+   * @when 편집 중인 목록 화면에서 Android 뒤로 가기를 눌렀을 때
+   * @expect 화면을 떠나지 않고 편집만 끝낸다.
+   * @clear 화면을 벗어나거나 편집이 끝나면 뒤로 가기 가로채기를 해제한다.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (!isEditing) return;
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        toggleEditing();
+
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [isEditing, toggleEditing]),
   );
 
   /**
@@ -87,21 +118,73 @@ export function MeetingLibraryPage() {
     });
   }
 
+  function openDeleteDialog(meetingIds: string[]) {
+    openDialog({
+      title: UI_STRINGS.meetingLibrary.deleteTitle,
+      message: UI_STRINGS.meetingLibrary.deleteMessage,
+      actions: [
+        { label: UI_STRINGS.common.cancel },
+        {
+          label: UI_STRINGS.common.confirm,
+          emphasis: 'destructive',
+          onPress: async () => {
+            if (await deleteMeetings(meetingIds)) return;
+
+            openDialog({
+              title: UI_STRINGS.meetingLibrary.deleteTitle,
+              message: UI_STRINGS.meetingLibrary.deleteFailed,
+              actions: [{ label: UI_STRINGS.common.confirm }],
+            });
+          },
+        },
+      ],
+    });
+  }
+
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <NavigationHeader title={UI_STRINGS.meetingLibrary.heading} titleVariant="display" />
+      <NavigationHeader
+        title={UI_STRINGS.meetingLibrary.heading}
+        titleVariant="display"
+        trailingAction={
+          items.length > 0 || isEditing
+            ? {
+                label: isEditing ? UI_STRINGS.common.cancel : UI_STRINGS.meetingLibrary.edit,
+                accessibilityLabel: isEditing
+                  ? UI_STRINGS.meetingLibrary.cancelEditLabel
+                  : UI_STRINGS.meetingLibrary.editLabel,
+                onPress: toggleEditing,
+                disabled: isDeleting,
+              }
+            : undefined
+        }
+      />
 
       <View style={styles.content}>
         <View style={styles.meetingListArea}>
           <MeetingList
             items={items}
             onMeetingPress={(meetingId) => router.push(ROUTES.meeting.detail(meetingId))}
+            onMeetingDelete={isDeleting ? undefined : (meetingId) => openDeleteDialog([meetingId])}
+            onToggleSelection={isDeleting ? undefined : toggleSelection}
+            selectedIds={isEditing ? selectedIds : undefined}
+            toolbar={
+              isEditing ? (
+                <MeetingEditToolbar
+                  disabled={isDeleting}
+                  onDeletePress={() => openDeleteDialog([...selectedIds])}
+                  selectedCount={selectedIds.size}
+                />
+              ) : null
+            }
           />
         </View>
 
-        <View style={styles.recordingButtonPosition}>
-          <RecordingButton openTitleDialog={openRecordingTitleDialog} />
-        </View>
+        {!isEditing && (
+          <View style={styles.recordingButtonPosition}>
+            <RecordingButton openTitleDialog={openRecordingTitleDialog} />
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );

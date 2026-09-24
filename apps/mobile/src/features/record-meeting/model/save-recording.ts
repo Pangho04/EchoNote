@@ -46,7 +46,7 @@ export type SaveRecordingInput = {
 };
 
 export type SaveRecordingDependencies = {
-  persistence: MeetingRecordingPersistence;
+  persistence: Pick<MeetingRecordingPersistence, 'saveMeetingWithRecording'>;
   files: RecordingFileService;
   createFinalUri: (meetingId: string) => string;
   isAllowedMimeType: (mimeType: string) => boolean;

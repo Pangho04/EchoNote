@@ -15,4 +15,6 @@ export type SaveMeetingWithRecordingParams = {
 // 어떤 실패에서도 partial write가 남지 않는다.
 export interface MeetingRecordingPersistence {
   saveMeetingWithRecording(params: SaveMeetingWithRecordingParams): Promise<void>;
+  // 지운 Recording의 파일 URI를 돌려준다. 없는 meetingId는 건너뛴다.
+  deleteMeetingsWithRecordings(meetingIds: string[]): Promise<string[]>;
 }

@@ -2,3 +2,7 @@
 jest.mock('react-native-keyboard-controller', () =>
   jest.requireActual('react-native-keyboard-controller/jest'),
 );
+jest.mock('react-native-worklets', () =>
+  jest.requireActual('react-native-worklets/lib/module/mock'),
+);
+jest.requireActual('react-native-gesture-handler/jestSetup');

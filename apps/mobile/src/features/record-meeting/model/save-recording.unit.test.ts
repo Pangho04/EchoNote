@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { MeetingRecordingPersistence } from '@/entities/recording';
 import type { Recording } from '@/entities/recording';
 
 import type { RecordingFileService } from '../api/recording-file-service-contract';
@@ -30,7 +29,7 @@ function makeFiles(overrides: Partial<RecordingFileService> = {}): RecordingFile
 }
 
 function makeDeps(overrides: Partial<SaveRecordingDependencies> = {}): SaveRecordingDependencies {
-  const persistence: MeetingRecordingPersistence = {
+  const persistence: SaveRecordingDependencies['persistence'] = {
     saveMeetingWithRecording: vi.fn(async () => undefined),
   };
 

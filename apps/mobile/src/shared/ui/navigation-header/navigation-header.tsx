@@ -8,44 +8,55 @@ export interface NavigationHeaderAction {
   label: string;
   accessibilityLabel: string;
   onPress: () => void;
+  disabled?: boolean;
 }
 
 export interface NavigationHeaderProps {
   title: string;
   titleVariant?: 'title' | 'display';
-  // 없으면 제목만 왼쪽에 둔다.
+  // 있으면 왼쪽에 두고 제목을 가운데로 옮긴다. 없으면 제목이 왼쪽에 온다.
   action?: NavigationHeaderAction;
+  trailingAction?: NavigationHeaderAction;
 }
 
 export function NavigationHeader({
   title,
   titleVariant = 'title',
   action,
+  trailingAction,
 }: NavigationHeaderProps): ReactElement {
   const styles = useStyles();
 
+  function renderAction({ label, accessibilityLabel, onPress, disabled }: NavigationHeaderAction) {
+    return (
+      <Pressable
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        hitSlop={5}
+        onPress={onPress}
+        style={styles.action}
+      >
+        <AppText color={disabled ? 'textSecondary' : 'accent'} variant="body">
+          {label}
+        </AppText>
+      </Pressable>
+    );
+  }
+
   return (
-    <View style={[styles.container, action && styles.withAction]}>
-      {action && (
-        <Pressable
-          accessibilityLabel={action.accessibilityLabel}
-          accessibilityRole="button"
-          hitSlop={5}
-          onPress={action.onPress}
-          style={styles.action}
-        >
-          <AppText color="accent" variant="body">
-            {action.label}
-          </AppText>
-        </Pressable>
-      )}
+    <View style={[styles.container, (action || trailingAction) && styles.withAction]}>
+      {action && renderAction(action)}
 
       <AppText accessibilityRole="header" variant={titleVariant}>
         {title}
       </AppText>
 
+      {trailingAction && renderAction(trailingAction)}
+
       {/** 제목이 가운데에 오도록 action과 같은 폭을 비워 둔다. */}
-      {action && <View style={styles.spacer} />}
+      {action && !trailingAction && <View style={styles.spacer} />}
     </View>
   );
 }

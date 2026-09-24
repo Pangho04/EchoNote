@@ -32,4 +32,26 @@ describe('NavigationHeader', () => {
 
     expect(onPress).toHaveBeenCalledTimes(1);
   });
+
+  it('비활성 trailingAction은 눌러도 onPress를 부르지 않는다', async () => {
+    const onPress = jest.fn();
+
+    await render(
+      <ThemeProvider mode="light">
+        <NavigationHeader
+          title="회의"
+          trailingAction={{
+            label: '편집',
+            accessibilityLabel: '편집 시작',
+            onPress,
+            disabled: true,
+          }}
+        />
+      </ThemeProvider>,
+    );
+
+    fireEvent.press(screen.getByLabelText('편집 시작'));
+
+    expect(onPress).not.toHaveBeenCalled();
+  });
 });

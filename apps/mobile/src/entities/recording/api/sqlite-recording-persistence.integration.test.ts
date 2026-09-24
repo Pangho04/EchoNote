@@ -181,4 +181,62 @@ describe('SQLiteRecordingPersistence integration', () => {
 
     expect(database.prepare('SELECT COUNT(*) AS count FROM meetings').get()).toEqual({ count: 0 });
   });
+
+  describe('deleteMeetingsWithRecordings', () => {
+    async function setup(meetingIds: string[]) {
+      const database = new DatabaseSync(':memory:');
+      databases.push(database);
+      const adapter = createSQLiteAdapter(database);
+      await migrateDatabase(adapter);
+      const persistence = createSQLiteRecordingPersistence(adapter);
+
+      for (const meetingId of meetingIds) {
+        await persistence.saveMeetingWithRecording({
+          meeting: { meetingId, title: meetingId, createdAt: '2026-08-08T00:11:00.000Z' },
+          recording: {
+            meetingId,
+            uri: `file:///document/recordings/${meetingId}.m4a`,
+            mimeType: 'audio/mp4',
+            sha256: 'abc',
+            durationMs: 1000,
+            byteSize: 1024,
+          },
+        });
+      }
+
+      return { database, persistence };
+    }
+
+    it('고른 회의와 녹음 행을 함께 지우고 녹음 파일 URI를 돌려준다', async () => {
+      const { database, persistence } = await setup(['meeting-1', 'meeting-2', 'meeting-3']);
+
+      const uris = await persistence.deleteMeetingsWithRecordings(['meeting-1', 'meeting-3']);
+
+      expect([...uris].sort()).toEqual([
+        'file:///document/recordings/meeting-1.m4a',
+        'file:///document/recordings/meeting-3.m4a',
+      ]);
+      expect(database.prepare('SELECT id FROM meetings').all()).toEqual([{ id: 'meeting-2' }]);
+      expect(database.prepare('SELECT meeting_id FROM recordings').all()).toEqual([
+        { meeting_id: 'meeting-2' },
+      ]);
+      expect(
+        database
+          .prepare(
+            'SELECT COUNT(*) AS count FROM recordings r LEFT JOIN meetings m ON m.id = r.meeting_id WHERE m.id IS NULL',
+          )
+          .get(),
+      ).toEqual({ count: 0 });
+    });
+
+    it('없는 meetingId는 건너뛰고 빈 목록이면 아무것도 하지 않는다', async () => {
+      const { database, persistence } = await setup(['meeting-1']);
+
+      await expect(persistence.deleteMeetingsWithRecordings([])).resolves.toEqual([]);
+      await expect(persistence.deleteMeetingsWithRecordings(['missing'])).resolves.toEqual([]);
+      expect(database.prepare('SELECT COUNT(*) AS count FROM meetings').get()).toEqual({
+        count: 1,
+      });
+    });
+  });
 });
