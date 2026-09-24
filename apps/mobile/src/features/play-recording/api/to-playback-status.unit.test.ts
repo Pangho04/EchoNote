@@ -42,7 +42,13 @@ describe('toPlaybackStatus', () => {
   it.each([
     ['error', { error: '재생 실패' }, PlaybackStatusKind.ERROR],
     ['mediaServicesDidReset', { mediaServicesDidReset: true }, PlaybackStatusKind.ERROR],
-    ['!isLoaded', { isLoaded: false }, PlaybackStatusKind.LOADING],
+    ['!isLoaded·길이 모름', { isLoaded: false }, PlaybackStatusKind.LOADING],
+    [
+      '!isLoaded·길이 앎·재생 중',
+      { isLoaded: false, duration: 30, playing: true },
+      PlaybackStatusKind.PLAYING,
+    ],
+    ['!isLoaded·길이 앎·정지', { isLoaded: false, duration: 30 }, PlaybackStatusKind.READY],
     ['didJustFinish', { didJustFinish: true, playing: true }, PlaybackStatusKind.ENDED],
     ['playing', { playing: true }, PlaybackStatusKind.PLAYING],
     ['loaded·정지', {}, PlaybackStatusKind.READY],
