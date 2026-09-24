@@ -22,6 +22,8 @@ adb shell pm grant dev.pangho.echonote android.permission.RECORD_AUDIO
 
 iOS는 개발자 프로파일을 기기에서 신뢰한 뒤(설정 → 일반 → VPN 및 기기 관리) 한 번 직접 실행해 마이크 권한을 허용해 둔다.
 
+양쪽 모두 개발 메뉴의 `Tools button`을 끈다. 떠 있는 톱니바퀴 버튼이 헤더의 `취소`·`‹ 회의` 위에 오면 Maestro가 그 버튼을 눌러 flow가 실패한다. 끈 뒤에는 기기를 흔들어 개발 메뉴를 연다.
+
 ## 실행
 
 ```bash
@@ -44,6 +46,7 @@ Metro가 떠 있어야 한다. 없으면 `pnpm -F mobile start`를 먼저 실행
 | `04-detail-missing.yaml`    | deep link로 없는 ID → 오류 팝업           | 없음        |
 | `05-persistence.yaml`       | 앱 종료 후 재조회                         | 없음        |
 | `06-gate-a-full.yaml`       | 30초 녹음 → 재시작 → 상세 → seek·재생     | 마이크 권한 |
+| `07-recording-cancel.yaml`  | 녹음 중 취소 → 계속 녹음 → 버리기 → 목록  | 마이크 권한 |
 
 **Maestro는 폴더 안 flow를 파일 이름 순으로 실행하지 않는다.** 실측에서 `05 → 03 → 04 → 01 → 02` 순으로 돌았다. 그래서 회의 데이터가 필요한 flow는 `subflows/create-recording.yaml`을 `runFlow`로 불러 스스로 준비한다. 그 subflow는 회의가 이미 보이면 아무것도 하지 않는다.
 

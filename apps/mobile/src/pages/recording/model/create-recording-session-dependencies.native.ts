@@ -39,5 +39,8 @@ export function createRecordingSessionDependencies(
       ),
     getSavedByMeetingId: async (meetingId: string): Promise<Recording | null> =>
       recordings.getSavedByMeetingId(meetingId),
+    deleteTempRecording: async (uri) => {
+      if (await files.exists(uri)) await files.delete(uri);
+    },
   };
 }

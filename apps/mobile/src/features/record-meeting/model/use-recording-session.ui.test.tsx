@@ -6,7 +6,7 @@ import type {
   RecordingService,
   StoppedRecordingCandidate,
 } from '../api/recording-service-contract';
-import { clearRecordingDraft } from './recording-draft';
+import { clearRecordingDraft, getRecordingDraft, setRecordingDraft } from './recording-draft';
 import { type RecordingSessionDependencies, useRecordingSession } from './use-recording-session';
 
 const candidate: StoppedRecordingCandidate = { tempUri: 'file:///temp/m1.m4a', durationMs: 5000 };
@@ -45,6 +45,7 @@ function makeDeps(
     getCurrentTimeZone: jest.fn(() => 'Asia/Seoul'),
     saveRecording: jest.fn(async () => saved),
     getSavedByMeetingId: jest.fn(async () => null),
+    deleteTempRecording: jest.fn(async () => undefined),
     ...overrides,
   };
 }
@@ -204,5 +205,93 @@ describe('useRecordingSession', () => {
     await waitFor(() => expect(result.current.saveStatus).toBe('saved'));
     expect(deps.saveRecording).toHaveBeenCalledTimes(1);
     expect(stop).toHaveBeenCalledTimes(1);
+  });
+
+  describe('discard', () => {
+    beforeEach(() => {
+      setRecordingDraft({ meetingId: 'm1', titleInput: '제목' });
+    });
+
+    it('녹음 전에는 버릴 것이 없고, 녹음 중에는 멈춘 뒤 임시 파일과 draft를 지운다', async () => {
+      let finishPrepare: () => void = () => undefined;
+      const { service, stop } = makeRecorder();
+
+      (service.prepare as jest.Mock).mockImplementation(
+        () => new Promise<void>((resolve) => (finishPrepare = resolve)),
+      );
+
+      const deps = makeDeps();
+      const { result } = await bind(service, deps);
+
+      expect(result.current.canDiscard).toBe(false);
+
+      await act(async () => {
+        finishPrepare();
+      });
+      await waitFor(() => expect(result.current.canDiscard).toBe(true));
+
+      await act(async () => {
+        await result.current.discard();
+      });
+
+      expect(stop).toHaveBeenCalledTimes(1);
+      expect(deps.deleteTempRecording).toHaveBeenCalledWith(candidate.tempUri);
+      expect(getRecordingDraft('m1')).toBeNull();
+      expect(deps.saveRecording).not.toHaveBeenCalled();
+    });
+
+    it('저장 중에는 isSaving, 저장 실패 뒤에는 남은 임시 파일을 다시 멈추지 않고 지운다', async () => {
+      let failSave: (error: Error) => void = () => undefined;
+      const { service, stop } = makeRecorder();
+      const deps = makeDeps({
+        saveRecording: jest.fn(() => new Promise<Recording>((_, reject) => (failSave = reject))),
+      });
+      const { result } = await bind(service, deps);
+
+      await waitFor(() => expect(result.current.canStop).toBe(true));
+
+      let stopping: Promise<void> = Promise.resolve();
+
+      await act(async () => {
+        stopping = result.current.stop();
+      });
+
+      expect(result.current.isSaving).toBe(true);
+      expect(result.current.canDiscard).toBe(false);
+
+      await act(async () => {
+        failSave(new Error('db fail'));
+        await stopping;
+      });
+
+      expect(result.current.isSaving).toBe(false);
+      expect(result.current.canDiscard).toBe(true);
+
+      await act(async () => {
+        await result.current.discard();
+      });
+
+      expect(stop).toHaveBeenCalledTimes(1);
+      expect(deps.deleteTempRecording).toHaveBeenCalledWith(candidate.tempUri);
+      expect(getRecordingDraft('m1')).toBeNull();
+    });
+
+    it('임시 파일 삭제가 실패하면 draft를 남기고 호출자에게 실패를 알린다', async () => {
+      const { service } = makeRecorder();
+      const deps = makeDeps({
+        deleteTempRecording: jest.fn(async () => {
+          throw new Error('delete fail');
+        }),
+      });
+      const { result } = await bind(service, deps);
+
+      await waitFor(() => expect(result.current.canDiscard).toBe(true));
+
+      await act(async () => {
+        await expect(result.current.discard()).rejects.toThrow('delete fail');
+      });
+
+      expect(getRecordingDraft('m1')).not.toBeNull();
+    });
   });
 });

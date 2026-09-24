@@ -1,0 +1,47 @@
+appId: dev.pangho.echonote
+name: 녹음 취소 확인과 폐기
+env:
+  TITLE: 'E2E 폐기 녹음'
+---
+# 마이크 권한은 미리 허용된 상태를 전제한다. README의 권한 준비를 먼저 실행한다.
+- runFlow: ../subflows/start-at-list.yaml
+
+- tapOn: '새 회의 녹음'
+- tapOn: '기본 이름으로 저장'
+- inputText: ${TITLE}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+
+- tapOn: '녹음 시작'
+
+- extendedWaitUntil:
+    visible: '녹음 종료'
+    timeout: 40000
+
+# 확인 팝업에서 계속 녹음을 고르면 녹음 화면에 그대로 남는다.
+- tapOn: '취소'
+- extendedWaitUntil:
+    visible: '녹음을 버릴까요?'
+    timeout: 10000
+- tapOn: '계속 녹음'
+- assertVisible: '녹음 종료'
+
+- tapOn: '취소'
+- extendedWaitUntil:
+    visible: '녹음을 버릴까요?'
+    timeout: 10000
+- tapOn: '녹음 버리기'
+
+- extendedWaitUntil:
+    visible: '새 회의 녹음'
+    timeout: 10000
+
+# maestro-runner의 notVisible은 오판한 전례가 있어 공식 Maestro를 쓰는 Android에서만 확인한다.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertNotVisible: .*${TITLE}.*

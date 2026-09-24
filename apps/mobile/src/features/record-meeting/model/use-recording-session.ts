@@ -21,6 +21,8 @@ export interface RecordingSessionDependencies {
   getCurrentTimeZone(): string;
   saveRecording(input: SaveRecordingInput): Promise<Recording>;
   getSavedByMeetingId(meetingId: string): Promise<Recording | null>;
+  // 파일이 이미 없으면 아무것도 하지 않는다.
+  deleteTempRecording(uri: string): Promise<void>;
 }
 
 export interface UseRecordingSessionInput {
@@ -43,11 +45,16 @@ export interface RecordingSessionViewModel {
   canStop: boolean;
   // record·pause native 호출을 기다리는 중. 버튼은 막되 비활성처럼 흐리게 보이지 않게 한다.
   isTransitioning: boolean;
+  // 녹음 중·일시정지이거나 저장에 실패해 임시 파일이 남은 상태. 이때만 버리기를 확인한다.
+  canDiscard: boolean;
+  // 정지·저장이 진행 중이라 화면을 벗어나면 원본을 잃는 상태.
+  isSaving: boolean;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   stop: () => Promise<void>;
   retrySave: () => void;
   changeTitle: (title: string) => void;
+  discard: () => Promise<void>;
 }
 
 function formatElapsedLabel(elapsedMs: number): string {
@@ -250,6 +257,14 @@ export function useRecordingSession(input: UseRecordingSessionInput): RecordingS
     void saveCurrentCandidate(candidate);
   }, [saveCurrentCandidate]);
 
+  // 녹음을 멈추고 임시 파일과 draft를 지운다. 실패하면 호출자가 화면에 남아 다시 시도한다.
+  const discard = useCallback(async () => {
+    const candidate = savedCandidateRef.current ?? (await recordingService.stop());
+
+    await dependencies.deleteTempRecording(candidate.tempUri);
+    clearRecordingDraft(meetingId);
+  }, [dependencies, meetingId, recordingService]);
+
   const changeTitle = useCallback(
     (title: string) => {
       setTitleInput(title);
@@ -269,6 +284,12 @@ export function useRecordingSession(input: UseRecordingSessionInput): RecordingS
   const isTransitioning =
     (session.state === RecordingState.RECORD || session.state === RecordingState.PAUSE) &&
     session.status === RecordingStatus.PROCESSING;
+  const canDiscard = canStop || isTransitioning || saveStatus === 'failed';
+  const isSaving =
+    session.state === RecordingState.STOP &&
+    session.status !== RecordingStatus.FAILED &&
+    saveStatus !== 'failed' &&
+    saveStatus !== 'saved';
 
   return {
     session,
@@ -282,10 +303,13 @@ export function useRecordingSession(input: UseRecordingSessionInput): RecordingS
     canResume,
     canStop,
     isTransitioning,
+    canDiscard,
+    isSaving,
     pause,
     resume,
     stop,
     retrySave,
     changeTitle,
+    discard,
   };
 }
