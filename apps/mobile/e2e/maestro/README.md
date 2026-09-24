@@ -2,7 +2,7 @@
 
 선택자는 `src/shared/config/ui-strings.ts`의 문구와 `accessibilityLabel`을 그대로 쓴다. 문구를 바꾸면 이 flow도 같이 고친다.
 
-실측으로 10/10 통과한다 — Android 실기기(SM-F731N / Android 16), iPhone 12 mini 실기기(iOS 27.0, maestro-runner). iOS 시뮬레이터(iPhone 17 Pro / iOS 26.5)는 시작 규칙과 재생 중 seek 검증을 넣기 전 판에서 6/6을 확인했다.
+실측으로 6/6 통과한다 — Android 실기기(SM-F731N / Android 16), iPhone 12 mini 실기기(iOS 27.0, maestro-runner). iOS 시뮬레이터(iPhone 17 Pro / iOS 26.5)는 시작 규칙과 재생 중 seek 검증을 넣기 전 판에서 6/6을 확인했다.
 
 **iOS 실기기는 공식 Maestro가 지원하지 않는다.** 공식 문서의 Known limitations에 "Physical Devices … not supported yet"으로 적혀 있다. 실기기는 오픈소스 대체 러너 [maestro-runner](https://github.com/devicelab-dev/maestro-runner)(Apache-2.0, DeviceLab)로 같은 flow를 돌린다. 아래 「iPhone 실기기」 절을 본다.
 
@@ -16,7 +16,7 @@ adb pair <IP>:<페어링포트>
 adb connect <IP>:<디버깅포트>
 adb devices -l
 
-# 마이크 권한 미리 허용 (02가 시스템 다이얼로그를 다루지 않는다)
+# 마이크 권한 미리 허용 (flow가 시스템 다이얼로그를 다루지 않는다)
 adb shell pm grant dev.pangho.echonote android.permission.RECORD_AUDIO
 ```
 
@@ -38,24 +38,20 @@ Metro가 떠 있어야 한다. 없으면 `pnpm -F mobile start`를 먼저 실행
 
 ## flow와 의존
 
-| 파일                           | 다루는 것                                                              | 선행        |
-| ------------------------------ | ---------------------------------------------------------------------- | ----------- |
-| `01-recording-dialog.yaml`     | 제목 팝업 표시, 바깥 탭으로 안 닫힘, 취소                              | 없음        |
-| `02-record-and-save.yaml`      | 녹음 → 종료 → 저장 토스트 → 목록 반영                                  | 마이크 권한 |
-| `03-detail-navigation.yaml`    | 목록 → 상세 → 뒤로                                                     | 없음        |
-| `04-detail-missing.yaml`       | deep link로 없는 ID → 오류 팝업                                        | 없음        |
-| `05-persistence.yaml`          | 앱 종료 후 재조회                                                      | 없음        |
-| `06-gate-a-full.yaml`          | 30초 녹음 → 재시작 → 상세 → seek·재생                                  | 마이크 권한 |
-| `07-recording-cancel.yaml`     | 녹음 중 취소 → 계속 녹음 → 버리기 → 목록                               | 마이크 권한 |
-| `08-meeting-swipe-delete.yaml` | 행을 왼쪽으로 밀기 → 삭제 → 확인 → 목록에서 사라짐                     | 마이크 권한 |
-| `09-meeting-bulk-delete.yaml`  | 편집 → 두 행 선택 → 삭제 → 확인 → 편집 해제                            | 마이크 권한 |
-| `10-meeting-year-filter.yaml`  | 연도 메뉴 바깥 탭으로 닫기 → 작년 선택 시 올해 회의 빠짐 → 올해로 복귀 | 마이크 권한 |
+| 파일                          | 다루는 것                                                                                  | 선행        |
+| ----------------------------- | ------------------------------------------------------------------------------------------ | ----------- |
+| `01-recording-dialog.yaml`    | 제목 팝업 표시, 바깥 탭으로 안 닫힘, 취소                                                  | 없음        |
+| `04-detail-missing.yaml`      | deep link로 없는 ID → 오류 팝업                                                            | 없음        |
+| `06-gate-a-full.yaml`         | 녹음 → 일시정지·재개 → 30초 → 저장 토스트 → 재시작 → 상세 → seek·재생 → 뒤로 → 밀어서 삭제 | 마이크 권한 |
+| `07-recording-cancel.yaml`    | 녹음 중 취소 → 계속 녹음 → 버리기 → 목록                                                   | 마이크 권한 |
+| `09-meeting-bulk-delete.yaml` | 편집 → 두 행 선택 → 삭제 → 확인 → 편집 해제                                                | 마이크 권한 |
+| `10-meeting-year-filter.yaml` | 연도 메뉴 바깥 탭으로 닫기 → 작년 선택 시 올해 회의 빠짐 → 올해로 복귀                     | 마이크 권한 |
 
-**Maestro는 폴더 안 flow를 파일 이름 순으로 실행하지 않는다.** 실측에서 `05 → 03 → 04 → 01 → 02` 순으로 돌았다. 그래서 회의 데이터가 필요한 flow는 `subflows/create-recording.yaml`을 `runFlow`로 불러 스스로 준비한다. 그 subflow는 회의가 이미 보이면 아무것도 하지 않는다. 제목은 호출한 flow의 `TITLE`을 쓰며, subflow에 `env` 기본값을 두면 호출부 값을 덮어쓰므로 두지 않는다.
+**Maestro는 폴더 안 flow를 파일 이름 순으로 실행하지 않는다.** 실측에서도 파일 이름과 다른 순서로 돌았다. 그래서 회의 데이터가 필요한 flow는 `subflows/create-recording.yaml`을 `runFlow`로 불러 스스로 준비한다. 그 subflow는 회의가 이미 보이면 아무것도 하지 않는다. 제목은 호출한 flow의 `TITLE`을 쓰며, subflow에 `env` 기본값을 두면 호출부 값을 덮어쓰므로 두지 않는다.
 
 `subflows/`는 `e2e/maestro/` 바깥에 둔다. 안에 두면 그 자체가 독립 flow로 실행된다.
 
-모든 flow가 `clearState: false`다. `true`로 두면 SQLite가 지워져 `05`의 재조회 검증이 성립하지 않는다. 기기 데이터를 비우려면 앱을 지우고 다시 설치한다.
+모든 flow가 `clearState: false`다. `true`로 두면 SQLite가 지워져 `06`의 재시작 뒤 재조회 검증이 성립하지 않는다. 기기 데이터를 비우려면 앱을 지우고 다시 설치한다.
 
 **모든 flow는 `subflows/start-at-list.yaml`로 시작한다.** 앱을 끄고 다시 띄워 목록 화면(`새 회의 녹음` 버튼)이 보일 때까지 30초까지 기다린다. 앞 flow가 어느 화면에서 끝났는지에 기대지 않으려고 끝날 때 정리하지 않고 시작할 때 맞춘다. 새 flow도 첫 단계로 이 subflow를 부른다. dev client 번들 로드 때문에 타임아웃을 10초로 줄이면 `04`가 간헐적으로 실패한다.
 
