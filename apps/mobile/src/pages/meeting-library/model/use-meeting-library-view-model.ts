@@ -1,8 +1,9 @@
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import {
   createSQLiteMeetingRepository,
+  type MeetingListCursor,
   type MeetingListVMItem,
   toMeetingListItemVM,
 } from '@/entities/meeting';
@@ -13,7 +14,7 @@ import type { RecordingIdFactory, RecordingPermissionService } from '@/features/
 import { startRecording } from '@/features/record-meeting';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 
-const FIRST_PAGE_LIMIT = 20;
+const PAGE_LIMIT = 20;
 
 // 열린 회의 시작 결과를 page가 consume할 수 있게 반환한다. navigate는 page 책임이다.
 export type ConfirmRecordingResult =
@@ -23,6 +24,8 @@ export interface MeetingLibraryViewModel {
   items: MeetingListVMItem[];
   errorMessage: string | null;
   refresh(): Promise<void>;
+  // 다음 page가 없거나 이미 불러오는 중이면 아무것도 하지 않는다.
+  loadMore(): Promise<void>;
   clearErrorMessage(): void;
   confirmRecordingTitle(title: string): Promise<ConfirmRecordingResult>;
   isEditing: boolean;
@@ -45,25 +48,59 @@ export function useMeetingLibraryViewModel(
   const [isEditing, setIsEditing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const nextCursor = useRef<MeetingListCursor | null>(null);
+  const isLoadingMore = useRef(false);
+  // refresh가 시작되면 늘린다. 그 전에 출발한 loadMore 결과는 버린다.
+  const listGeneration = useRef(0);
 
   const repository = useMemo(() => createSQLiteMeetingRepository(database), [database]);
   const listMeetings = useMemo(() => makeListMeetings(repository), [repository]);
 
   // 조회 실패는 errorMessage로 흡수한다. 최초 로드 시점은 화면(focus)이 정한다.
+  // 이미 불러온 뒤쪽 page는 버리고 첫 page부터 다시 읽는다.
   const refresh = useCallback(async () => {
-    const currentYear = new Date().getFullYear();
+    const generation = ++listGeneration.current;
 
     try {
-      const result = await listMeetings({
-        year: currentYear,
-        limit: FIRST_PAGE_LIMIT,
-      });
+      const result = await listMeetings({ year: new Date().getFullYear(), limit: PAGE_LIMIT });
 
+      if (generation !== listGeneration.current) return;
+
+      nextCursor.current = result.nextCursor;
       setItems(result.meetings.map((meeting) => toMeetingListItemVM(meeting, result.timeZone)));
       setErrorMessage(null);
     } catch {
       // 사용자에게는 고정 문구만 보인다. 원인 문구는 화면에 노출하지 않는다.
       setErrorMessage(UI_STRINGS.meetingLibrary.loadFailed);
+    }
+  }, [listMeetings]);
+
+  const loadMore = useCallback(async () => {
+    const cursor = nextCursor.current;
+    const generation = listGeneration.current;
+
+    if (!cursor || isLoadingMore.current) return;
+
+    isLoadingMore.current = true;
+
+    try {
+      const result = await listMeetings({
+        year: new Date().getFullYear(),
+        limit: PAGE_LIMIT,
+        cursor,
+      });
+
+      if (generation !== listGeneration.current) return;
+
+      nextCursor.current = result.nextCursor;
+      setItems((current) => [
+        ...current,
+        ...result.meetings.map((meeting) => toMeetingListItemVM(meeting, result.timeZone)),
+      ]);
+    } catch {
+      setErrorMessage(UI_STRINGS.meetingLibrary.loadFailed);
+    } finally {
+      isLoadingMore.current = false;
     }
   }, [listMeetings]);
 
@@ -127,6 +164,7 @@ export function useMeetingLibraryViewModel(
     items,
     errorMessage,
     refresh,
+    loadMore,
     clearErrorMessage,
     confirmRecordingTitle,
     isEditing,

@@ -22,6 +22,7 @@ export function MeetingLibraryPage() {
   const {
     items,
     refresh,
+    loadMore,
     errorMessage,
     clearErrorMessage,
     confirmRecordingTitle,
@@ -164,6 +165,7 @@ export function MeetingLibraryPage() {
         <View style={styles.meetingListArea}>
           <MeetingList
             items={items}
+            onEndReached={() => void loadMore()}
             onMeetingPress={(meetingId) => router.push(ROUTES.meeting.detail(meetingId))}
             onMeetingDelete={isDeleting ? undefined : (meetingId) => openDeleteDialog([meetingId])}
             onToggleSelection={isDeleting ? undefined : toggleSelection}

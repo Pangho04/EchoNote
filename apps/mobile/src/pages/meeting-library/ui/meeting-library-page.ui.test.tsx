@@ -246,4 +246,49 @@ describe('MeetingLibraryPage', () => {
       expect(queryByLabelText('편집 시작')).toBeNull();
     });
   });
+
+  it('목록 끝에 닿으면 다음 page를 한 번만 불러와 뒤에 붙인다', async () => {
+    const cursor = { createdAtMs: 1, meetingId: 'm2' };
+    let resolveNextPage: (
+      value: Awaited<ReturnType<ReturnType<typeof makeListMeetings>>>,
+    ) => void = () => undefined;
+    const listMeetings = jest
+      .fn()
+      .mockResolvedValueOnce({
+        meetings: [meeting('m1', '제품 회의')],
+        nextCursor: cursor,
+        timeZone: 'Asia/Seoul',
+      })
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveNextPage = resolve;
+        }),
+      );
+
+    mockedMakeListMeetings.mockReturnValue(listMeetings);
+
+    const { getByTestId, getByText } = await renderPage();
+
+    await waitFor(() => expect(getByText('제품 회의')).toBeTruthy());
+
+    await fireEvent(getByTestId('meeting-list'), 'endReached');
+    await fireEvent(getByTestId('meeting-list'), 'endReached');
+
+    expect(listMeetings).toHaveBeenCalledTimes(2);
+    expect(listMeetings).toHaveBeenLastCalledWith(expect.objectContaining({ cursor }));
+
+    resolveNextPage({
+      meetings: [meeting('m2', '주간 회의')],
+      nextCursor: null,
+      timeZone: 'Asia/Seoul',
+    });
+
+    await waitFor(() => expect(getByText('주간 회의')).toBeTruthy());
+
+    expect(getByText('제품 회의')).toBeTruthy();
+
+    await fireEvent(getByTestId('meeting-list'), 'endReached');
+
+    expect(listMeetings).toHaveBeenCalledTimes(2);
+  });
 });

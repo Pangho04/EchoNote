@@ -20,6 +20,7 @@ type Props = {
   onMeetingDelete?: (meetingId: string) => void;
   // 섹션 라벨과 목록 사이에 그린다.
   toolbar?: ReactNode;
+  onEndReached?: () => void;
 };
 
 export function MeetingList({
@@ -29,6 +30,7 @@ export function MeetingList({
   onToggleSelection,
   onMeetingDelete,
   toolbar,
+  onEndReached,
 }: Props) {
   const styles = useStyle();
   const { colors } = useTheme();
@@ -88,6 +90,8 @@ export function MeetingList({
           extraData={selectedIds}
           renderItem={({ item }) => renderItem(item)}
           keyExtractor={(item) => item.id}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
           onContentSizeChange={(_, contentHeight) => updateHasMoreBelow({ contentHeight })}
           onLayout={(event) =>
             updateHasMoreBelow({ layoutHeight: event.nativeEvent.layout.height })
