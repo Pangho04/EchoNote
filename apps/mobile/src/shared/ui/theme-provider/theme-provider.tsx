@@ -1,3 +1,4 @@
+import { StatusBar } from 'expo-status-bar';
 import { createContext, type PropsWithChildren, useContext, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 
@@ -18,7 +19,13 @@ export function ThemeProvider({ children, mode }: ThemeProviderProps) {
   const theme = useMemo(() => resolveTheme(mode ?? systemColorScheme), [mode, systemColorScheme]);
   const value = useMemo(() => ({ theme }), [theme]);
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>
+      {/* 상태바 아이콘 색을 지정하지 않으면 Android는 라이트 테마에서도 흰 아이콘을 그려 헤더에 묻힌다. */}
+      <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme() {
