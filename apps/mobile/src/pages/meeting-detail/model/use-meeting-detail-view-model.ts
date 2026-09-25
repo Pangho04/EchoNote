@@ -67,7 +67,7 @@ function toReadyViewModel(
     kind: 'ready',
     title: meeting.title,
     dateLabel: formatDateLabel(meeting.createdAt, timeZone),
-    metaLabel: `${formatDurationLabel(recording.durationMs)} · 녹음만 저장됨`,
+    metaLabel: `${formatDurationLabel(recording.durationMs)} · ${UI_STRINGS.meetingStatus.localOnly.metaLabel}`,
     recordingUri: recording.uri,
   };
 }

@@ -49,6 +49,15 @@ export const UI_STRINGS = {
     loadFailed: '회의를 불러오지 못했습니다.',
     recordingMissing: '녹음 파일을 찾을 수 없습니다.',
   },
+  meetingStatus: {
+    recordingPending: '녹음 대기',
+    localOnly: { metaLabel: '녹음만 저장됨', statusLabel: '로컬' },
+    created: { metaLabel: '처리 준비 중', statusLabel: '대기' },
+    queued: { metaLabel: '처리 대기', statusLabel: '대기' },
+    processing: { metaLabel: '전사·요약 중', statusLabel: '처리 중' },
+    completed: { metaLabel: '전사와 요약 완료', statusLabel: '완료' },
+    failed: { metaLabel: '처리 실패', statusLabel: '실패' },
+  },
   playback: {
     seekBackward: '-10',
     seekBackwardLabel: '10초 뒤로',

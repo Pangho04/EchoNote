@@ -1,3 +1,5 @@
+import { UI_STRINGS } from '@/shared/config/ui-strings';
+
 import { type Meeting, type MeetingListVMItem, MeetingStatus } from './meeting';
 
 /**
@@ -49,31 +51,13 @@ type MeetingStatusLabels = {
 };
 
 const MEETING_STATUS_LABELS: Record<MeetingStatus, MeetingStatusLabels> = {
-  [MeetingStatus.LocalOnly]: {
-    metaLabel: '녹음만 저장됨',
-    // LocalOnly는 chip 대신 화살표를 그려 이 label은 렌더되지 않는다. 표를 전수로 유지하려고 남긴다.
-    statusLabel: '로컬',
-  },
-  [MeetingStatus.Created]: {
-    metaLabel: '처리 준비 중',
-    statusLabel: '대기',
-  },
-  [MeetingStatus.Queued]: {
-    metaLabel: '처리 대기',
-    statusLabel: '대기',
-  },
-  [MeetingStatus.Processing]: {
-    metaLabel: '전사·요약 중',
-    statusLabel: '처리 중',
-  },
-  [MeetingStatus.Completed]: {
-    metaLabel: '전사와 요약 완료',
-    statusLabel: '완료',
-  },
-  [MeetingStatus.Failed]: {
-    metaLabel: '처리 실패',
-    statusLabel: '실패',
-  },
+  // LocalOnly는 chip 대신 화살표를 그려 이 label은 렌더되지 않는다. 표를 전수로 유지하려고 남긴다.
+  [MeetingStatus.LocalOnly]: UI_STRINGS.meetingStatus.localOnly,
+  [MeetingStatus.Created]: UI_STRINGS.meetingStatus.created,
+  [MeetingStatus.Queued]: UI_STRINGS.meetingStatus.queued,
+  [MeetingStatus.Processing]: UI_STRINGS.meetingStatus.processing,
+  [MeetingStatus.Completed]: UI_STRINGS.meetingStatus.completed,
+  [MeetingStatus.Failed]: UI_STRINGS.meetingStatus.failed,
 };
 
 /** Domain Date -> VM Mapper */
@@ -84,7 +68,7 @@ export function toMeetingListItemVM(meeting: Meeting, timeZone: string): Meeting
     meeting.durationMs === null ? null : formatMeetingDurationLabel(meeting.durationMs);
   const statusMetaLabel =
     meeting.status === MeetingStatus.LocalOnly && meeting.durationMs === null
-      ? '녹음 대기'
+      ? UI_STRINGS.meetingStatus.recordingPending
       : statusLabels.metaLabel;
 
   return {
