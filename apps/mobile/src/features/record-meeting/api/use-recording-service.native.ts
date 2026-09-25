@@ -10,14 +10,20 @@ import { createNativeRecordingAdapter } from './recording-service.native';
 import type { RecordingService } from './recording-service-contract';
 import type { NativeRecordingAdapter } from './recording-service-contract';
 
+// Android 기본 mic 입력은 말소리가 작다. voice_communication은 기기의 소음 제거·자동 음량 조절을 거친다.
+const RECORDING_OPTIONS = {
+  ...RecordingPresets.HIGH_QUALITY,
+  android: {
+    ...RecordingPresets.HIGH_QUALITY.android,
+    audioSource: 'voice_communication' as const,
+  },
+};
+
 export function useNativeRecordingService(): RecordingService {
   const adapterRef = useRef<NativeRecordingAdapter | null>(null);
-  const recorder = useAudioRecorder(
-    RecordingPresets.HIGH_QUALITY,
-    (status: ExpoRecordingStatus) => {
-      adapterRef.current?.receiveExpoStatus(status);
-    },
-  );
+  const recorder = useAudioRecorder(RECORDING_OPTIONS, (status: ExpoRecordingStatus) => {
+    adapterRef.current?.receiveExpoStatus(status);
+  });
   const adapter = useMemo(() => createNativeRecordingAdapter(recorder), [recorder]);
 
   /**

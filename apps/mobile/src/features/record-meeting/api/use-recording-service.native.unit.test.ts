@@ -74,7 +74,10 @@ describe('useNativeRecordingService', () => {
     const listener = vi.fn();
     service.subscribe(listener);
 
-    expect(useAudioRecorder).toHaveBeenCalledWith({ preset: 'high-quality' }, expect.any(Function));
+    expect(useAudioRecorder).toHaveBeenCalledWith(
+      { preset: 'high-quality', android: { audioSource: 'voice_communication' } },
+      expect.any(Function),
+    );
 
     mocks.statusListener?.({
       id: 'recorder-1',
