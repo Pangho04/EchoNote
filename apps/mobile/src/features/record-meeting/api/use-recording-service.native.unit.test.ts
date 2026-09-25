@@ -6,6 +6,7 @@ import { RecorderState } from './recording-service-contract';
 import { useNativeRecordingService } from './use-recording-service.native';
 
 const mocks = vi.hoisted(() => ({
+  platformOS: 'android',
   statusListener: null as ((status: ExpoRecordingStatus) => void) | null,
   cleanups: [] as (() => void)[],
   appStateListener: null as ((state: string) => void) | null,
@@ -37,7 +38,20 @@ vi.mock('expo-audio', () => ({
   }),
 }));
 
+vi.mock('../../../../modules/voice-recorder', () => ({
+  useVoiceRecorder: vi.fn((_gainDb: number, listener: (status: ExpoRecordingStatus) => void) => {
+    mocks.statusListener = listener;
+
+    return mocks.recorder;
+  }),
+}));
+
 vi.mock('react-native', () => ({
+  Platform: {
+    get OS() {
+      return mocks.platformOS;
+    },
+  },
   AppState: {
     addEventListener: vi.fn((_type: string, listener: (state: string) => void) => {
       mocks.appStateListener = listener;
@@ -66,6 +80,7 @@ afterEach(() => {
   mocks.statusListener = null;
   mocks.cleanups = [];
   mocks.appStateListener = null;
+  mocks.platformOS = 'android';
 });
 
 describe('useNativeRecordingService', () => {
@@ -111,5 +126,20 @@ describe('useNativeRecordingService', () => {
 
     mocks.appStateListener?.('active');
     expect(mocks.recorder.getStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it('iOS에서는 음성 처리 녹음기를 쓴다', async () => {
+    mocks.platformOS = 'ios';
+    vi.resetModules();
+
+    const { useNativeRecordingService: useIosService } =
+      await import('./use-recording-service.native');
+    const { useVoiceRecorder } = await import('../../../../modules/voice-recorder');
+    const { useAudioRecorder: useExpoRecorder } = await import('expo-audio');
+
+    useIosService();
+
+    expect(useVoiceRecorder).toHaveBeenCalledWith(24, expect.any(Function));
+    expect(useExpoRecorder).not.toHaveBeenCalled();
   });
 });

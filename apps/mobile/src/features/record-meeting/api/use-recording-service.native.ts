@@ -4,11 +4,15 @@ import {
   useAudioRecorder,
 } from 'expo-audio';
 import { useEffect, useMemo, useRef } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
+import { useVoiceRecorder } from '../../../../modules/voice-recorder';
 import { createNativeRecordingAdapter } from './recording-service.native';
-import type { RecordingService } from './recording-service-contract';
-import type { NativeRecordingAdapter } from './recording-service-contract';
+import type {
+  ExpoAudioRecorderLike,
+  NativeRecordingAdapter,
+  RecordingService,
+} from './recording-service-contract';
 
 // Android 기본 mic 입력은 말소리가 작다. voice_communication은 기기의 소음 제거·자동 음량 조절을 거친다.
 const RECORDING_OPTIONS = {
@@ -19,9 +23,25 @@ const RECORDING_OPTIONS = {
   },
 };
 
+// iOS 음성 처리 입력은 1m 떨어진 말소리가 약 -42 LUFS라서 -18 LUFS 안팎까지 키운다.
+const IOS_INPUT_GAIN_DB = 24;
+
+type RecordingStatusListener = (status: ExpoRecordingStatus) => void;
+
+function useIosRecorder(onStatus: RecordingStatusListener): ExpoAudioRecorderLike {
+  return useVoiceRecorder(IOS_INPUT_GAIN_DB, onStatus);
+}
+
+function useAndroidRecorder(onStatus: RecordingStatusListener): ExpoAudioRecorderLike {
+  return useAudioRecorder(RECORDING_OPTIONS, onStatus);
+}
+
+// 플랫폼은 실행 중 바뀌지 않으므로 모듈을 불러올 때 한 번 고른다.
+const useRecorder = Platform.OS === 'ios' ? useIosRecorder : useAndroidRecorder;
+
 export function useNativeRecordingService(): RecordingService {
   const adapterRef = useRef<NativeRecordingAdapter | null>(null);
-  const recorder = useAudioRecorder(RECORDING_OPTIONS, (status: ExpoRecordingStatus) => {
+  const recorder = useRecorder((status: ExpoRecordingStatus) => {
     adapterRef.current?.receiveExpoStatus(status);
   });
   const adapter = useMemo(() => createNativeRecordingAdapter(recorder), [recorder]);
