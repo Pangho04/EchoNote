@@ -1,5 +1,5 @@
 import type { RecordingStatus as ExpoRecordingStatus } from 'expo-audio';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { useVoiceRecorder } from '../../../../modules/voice-recorder';
@@ -12,9 +12,11 @@ const INPUT_GAIN_DB = Platform.OS === 'ios' ? 24 : 11;
 
 export function useNativeRecordingService(): RecordingService {
   const adapterRef = useRef<NativeRecordingAdapter | null>(null);
-  const recorder = useVoiceRecorder(INPUT_GAIN_DB, (status: ExpoRecordingStatus) => {
+  // 렌더마다 새 함수를 넘기면 native 상태 이벤트 구독이 매번 다시 걸린다.
+  const forwardStatusToAdapter = useCallback((status: ExpoRecordingStatus) => {
     adapterRef.current?.receiveExpoStatus(status);
-  });
+  }, []);
+  const recorder = useVoiceRecorder(INPUT_GAIN_DB, forwardStatusToAdapter);
   const adapter = useMemo(() => createNativeRecordingAdapter(recorder), [recorder]);
 
   /**

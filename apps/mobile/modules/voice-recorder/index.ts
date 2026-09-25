@@ -18,19 +18,18 @@ const VoiceRecorder = requireNativeModule<VoiceRecorderModule>('VoiceRecorder');
 
 // expo-audio useAudioRecorder와 같은 모양의 recorder를 돌려준다.
 export function useVoiceRecorder(gainDb: number, onStatus: (status: RecordingStatus) => void) {
-  const voiceRecorder = VoiceRecorder;
   const recorder = useMemo(
     () => ({
       get uri() {
-        return voiceRecorder.getStatus().url;
+        return VoiceRecorder.getStatus().url;
       },
-      prepareToRecordAsync: () => voiceRecorder.prepare(gainDb),
-      record: () => voiceRecorder.record(),
-      pause: () => voiceRecorder.pause(),
-      stop: () => voiceRecorder.stop(),
-      getStatus: () => voiceRecorder.getStatus(),
+      prepareToRecordAsync: () => VoiceRecorder.prepare(gainDb),
+      record: () => VoiceRecorder.record(),
+      pause: () => VoiceRecorder.pause(),
+      stop: () => VoiceRecorder.stop(),
+      getStatus: () => VoiceRecorder.getStatus(),
     }),
-    [gainDb, voiceRecorder],
+    [gainDb],
   );
 
   /**
@@ -39,10 +38,10 @@ export function useVoiceRecorder(gainDb: number, onStatus: (status: RecordingSta
    * @clear 화면 이탈 또는 listener 교체 시 구독을 해제한다.
    */
   useEffect(() => {
-    const subscription = voiceRecorder.addListener('onRecordingStatusUpdate', onStatus);
+    const subscription = VoiceRecorder.addListener('onRecordingStatusUpdate', onStatus);
 
     return () => subscription.remove();
-  }, [voiceRecorder, onStatus]);
+  }, [onStatus]);
 
   return recorder;
 }

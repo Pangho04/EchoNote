@@ -64,6 +64,7 @@ vi.mock('react', () => ({
 
     if (cleanup) mocks.cleanups.push(cleanup);
   }),
+  useCallback: vi.fn((callback: unknown) => callback),
   useMemo: vi.fn((factory: () => unknown) => factory()),
   useRef: vi.fn((initialValue: unknown) => ({ current: initialValue })),
 }));
