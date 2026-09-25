@@ -1,18 +1,10 @@
 export enum MeetingStatus {
   LocalOnly = 'local_only',
-  WaitingForNode = 'waiting_for_node',
-  AwaitingUpload = 'awaiting_upload',
-  Uploading = 'uploading',
+  Created = 'created',
   Queued = 'queued',
-  Transcribing = 'transcribing',
-  Transcribed = 'transcribed',
-  Reviewing = 'reviewing',
-  Summarizing = 'summarizing',
+  Processing = 'processing',
   Completed = 'completed',
-  AnalysisFailed = 'analysis_failed',
-  AnalysisRetryQueued = 'analysis_retry_queued',
   Failed = 'failed',
-  Cancelled = 'cancelled',
 }
 
 export type Meeting = {

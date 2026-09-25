@@ -54,57 +54,25 @@ const MEETING_STATUS_LABELS: Record<MeetingStatus, MeetingStatusLabels> = {
     // LocalOnly는 chip 대신 화살표를 그려 이 label은 렌더되지 않는다. 표를 전수로 유지하려고 남긴다.
     statusLabel: '로컬',
   },
-  [MeetingStatus.WaitingForNode]: {
-    metaLabel: '데스크탑 대기 중',
+  [MeetingStatus.Created]: {
+    metaLabel: '처리 준비 중',
     statusLabel: '대기',
-  },
-  [MeetingStatus.AwaitingUpload]: {
-    metaLabel: '업로드 대기',
-    statusLabel: '대기',
-  },
-  [MeetingStatus.Uploading]: {
-    metaLabel: '업로드 중',
-    statusLabel: '업로드 중',
   },
   [MeetingStatus.Queued]: {
-    metaLabel: '전사 대기',
+    metaLabel: '처리 대기',
     statusLabel: '대기',
   },
-  [MeetingStatus.Transcribing]: {
-    metaLabel: '전사 중',
-    statusLabel: '전사 중',
-  },
-  [MeetingStatus.Transcribed]: {
-    metaLabel: '전사 완료',
-    statusLabel: '전사 완료',
-  },
-  [MeetingStatus.Reviewing]: {
-    metaLabel: '오전사 검토 필요',
-    statusLabel: '검토 필요',
-  },
-  [MeetingStatus.Summarizing]: {
-    metaLabel: '요약 중',
-    statusLabel: '요약 중',
+  [MeetingStatus.Processing]: {
+    metaLabel: '전사·요약 중',
+    statusLabel: '처리 중',
   },
   [MeetingStatus.Completed]: {
     metaLabel: '전사와 요약 완료',
     statusLabel: '완료',
   },
-  [MeetingStatus.AnalysisFailed]: {
-    metaLabel: '분석 실패',
-    statusLabel: '분석 실패',
-  },
-  [MeetingStatus.AnalysisRetryQueued]: {
-    metaLabel: '분석 재시도 대기',
-    statusLabel: '재시도 대기',
-  },
   [MeetingStatus.Failed]: {
     metaLabel: '처리 실패',
     statusLabel: '실패',
-  },
-  [MeetingStatus.Cancelled]: {
-    metaLabel: '처리 취소됨',
-    statusLabel: '취소됨',
   },
 };
 

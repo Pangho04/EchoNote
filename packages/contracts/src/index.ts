@@ -1,18 +1,9 @@
 import { z } from 'zod';
 
-export const identifierSchema = z.string().trim().min(1);
+import { identifierSchema } from './identifier.js';
 
-export const processingJobStatusSchema = z.enum([
-  'waiting_for_node',
-  'queued',
-  'uploading',
-  'transcribing',
-  'reviewing',
-  'summarizing',
-  'completed',
-  'cancelled',
-  'failed',
-]);
+export { identifierSchema } from './identifier.js';
+export * from './job.js';
 
 export const transcriptSegmentSchema = z
   .object({
@@ -52,14 +43,6 @@ export const meetingSchema = z.object({
   updatedAt: z.iso.datetime(),
 });
 
-export const processingJobSchema = z.object({
-  errorCode: z.string().trim().min(1).nullable(),
-  id: identifierSchema,
-  meetingId: identifierSchema,
-  status: processingJobStatusSchema,
-});
-
 export type Meeting = z.infer<typeof meetingSchema>;
-export type ProcessingJob = z.infer<typeof processingJobSchema>;
 export type TranscriptReviewCandidate = z.infer<typeof transcriptReviewCandidateSchema>;
 export type TranscriptSegment = z.infer<typeof transcriptSegmentSchema>;

@@ -116,6 +116,28 @@ describe('toMeetingListItemVM', () => {
     expect(updated.monthLabel).toBe(original.monthLabel);
     expect(updated.dayLabel).toBe(original.dayLabel);
   });
+
+  it('로컬 전용 회의는 chip 대신 화살표를 표시한다', () => {
+    expect(
+      toMeetingListItemVM({ ...meeting, status: MeetingStatus.LocalOnly }, 'Asia/Seoul'),
+    ).toMatchObject({
+      metaLabel: '52분 · 녹음만 저장됨',
+      accessory: { kind: 'arrow' },
+    });
+  });
+
+  it.each([
+    { status: MeetingStatus.Created, metaLabel: '52분 · 처리 준비 중', chipLabel: '대기' },
+    { status: MeetingStatus.Queued, metaLabel: '52분 · 처리 대기', chipLabel: '대기' },
+    { status: MeetingStatus.Processing, metaLabel: '52분 · 전사·요약 중', chipLabel: '처리 중' },
+    { status: MeetingStatus.Completed, metaLabel: '52분 · 전사와 요약 완료', chipLabel: '완료' },
+    { status: MeetingStatus.Failed, metaLabel: '52분 · 처리 실패', chipLabel: '실패' },
+  ])('$status 상태를 chip label로 표시한다', ({ status, metaLabel, chipLabel }) => {
+    const vm = toMeetingListItemVM({ ...meeting, status }, 'Asia/Seoul');
+
+    expect(vm.metaLabel).toBe(metaLabel);
+    expect(vm.accessory).toEqual({ kind: 'chip', label: chipLabel });
+  });
 });
 
 describe('formatMeetingDurationLabel', () => {

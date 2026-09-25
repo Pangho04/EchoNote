@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   meetingSchema,
-  processingJobSchema,
-  processingJobStatusSchema,
   transcriptReviewCandidateSchema,
   transcriptReviewQueueSchema,
   transcriptSegmentSchema,
@@ -49,12 +47,6 @@ describe('transcriptReviewQueueSchema', () => {
   });
 });
 
-describe('processingJobStatusSchema', () => {
-  it.each(['waiting_for_node', 'uploading', 'cancelled'])('%s 상태를 지원한다', (status) => {
-    expect(processingJobStatusSchema.safeParse(status).success).toBe(true);
-  });
-});
-
 describe('meetingSchema', () => {
   it('유효하지 않은 날짜를 거부한다', () => {
     const result = meetingSchema.safeParse({
@@ -66,20 +58,6 @@ describe('meetingSchema', () => {
     });
 
     expect(result.success).toBe(false);
-  });
-});
-
-describe('processingJobSchema', () => {
-  it('정상 작업을 허용하고 빈 meetingId를 거부한다', () => {
-    const job = {
-      errorCode: null,
-      id: 'job-1',
-      meetingId: 'meeting-1',
-      status: 'queued',
-    };
-
-    expect(processingJobSchema.safeParse(job).success).toBe(true);
-    expect(processingJobSchema.safeParse({ ...job, meetingId: '' }).success).toBe(false);
   });
 });
 
