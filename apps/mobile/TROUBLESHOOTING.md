@@ -1,6 +1,6 @@
 # 트러블슈팅
 
-앱 코드로는 고칠 수 없거나, 증상만 보고 앱 버그로 오인하기 쉬운 항목을 남긴다.
+개발·실기기 검증 중 부딪혀 원인을 찾은 문제와 대응을 남긴다. 앱 코드로는 고칠 수 없거나, 증상만 보고 앱 버그로 오인하기 쉬운 항목도 여기에 둔다.
 
 ## iOS dev 빌드에서 Expo 개발용 플로팅 버블(FAB)이 안 보임
 
@@ -11,3 +11,63 @@
 **범위** — 라이브러리 버그이며 dev 빌드에만 존재한다. 릴리스 빌드에는 FAB 자체가 없다. expo-dev-menu 57.0.18(최신 stable)과 58.0.0 canary 모두 같은 로직이라 버전을 올려도 해결되지 않는다.
 
 **대응** — 앱 코드에 개발용 우회를 넣지 않는다. FAB이 없으면 기기를 흔들어(shake) dev menu를 연다. 세 손가락 길게 누르기도 같은 메뉴를 연다.
+
+## iOS 녹음 말소리가 작고 소음이 큼
+
+**증상** — `expo-audio`(`AVAudioRecorder`) 녹음에서 1m 말소리가 약 −41 LUFS로 작고 배경 소음이 그대로 남는다.
+
+**원인** — `AVAudioRecorder`는 음성 처리(voice processing, VP)를 켤 수 없다. VP를 켜도 음량은 약 −42 LUFS 그대로이고 소음만 줄어든다. VP는 12 kHz 이상을 자르지만 Whisper는 16 kHz로 읽어 영향이 없다.
+
+**대응** — 로컬 Expo 모듈 `modules/voice-recorder`(`VoiceRecorderModule.swift`)가 `AVAudioEngine`의 `inputNode`에 VP를 켜고 +24 dB 증폭과 −1 dBFS limiter를 거쳐 AAC m4a로 쓴다. 목표는 −18 LUFS다. 녹음 뒤 파일을 키우는 방식은 소음도 함께 커져 쓰지 않는다. `setPrefersEchoCancelledInput`은 iOS 18.2 이상·2024년 이후 일부 iPhone만 지원하고, `AVCaptureDevice.MicrophoneMode`(voiceIsolation 등)는 사용자가 제어 센터에서 고르며 앱은 읽기만 가능해 쓰지 않는다.
+
+## iOS AVAudioEngine 녹음에서 목소리가 떨리고 길이가 실제와 다름
+
+**증상** — 녹음 파일에서 목소리가 떨리고, 파일 길이가 실제 녹음 시간과 다르다. 파형을 보면 70~80 ms마다 완전 무음(0) 칸이 끼어 있다.
+
+**원인**(추정) — limiter AudioUnit → mixer → `mainMixerNode`(출력 볼륨 0)로 연결하고 mixer에 tap을 달면, engine이 출력 속도에 맞춰 입력을 당겨 입력이 모자란 순간 0을 채운다.
+
+**대응** — 출력 그래프에 연결하지 않고 `inputNode`에 직접 tap을 단다. 증폭·limiter는 tap 콜백에서 코드로 처리한다. 입력이 48 kHz mono가 아닐 때만 `AVAudioConverter`를 쓴다. 이후 녹음에서 무음 칸이 0개다.
+
+## Android 녹음 말소리가 작음
+
+**증상** — `expo-audio` 녹음은 입력 소스가 `mic` −42.6, `voice_recognition` −52.6, `voice_communication` −26.9 LUFS로 목표(−18 LUFS)보다 작다.
+
+**원인** — `expo-audio` Android는 `MediaRecorder`를 쓰며 입력을 키우는 API가 없다.
+
+**대응** — 같은 `modules/voice-recorder`의 Android 구현(`VoiceRecorderModule.kt`)이 `AudioRecord(VOICE_COMMUNICATION)` 입력을 +11 dB 증폭하고 −1 dBFS limiter를 거쳐 `MediaCodec` AAC·`MediaMuxer`로 m4a에 쓴다. 백그라운드 녹음은 microphone 유형 foreground service(`VoiceRecordingService`)가 "녹음 중" 알림을 띄워 유지한다. 처음 +9 dB에서 −20.5 LUFS가 나와 +11 dB로 올렸다.
+
+## Android 녹음 파일에 완전 무음 구간이 많음
+
+**증상** — 삼성 Galaxy Z Flip5 녹음을 분석하면 10 ms 완전 무음(0) 칸이 전체의 30%를 넘는다.
+
+**원인** — 기기의 `voice_communication` 처리가 말이 없는 구간을 0으로 만든다. 앱 버그가 아니다. 기존 `expo-audio` 녹음도 31%, VoiceRecorder 녹음은 37%로 모양이 같고, 60 ms 이하 짧은 무음은 기존 초당 0.42회, VoiceRecorder 초당 0.26회다. 일정 간격으로 반복되는 끊김(위 iOS `AVAudioEngine` 항목)과 구분된다.
+
+**대응** — 끊김 판정은 무음 칸 개수가 아니라 기존 녹음과의 분포 비교, 그리고 짧은 무음이 규칙적으로 반복되는지로 한다.
+
+## 로컬 Expo 모듈 Android 빌드가 `versionName is not defined`로 실패
+
+**증상** — `expo run:android`가 `A problem occurred configuring project ':voice-recorder'. > 'android.defaultConfig.versionName' is not defined`로 실패한다.
+
+**대응** — 모듈 `android/build.gradle`의 `android {}`에 `defaultConfig { versionCode 1; versionName "0.0.1" }`를 둔다.
+
+## 로컬 모듈을 Android로 빌드한 뒤 `pnpm verify`의 prettier 검사가 실패
+
+**증상** — 로컬 Expo 모듈을 Android로 빌드한 뒤 `pnpm verify`의 prettier 검사가 실패한다.
+
+**원인** — Gradle이 `modules/<모듈>/android/build/`에 산출물 JSON을 만든다.
+
+**대응** — `.gitignore`와 `.prettierignore`에 `apps/mobile/modules/*/android/build/`를 둔다.
+
+## `npx expo run:ios`가 `Cannot determine the project's Expo SDK version`으로 실패
+
+**증상** — `apps/mobile`에서 `npx expo run:ios`를 실행하면 `Cannot determine the project's Expo SDK version`으로 실패한다.
+
+**대응** — `apps/mobile`에서 `pnpm exec expo run:ios --device <기기> --no-bundler`로 실행한다.
+
+## `adb`가 `more than one device/emulator`로 실패
+
+**증상** — `adb` 명령이 `more than one device/emulator`로 실패한다.
+
+**원인** — 무선 디버깅 기기 하나가 mDNS 이름과 `IP:포트` 두 항목으로 동시에 잡힌다.
+
+**대응** — `adb devices`에서 `IP:포트` 항목을 골라 `adb -s <IP:포트>`로 지정한다.
