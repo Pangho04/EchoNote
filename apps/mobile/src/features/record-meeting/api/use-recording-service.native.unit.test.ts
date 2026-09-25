@@ -7,7 +7,9 @@ import { useNativeRecordingService } from './use-recording-service.native';
 
 const mocks = vi.hoisted(() => ({
   statusListener: null as ((status: ExpoRecordingStatus) => void) | null,
-  cleanup: null as (() => void) | null,
+  cleanups: [] as (() => void)[],
+  appStateListener: null as ((state: string) => void) | null,
+  removeAppStateListener: vi.fn(),
   recorder: {
     uri: null as string | null,
     prepareToRecordAsync: vi.fn(async () => {}),
@@ -35,9 +37,25 @@ vi.mock('expo-audio', () => ({
   }),
 }));
 
+vi.mock('react-native', () => ({
+  AppState: {
+    addEventListener: vi.fn((_type: string, listener: (state: string) => void) => {
+      mocks.appStateListener = listener;
+
+      return { remove: mocks.removeAppStateListener };
+    }),
+  },
+}));
+
+vi.mock('./recording-permission-service.native', () => ({
+  canRecordInBackground: vi.fn(async () => true),
+}));
+
 vi.mock('react', () => ({
   useEffect: vi.fn((effect: () => void | (() => void)) => {
-    mocks.cleanup = effect() ?? null;
+    const cleanup = effect();
+
+    if (cleanup) mocks.cleanups.push(cleanup);
   }),
   useMemo: vi.fn((factory: () => unknown) => factory()),
   useRef: vi.fn((initialValue: unknown) => ({ current: initialValue })),
@@ -46,7 +64,8 @@ vi.mock('react', () => ({
 afterEach(() => {
   vi.clearAllMocks();
   mocks.statusListener = null;
-  mocks.cleanup = null;
+  mocks.cleanups = [];
+  mocks.appStateListener = null;
 });
 
 describe('useNativeRecordingService', () => {
@@ -71,15 +90,23 @@ describe('useNativeRecordingService', () => {
       errorMessage: 'native recorder failure',
     });
 
-    const cleanup = mocks.cleanup;
+    expect(mocks.cleanups).toHaveLength(2);
 
-    if (cleanup === null) {
-      throw new Error('resource hook cleanup이 등록되지 않았습니다.');
-    }
-
-    cleanup();
+    mocks.cleanups.forEach((cleanup) => cleanup());
     await Promise.resolve();
 
     expect(() => service.subscribe(vi.fn())).toThrow('녹음기가 정리되었습니다.');
+    expect(mocks.removeAppStateListener).toHaveBeenCalledTimes(1);
+  });
+
+  it('앱이 active로 돌아오면 native 녹음 상태를 확인한다', () => {
+    useNativeRecordingService();
+    mocks.recorder.getStatus.mockClear();
+
+    mocks.appStateListener?.('background');
+    expect(mocks.recorder.getStatus).not.toHaveBeenCalled();
+
+    mocks.appStateListener?.('active');
+    expect(mocks.recorder.getStatus).toHaveBeenCalledTimes(1);
   });
 });

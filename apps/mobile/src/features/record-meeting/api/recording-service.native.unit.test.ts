@@ -17,6 +17,10 @@ vi.mock('expo-audio', () => ({
   setAudioModeAsync: vi.fn(async () => {}),
 }));
 
+vi.mock('./recording-permission-service.native', () => ({
+  canRecordInBackground: vi.fn(async () => true),
+}));
+
 interface Deferred<T> {
   promise: Promise<T>;
   resolve(value: T): void;
@@ -96,7 +100,7 @@ afterEach(() => {
 });
 
 describe('createNativeRecordingAdapter', () => {
-  it('prepare는 native 준비 전에 iOS 녹음 허용 audio mode를 먼저 설정한다', async () => {
+  it('prepare는 native 준비 전에 녹음·백그라운드 녹음 audio mode를 먼저 설정한다', async () => {
     const { recorder } = createFakeRecorder();
     const adapter = createNativeRecordingAdapter(recorder);
 
@@ -105,6 +109,7 @@ describe('createNativeRecordingAdapter', () => {
     expect(setAudioModeAsync).toHaveBeenCalledWith({
       allowsRecording: true,
       playsInSilentMode: true,
+      allowsBackgroundRecording: true,
     });
     expect(vi.mocked(setAudioModeAsync).mock.invocationCallOrder[0]!).toBeLessThan(
       vi.mocked(recorder.prepareToRecordAsync).mock.invocationCallOrder[0]!,
@@ -307,6 +312,65 @@ describe('createNativeRecordingAdapter', () => {
 
     expect(listener).toHaveBeenCalledTimes(1);
     expect(() => adapter.service.subscribe(vi.fn())).toThrow(RecorderDisposedError);
+  });
+
+  it('앱 복귀 시 중단으로 멈춘 녹음을 PAUSED로 표시한다', async () => {
+    const { recorder, setState } = createFakeRecorder();
+    const adapter = createNativeRecordingAdapter(recorder);
+    const listener = vi.fn();
+    adapter.service.subscribe(listener);
+
+    await adapter.service.prepare();
+    await adapter.service.record();
+    setState({ isRecording: false, durationMillis: 4_000 });
+    adapter.reconcileWithNative();
+
+    expect(listener).toHaveBeenLastCalledWith({
+      state: RecorderState.PAUSED,
+      durationMs: 4_000,
+      errorMessage: null,
+    });
+    await expect(adapter.service.record()).resolves.toBeUndefined();
+  });
+
+  it('앱 복귀 시 사용자가 일시정지한 녹음이 다시 돌고 있으면 native를 멈춘다', async () => {
+    const { recorder, setState } = createFakeRecorder();
+    const adapter = createNativeRecordingAdapter(recorder);
+
+    await adapter.service.prepare();
+    await adapter.service.record();
+    await adapter.service.pause();
+    setState({ isRecording: true });
+    adapter.reconcileWithNative();
+
+    expect(recorder.pause).toHaveBeenCalledTimes(2);
+    expect(recorder.getStatus().isRecording).toBe(false);
+  });
+
+  it('상태가 일치하거나 명령이 진행 중이면 앱 복귀 시 아무것도 바꾸지 않는다', async () => {
+    const deferred = createDeferred<void>();
+    const { recorder, setState } = createFakeRecorder();
+    const adapter = createNativeRecordingAdapter(recorder);
+    const listener = vi.fn();
+    adapter.service.subscribe(listener);
+
+    await adapter.service.prepare();
+    await adapter.service.record();
+    adapter.reconcileWithNative();
+
+    recorder.stop = vi.fn(() => deferred.promise);
+    const stopping = adapter.service.stop();
+    setState({ isRecording: false });
+    adapter.reconcileWithNative();
+
+    expect(listener).toHaveBeenLastCalledWith(
+      expect.objectContaining({ state: RecorderState.RECORDING }),
+    );
+    expect(recorder.pause).not.toHaveBeenCalled();
+
+    setState({ url: 'file:///virtual/meeting.m4a' });
+    deferred.resolve();
+    await stopping;
   });
 
   it('녹음 중 dispose는 native stop을 최대 한 번 호출한다', async () => {

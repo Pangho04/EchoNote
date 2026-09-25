@@ -55,4 +55,6 @@ export interface ExpoAudioRecorderLike {
 export interface NativeRecordingAdapter {
   service: RecordingService;
   receiveExpoStatus(status: ExpoRecordingStatus): void;
+  // 앱 명령 없이 바뀐 native 녹음 상태를 화면 상태에 맞춘다.
+  reconcileWithNative(): void;
 }

@@ -55,6 +55,7 @@ describe('requestRecordingPermission', () => {
         get,
         request,
         openSettings,
+        requestBackgroundRecording: vi.fn(async () => undefined),
       };
 
       const result = await requestRecordingPermission(service);

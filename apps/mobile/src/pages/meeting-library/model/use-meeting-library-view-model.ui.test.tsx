@@ -34,6 +34,7 @@ const permissionService: RecordingPermissionService = {
   get: jest.fn(),
   request: jest.fn(),
   openSettings: jest.fn(),
+  requestBackgroundRecording: jest.fn(),
 };
 
 function setupMeetings(meeting: Meeting | null) {

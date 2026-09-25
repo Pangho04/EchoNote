@@ -4,6 +4,7 @@ import {
   useAudioRecorder,
 } from 'expo-audio';
 import { useEffect, useMemo, useRef } from 'react';
+import { AppState } from 'react-native';
 
 import { createNativeRecordingAdapter } from './recording-service.native';
 import type { RecordingService } from './recording-service-contract';
@@ -34,6 +35,19 @@ export function useNativeRecordingService(): RecordingService {
 
       void adapter.service.dispose();
     };
+  }, [adapter]);
+
+  /**
+   * @when 녹음 화면이 떠 있는 동안 앱이 다시 화면 앞으로 돌아올 때 동작한다.
+   * @expect 전화 같은 중단으로 바뀐 native 녹음 상태를 화면 상태에 맞춘다.
+   * @clear 화면 이탈 또는 recorder 교체 시 AppState 구독을 해제한다.
+   */
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (appState) => {
+      if (appState === 'active') adapter.reconcileWithNative();
+    });
+
+    return () => subscription.remove();
   }, [adapter]);
 
   return adapter.service;

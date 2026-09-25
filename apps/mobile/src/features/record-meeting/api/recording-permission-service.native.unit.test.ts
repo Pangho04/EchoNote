@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RecordingPermission } from './recording-permission';
 import {
+  canRecordInBackground,
   mapRecordingPermission,
   recordingPermissionService,
 } from './recording-permission-service.native';
@@ -11,6 +12,9 @@ const mocks = vi.hoisted(() => ({
   getPermission: vi.fn<() => Promise<PermissionResponse>>(),
   requestPermission: vi.fn<() => Promise<PermissionResponse>>(),
   openSettings: vi.fn<() => Promise<void>>(),
+  checkAndroidPermission: vi.fn<() => Promise<boolean>>(),
+  requestAndroidPermission: vi.fn<() => Promise<string>>(),
+  platform: { OS: 'android', Version: 34 } as { OS: string; Version: number | string },
 }));
 
 vi.mock('expo-audio', () => ({
@@ -20,6 +24,12 @@ vi.mock('expo-audio', () => ({
 
 vi.mock('react-native', () => ({
   Linking: { openSettings: mocks.openSettings },
+  PermissionsAndroid: {
+    PERMISSIONS: { POST_NOTIFICATIONS: 'android.permission.POST_NOTIFICATIONS' },
+    check: mocks.checkAndroidPermission,
+    request: mocks.requestAndroidPermission,
+  },
+  Platform: mocks.platform,
 }));
 
 const grantedResponse: PermissionResponse = {
@@ -82,5 +92,40 @@ describe('recordingPermissionService', () => {
     await recordingPermissionService.openSettings();
 
     expect(mocks.openSettings).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('백그라운드 녹음 알림 권한', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it.each([
+    ['android', 34, false, false, 1],
+    ['android', 34, true, true, 1],
+    ['android', 32, false, true, 0],
+    ['ios', '18.0', false, true, 0],
+  ] as const)(
+    '%s %s에서 알림 권한 %s이면 백그라운드 녹음 가능 여부는 %s다',
+    async (os, version, notificationGranted, expected, checkCount) => {
+      Object.assign(mocks.platform, { OS: os, Version: version });
+      mocks.checkAndroidPermission.mockResolvedValueOnce(notificationGranted);
+
+      await expect(canRecordInBackground()).resolves.toBe(expected);
+      expect(mocks.checkAndroidPermission).toHaveBeenCalledTimes(checkCount);
+    },
+  );
+
+  it('Android 13 이상에서만 알림 권한을 요청한다', async () => {
+    Object.assign(mocks.platform, { OS: 'android', Version: 34 });
+    await recordingPermissionService.requestBackgroundRecording();
+
+    Object.assign(mocks.platform, { OS: 'ios', Version: '18.0' });
+    await recordingPermissionService.requestBackgroundRecording();
+
+    expect(mocks.requestAndroidPermission).toHaveBeenCalledTimes(1);
+    expect(mocks.requestAndroidPermission).toHaveBeenCalledWith(
+      'android.permission.POST_NOTIFICATIONS',
+    );
   });
 });

@@ -17,6 +17,8 @@ export async function startRecording(
   const permission = await requestPermission(permissionService);
 
   if (permission === RecordingPermission.GRANTED) {
+    await permissionService.requestBackgroundRecording();
+
     const meetingId = meetingIdFactory();
 
     setRecordingDraft({ meetingId, titleInput });

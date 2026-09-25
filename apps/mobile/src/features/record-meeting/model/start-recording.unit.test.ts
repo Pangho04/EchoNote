@@ -11,6 +11,7 @@ function makeService(
     get: vi.fn(async () => RecordingPermission.GRANTED),
     request: vi.fn(async () => RecordingPermission.GRANTED),
     openSettings: vi.fn(async () => undefined),
+    requestBackgroundRecording: vi.fn(async () => undefined),
     ...overrides,
   };
 }
@@ -54,6 +55,20 @@ describe('startRecording', () => {
 
     expect(request).toHaveBeenCalled();
     expect(result).toEqual({ kind: 'denied' });
+  });
+
+  it('granted일 때만 백그라운드 녹음 권한을 묻는다', async () => {
+    const granted = makeService();
+    const denied = makeService({
+      get: vi.fn(async () => RecordingPermission.DENIED),
+      request: vi.fn(async () => RecordingPermission.DENIED),
+    });
+
+    await startRecording(granted, '제목', meetingIdFactory);
+    await startRecording(denied, '제목', meetingIdFactory);
+
+    expect(granted.requestBackgroundRecording).toHaveBeenCalledTimes(1);
+    expect(denied.requestBackgroundRecording).not.toHaveBeenCalled();
   });
 
   it('blocked면 blocked를 반환한다', async () => {
