@@ -1,7 +1,7 @@
 import type { RecordingStatus as ExpoRecordingStatus } from 'expo-audio';
-import { useAudioRecorder } from 'expo-audio';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { useVoiceRecorder } from '../../../../modules/voice-recorder';
 import { RecorderState } from './recording-service-contract';
 import { useNativeRecordingService } from './use-recording-service.native';
 
@@ -28,14 +28,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('expo-audio', () => ({
-  RecordingPresets: {
-    HIGH_QUALITY: { preset: 'high-quality' },
-  },
-  useAudioRecorder: vi.fn((_options: unknown, listener: (status: ExpoRecordingStatus) => void) => {
-    mocks.statusListener = listener;
-
-    return mocks.recorder;
-  }),
+  setAudioModeAsync: vi.fn(async () => {}),
 }));
 
 vi.mock('../../../../modules/voice-recorder', () => ({
@@ -89,10 +82,7 @@ describe('useNativeRecordingService', () => {
     const listener = vi.fn();
     service.subscribe(listener);
 
-    expect(useAudioRecorder).toHaveBeenCalledWith(
-      { preset: 'high-quality', android: { audioSource: 'voice_communication' } },
-      expect.any(Function),
-    );
+    expect(useVoiceRecorder).toHaveBeenCalledWith(11, expect.any(Function));
 
     mocks.statusListener?.({
       id: 'recorder-1',
@@ -128,18 +118,17 @@ describe('useNativeRecordingService', () => {
     expect(mocks.recorder.getStatus).toHaveBeenCalledTimes(1);
   });
 
-  it('iOS에서는 음성 처리 녹음기를 쓴다', async () => {
+  it('iOS는 입력을 24 dB 키운다', async () => {
     mocks.platformOS = 'ios';
     vi.resetModules();
 
     const { useNativeRecordingService: useIosService } =
       await import('./use-recording-service.native');
-    const { useVoiceRecorder } = await import('../../../../modules/voice-recorder');
-    const { useAudioRecorder: useExpoRecorder } = await import('expo-audio');
+    const { useVoiceRecorder: useIosVoiceRecorder } =
+      await import('../../../../modules/voice-recorder');
 
     useIosService();
 
-    expect(useVoiceRecorder).toHaveBeenCalledWith(24, expect.any(Function));
-    expect(useExpoRecorder).not.toHaveBeenCalled();
+    expect(useIosVoiceRecorder).toHaveBeenCalledWith(24, expect.any(Function));
   });
 });

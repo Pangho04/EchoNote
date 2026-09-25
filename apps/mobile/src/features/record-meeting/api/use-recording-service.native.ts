@@ -1,47 +1,18 @@
-import {
-  RecordingPresets,
-  type RecordingStatus as ExpoRecordingStatus,
-  useAudioRecorder,
-} from 'expo-audio';
+import type { RecordingStatus as ExpoRecordingStatus } from 'expo-audio';
 import { useEffect, useMemo, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { useVoiceRecorder } from '../../../../modules/voice-recorder';
 import { createNativeRecordingAdapter } from './recording-service.native';
-import type {
-  ExpoAudioRecorderLike,
-  NativeRecordingAdapter,
-  RecordingService,
-} from './recording-service-contract';
+import type { NativeRecordingAdapter, RecordingService } from './recording-service-contract';
 
-// Android 기본 mic 입력은 말소리가 작다. voice_communication은 기기의 소음 제거·자동 음량 조절을 거친다.
-const RECORDING_OPTIONS = {
-  ...RecordingPresets.HIGH_QUALITY,
-  android: {
-    ...RecordingPresets.HIGH_QUALITY.android,
-    audioSource: 'voice_communication' as const,
-  },
-};
-
-// iOS 음성 처리 입력은 1m 떨어진 말소리가 약 -42 LUFS라서 -18 LUFS 안팎까지 키운다.
-const IOS_INPUT_GAIN_DB = 24;
-
-type RecordingStatusListener = (status: ExpoRecordingStatus) => void;
-
-function useIosRecorder(onStatus: RecordingStatusListener): ExpoAudioRecorderLike {
-  return useVoiceRecorder(IOS_INPUT_GAIN_DB, onStatus);
-}
-
-function useAndroidRecorder(onStatus: RecordingStatusListener): ExpoAudioRecorderLike {
-  return useAudioRecorder(RECORDING_OPTIONS, onStatus);
-}
-
-// 플랫폼은 실행 중 바뀌지 않으므로 모듈을 불러올 때 한 번 고른다.
-const useRecorder = Platform.OS === 'ios' ? useIosRecorder : useAndroidRecorder;
+// 1m 떨어진 말소리를 -18 LUFS 안팎까지 키운다.
+// iOS 음성 처리 입력은 약 -42 LUFS, Android 통화용 입력은 약 -27~-30 LUFS로 들어온다.
+const INPUT_GAIN_DB = Platform.OS === 'ios' ? 24 : 11;
 
 export function useNativeRecordingService(): RecordingService {
   const adapterRef = useRef<NativeRecordingAdapter | null>(null);
-  const recorder = useRecorder((status: ExpoRecordingStatus) => {
+  const recorder = useVoiceRecorder(INPUT_GAIN_DB, (status: ExpoRecordingStatus) => {
     adapterRef.current?.receiveExpoStatus(status);
   });
   const adapter = useMemo(() => createNativeRecordingAdapter(recorder), [recorder]);

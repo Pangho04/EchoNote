@@ -1,4 +1,4 @@
-import { type NativeModule, requireOptionalNativeModule } from 'expo';
+import { type NativeModule, requireNativeModule } from 'expo';
 import type { RecorderState, RecordingStatus } from 'expo-audio';
 import { useEffect, useMemo } from 'react';
 
@@ -14,13 +14,10 @@ declare class VoiceRecorderModule extends NativeModule<VoiceRecorderEvents> {
   getStatus(): RecorderState;
 }
 
-// iOS에만 있는 모듈이다. Android에서 import해도 에러가 나지 않게 optional로 찾는다.
-const VoiceRecorder = requireOptionalNativeModule<VoiceRecorderModule>('VoiceRecorder');
+const VoiceRecorder = requireNativeModule<VoiceRecorderModule>('VoiceRecorder');
 
 // expo-audio useAudioRecorder와 같은 모양의 recorder를 돌려준다.
 export function useVoiceRecorder(gainDb: number, onStatus: (status: RecordingStatus) => void) {
-  if (VoiceRecorder === null) throw new Error('VoiceRecorder 네이티브 모듈이 없습니다.');
-
   const voiceRecorder = VoiceRecorder;
   const recorder = useMemo(
     () => ({

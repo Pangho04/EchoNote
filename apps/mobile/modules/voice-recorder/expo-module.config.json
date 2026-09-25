@@ -1,4 +1,5 @@
 {
-  "platforms": ["apple"],
-  "apple": { "modules": ["VoiceRecorderModule"] }
+  "platforms": ["apple", "android"],
+  "apple": { "modules": ["VoiceRecorderModule"] },
+  "android": { "modules": ["expo.modules.voicerecorder.VoiceRecorderModule"] }
 }
