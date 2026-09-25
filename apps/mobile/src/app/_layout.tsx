@@ -3,10 +3,19 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 
+import {
+  createSupabaseSession,
+  secureStoreAdapter,
+  SessionProvider,
+} from '@/features/authenticate';
+import { createMobileSupabaseClient } from '@/shared/api/supabase-client';
 import { DatabaseProvider } from '@/shared/platform/database';
 import { DialogProvider } from '@/shared/ui/dialog';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 import { ToastProvider } from '@/shared/ui/toast';
+
+// 앱 전체에서 client 하나만 만든다. 여럿이면 같은 저장소 키로 refresh가 겹친다.
+const session = createSupabaseSession(createMobileSupabaseClient(secureStoreAdapter).auth);
 
 export default function RootLayout() {
   return (
@@ -17,7 +26,9 @@ export default function RootLayout() {
           <DatabaseProvider>
             <ToastProvider>
               <DialogProvider>
-                <Stack screenOptions={{ headerShown: false }} />
+                <SessionProvider session={session}>
+                  <Stack screenOptions={{ headerShown: false }} />
+                </SessionProvider>
               </DialogProvider>
             </ToastProvider>
           </DatabaseProvider>

@@ -33,7 +33,8 @@
           }
         }
       ],
-      "./plugins/with-user-script-sandboxing-disabled"
+      "./plugins/with-user-script-sandboxing-disabled",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

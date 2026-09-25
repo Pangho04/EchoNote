@@ -58,6 +58,17 @@ export const UI_STRINGS = {
     completed: { metaLabel: '전사와 요약 완료', statusLabel: '완료' },
     failed: { metaLabel: '처리 실패', statusLabel: '실패' },
   },
+  auth: {
+    harnessHeading: '로그인 확인',
+    email: '이메일',
+    password: '비밀번호',
+    signIn: '로그인',
+    signOut: '로그아웃',
+    restoring: '로그인 상태 확인 중',
+    signedIn: '로그인됨',
+    signedOut: '로그인 안 됨',
+    signInFailed: '로그인하지 못했습니다. 이메일·비밀번호와 네트워크를 확인해 주세요.',
+  },
   playback: {
     seekBackward: '-10',
     seekBackwardLabel: '10초 뒤로',
