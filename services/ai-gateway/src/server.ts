@@ -1,10 +1,14 @@
-import Fastify from 'fastify';
+import Fastify, { type FastifyServerOptions } from 'fastify';
+
+import type { AccessTokenVerifier } from './auth/access-token-verifier.js';
+import { getUserContext, installAuth } from './auth/require-user.js';
 
 type BuildServerOptions = {
-  logger?: boolean;
+  logger?: FastifyServerOptions['logger'];
+  verifier: AccessTokenVerifier;
 };
 
-export const buildServer = ({ logger = false }: BuildServerOptions = {}) => {
+export const buildServer = ({ logger = false, verifier }: BuildServerOptions) => {
   const server = Fastify({
     logger,
   });
@@ -22,6 +26,15 @@ export const buildServer = ({ logger = false }: BuildServerOptions = {}) => {
       },
       status: 'not_ready' as const,
     }),
+  );
+
+  server.register(
+    async (v1) => {
+      installAuth(v1, verifier);
+
+      v1.get('/auth-check', async (request) => ({ userId: getUserContext(request).id }));
+    },
+    { prefix: '/v1' },
   );
 
   return server;
