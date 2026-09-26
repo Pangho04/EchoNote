@@ -11,12 +11,16 @@ function buildFakeAuth() {
     error: null,
   }));
   const signOut = vi.fn<() => Promise<{ error: Error | null }>>(async () => ({ error: null }));
+  const getSession = vi.fn<() => Promise<{ data: { session: { access_token: string } | null } }>>(
+    async () => ({ data: { session: null } }),
+  );
 
   return {
     unsubscribe,
     onAuthStateChange,
     signInWithPassword,
     signOut,
+    getSession,
     startAutoRefresh: vi.fn(async () => {}),
     stopAutoRefresh: vi.fn(async () => {}),
   };
@@ -121,6 +125,44 @@ describe('createSupabaseSession', () => {
       );
 
       await expect(session.signOut()).resolves.toBeUndefined();
+    });
+  });
+
+  describe('getAccessToken', () => {
+    it('session에 access_token이 있으면 그대로 반환한다', async () => {
+      const auth = buildFakeAuth();
+
+      auth.getSession.mockResolvedValueOnce({ data: { session: { access_token: 'tok' } } });
+
+      const session = createSupabaseSession(
+        auth as unknown as Parameters<typeof createSupabaseSession>[0],
+      );
+
+      await expect(session.getAccessToken()).resolves.toBe('tok');
+    });
+
+    it('session이 null이면 null을 반환한다', async () => {
+      const auth = buildFakeAuth();
+
+      auth.getSession.mockResolvedValueOnce({ data: { session: null } });
+
+      const session = createSupabaseSession(
+        auth as unknown as Parameters<typeof createSupabaseSession>[0],
+      );
+
+      await expect(session.getAccessToken()).resolves.toBeNull();
+    });
+
+    it('getSession이 reject하면 null을 반환한다', async () => {
+      const auth = buildFakeAuth();
+
+      auth.getSession.mockRejectedValueOnce(new Error('network'));
+
+      const session = createSupabaseSession(
+        auth as unknown as Parameters<typeof createSupabaseSession>[0],
+      );
+
+      await expect(session.getAccessToken()).resolves.toBeNull();
     });
   });
 

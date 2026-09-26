@@ -8,7 +8,9 @@ import {
   secureStoreAdapter,
   SessionProvider,
 } from '@/features/authenticate';
+import { createGatewayClient, GatewayClientProvider } from '@/shared/api/gateway-client';
 import { createMobileSupabaseClient } from '@/shared/api/supabase-client';
+import { GATEWAY_URL } from '@/shared/config/env';
 import { DatabaseProvider } from '@/shared/platform/database';
 import { DialogProvider } from '@/shared/ui/dialog';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
@@ -16,6 +18,7 @@ import { ToastProvider } from '@/shared/ui/toast';
 
 // 앱 전체에서 client 하나만 만든다. 여럿이면 같은 저장소 키로 refresh가 겹친다.
 const session = createSupabaseSession(createMobileSupabaseClient(secureStoreAdapter).auth);
+const gateway = createGatewayClient(GATEWAY_URL, () => session.getAccessToken());
 
 export default function RootLayout() {
   return (
@@ -27,7 +30,9 @@ export default function RootLayout() {
             <ToastProvider>
               <DialogProvider>
                 <SessionProvider session={session}>
-                  <Stack screenOptions={{ headerShown: false }} />
+                  <GatewayClientProvider client={gateway}>
+                    <Stack screenOptions={{ headerShown: false }} />
+                  </GatewayClientProvider>
                 </SessionProvider>
               </DialogProvider>
             </ToastProvider>

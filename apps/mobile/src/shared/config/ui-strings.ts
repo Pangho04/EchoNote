@@ -68,6 +68,11 @@ export const UI_STRINGS = {
     signedIn: '로그인됨',
     signedOut: '로그인 안 됨',
     signInFailed: '로그인하지 못했습니다. 이메일·비밀번호와 네트워크를 확인해 주세요.',
+    gatewayCheck: 'Gateway 인증 확인',
+    gatewayAuthenticated: 'Gateway: 인증됨',
+    gatewayRejected: 'Gateway: 거부됨',
+    gatewayUnavailable: 'Gateway: 인증 서버 확인 불가',
+    gatewayUnreachable: 'Gateway: 연결 안 됨',
   },
   playback: {
     seekBackward: '-10',

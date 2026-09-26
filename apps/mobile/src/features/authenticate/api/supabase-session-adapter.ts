@@ -4,7 +4,12 @@ import type { SessionState } from '../model/session';
 
 type SupabaseAuth = Pick<
   SupabaseClient['auth'],
-  'onAuthStateChange' | 'signInWithPassword' | 'signOut' | 'startAutoRefresh' | 'stopAutoRefresh'
+  | 'getSession'
+  | 'onAuthStateChange'
+  | 'signInWithPassword'
+  | 'signOut'
+  | 'startAutoRefresh'
+  | 'stopAutoRefresh'
 >;
 
 export function createSupabaseSession(auth: SupabaseAuth) {
@@ -19,6 +24,17 @@ export function createSupabaseSession(auth: SupabaseAuth) {
       });
 
       return () => subscription.unsubscribe();
+    },
+
+    // 만료가 가까우면 supabase-js가 refresh한 뒤 돌려준다. 실패하면 토큰 없이 보내 Gateway가 401로 판정하게 한다.
+    async getAccessToken(): Promise<string | null> {
+      try {
+        const { data } = await auth.getSession();
+
+        return data.session?.access_token ?? null;
+      } catch {
+        return null;
+      }
     },
 
     // 반환값이 아니라 SIGNED_IN 이벤트로 상태가 전달된다.

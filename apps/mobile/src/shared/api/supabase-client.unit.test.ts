@@ -25,6 +25,7 @@ describe('createMobileSupabaseClient', () => {
 
     vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', FAKE_URL);
     vi.stubEnv('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY', FAKE_KEY);
+    vi.stubEnv('EXPO_PUBLIC_GATEWAY_URL', 'http://127.0.0.1:4317');
     vi.resetModules();
   });
 

@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useSession } from '@/features/authenticate';
+import { checkGatewayAuth, type GatewayAuthResult, useSession } from '@/features/authenticate';
+import { useGatewayClient } from '@/shared/api/gateway-client';
 import { palette } from '@/shared/config/theme';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { createThemedStyles, useTheme } from '@/shared/ui/theme-provider';
@@ -19,15 +20,41 @@ function statusLabel(kind: 'restoring' | 'signedIn' | 'signedOut'): string {
   }
 }
 
+function toGatewayResultLabel(result: GatewayAuthResult): string {
+  switch (result) {
+    case 'authenticated':
+      return UI_STRINGS.auth.gatewayAuthenticated;
+    case 'rejected':
+      return UI_STRINGS.auth.gatewayRejected;
+    case 'unavailable':
+      return UI_STRINGS.auth.gatewayUnavailable;
+    case 'unreachable':
+      return UI_STRINGS.auth.gatewayUnreachable;
+  }
+}
+
 export function UiLabPage() {
   const theme = useTheme();
   const styles = useStyles();
   const { state, signIn, signOut } = useSession();
+  const gatewayClient = useGatewayClient();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [failureMessage, setFailureMessage] = useState<string | null>(null);
+  const [gatewayResult, setGatewayResult] = useState<GatewayAuthResult | null>(null);
+  const [isCheckingGateway, setIsCheckingGateway] = useState(false);
+
+  async function handleCheckGatewayAuth() {
+    setIsCheckingGateway(true);
+
+    try {
+      setGatewayResult(await checkGatewayAuth(gatewayClient));
+    } finally {
+      setIsCheckingGateway(false);
+    }
+  }
 
   async function handleSignIn() {
     setIsSubmitting(true);
@@ -100,6 +127,20 @@ export function UiLabPage() {
           >
             <Text style={styles.buttonText}>{UI_STRINGS.auth.signOut}</Text>
           </Pressable>
+
+          <Pressable
+            accessibilityLabel={UI_STRINGS.auth.gatewayCheck}
+            accessibilityRole="button"
+            disabled={isCheckingGateway}
+            onPress={handleCheckGatewayAuth}
+            style={[styles.button, isCheckingGateway && styles.buttonDisabled]}
+          >
+            <Text style={styles.buttonText}>{UI_STRINGS.auth.gatewayCheck}</Text>
+          </Pressable>
+
+          {gatewayResult ? (
+            <Text style={styles.status}>{toGatewayResultLabel(gatewayResult)}</Text>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
