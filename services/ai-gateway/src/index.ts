@@ -2,8 +2,10 @@ import { createSupabaseAccessTokenVerifier } from './auth/supabase-access-token-
 import { loadEnvironment } from './config/environment.js';
 import { createJobRepository } from './jobs/job-repository.js';
 import { buildServer } from './server.js';
+import { createUploadGrantIssuer } from './uploads/upload-grant-issuer.js';
 
-const { supabaseSecretKey, supabaseUrl } = loadEnvironment();
+const { supabaseSecretKey, supabaseUrl, uploadGrantSecret, workerReceiverOrigin } =
+  loadEnvironment();
 const host = process.env.ECHONOTE_BIND_HOST ?? '127.0.0.1';
 const port = Number.parseInt(process.env.ECHONOTE_GATEWAY_PORT ?? '4317', 10);
 // Supabase 대시보드 JWT Signing Keys의 Current key 알고리즘과 같아야 한다.
@@ -13,7 +15,11 @@ const jobRepository = createJobRepository({
   supabaseUrl,
   timeoutMs: 5000,
 });
-const server = buildServer({ jobRepository, logger: true, verifier });
+const issueUploadGrant = createUploadGrantIssuer({
+  receiverOrigin: workerReceiverOrigin,
+  secret: uploadGrantSecret,
+});
+const server = buildServer({ issueUploadGrant, jobRepository, logger: true, verifier });
 
 try {
   await server.listen({ host, port });

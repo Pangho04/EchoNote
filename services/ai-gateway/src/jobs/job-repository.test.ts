@@ -205,3 +205,64 @@ describe('createJobRepository', () => {
     expect(error.stack).not.toContain('SECRETVALUE');
   });
 });
+
+describe('findOwnedJob', () => {
+  const ownedInput = { jobId: jobRow.id, ownerId: input.ownerId };
+
+  it('jobs를 id·owner_id로 조회하고 apikey를 붙이며 redirect를 따라가지 않는다', async () => {
+    const fetchMock = stubFetch(async () => Response.json([]));
+
+    await createRepository().findOwnedJob(ownedInput);
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    const { pathname, searchParams } = new URL(url);
+
+    expect(pathname).toBe('/rest/v1/jobs');
+    expect(Object.fromEntries(searchParams)).toEqual({
+      id: `eq.${jobRow.id}`,
+      owner_id: `eq.${input.ownerId}`,
+      select: 'id,meeting_id,status,size_bytes,sha256,mime_type,created_at',
+    });
+    expect(init.method).toBeUndefined();
+    expect(init.redirect).toBe('manual');
+    expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
+  });
+
+  it('row 1건은 JobSnapshot으로 바꾼다', async () => {
+    stubFetch(async () => Response.json([jobRow]));
+
+    await expect(createRepository().findOwnedJob(ownedInput)).resolves.toEqual(snapshot);
+  });
+
+  it('row가 없으면 null을 돌려준다', async () => {
+    stubFetch(async () => Response.json([]));
+
+    await expect(createRepository().findOwnedJob(ownedInput)).resolves.toBeNull();
+  });
+
+  it.each([
+    ['row 2건', () => Response.json([jobRow, jobRow])],
+    ['형식이 다른 row', () => Response.json([{ ...jobRow, status: 'uploading' }])],
+    ['깨진 JSON', () => new Response('{not json')],
+  ])('%s는 invalid response Error로 바꾼다', async (_label, createResponse) => {
+    stubFetch(async () => createResponse());
+
+    const error = await captureError(createRepository().findOwnedJob(ownedInput));
+
+    expect(error).not.toBeInstanceOf(JobStoreUnavailableError);
+    expect(error.message).toBe('select_jobs invalid response');
+  });
+
+  it('HTTP 503은 저장소 일시 장애, HTTP 500은 상태 코드만 담은 Error다', async () => {
+    stubFetch(async () => new Response(null, { status: 503 }));
+
+    const unavailable = await captureError(createRepository().findOwnedJob(ownedInput));
+
+    stubFetch(async () => new Response(null, { status: 500 }));
+
+    const failed = await captureError(createRepository().findOwnedJob(ownedInput));
+
+    expect((unavailable as JobStoreUnavailableError).reason).toBe('http_503');
+    expect(failed.message).toBe('select_jobs http_500');
+  });
+});

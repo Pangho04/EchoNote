@@ -20,7 +20,7 @@ apps/desktop/out/
 
 # Local environment
 .env
-.env.local
+.env*.local
 !.env.example
 
 # Local-only documents and private meeting samples

@@ -2,16 +2,24 @@ import Fastify, { type FastifyError, type FastifyServerOptions } from 'fastify';
 
 import type { AccessTokenVerifier } from './auth/access-token-verifier.js';
 import { getUserContext, installAuth } from './auth/require-user.js';
-import type { JobRepository } from './jobs/job-repository.js';
+import { type JobRepository, JobStoreUnavailableError } from './jobs/job-repository.js';
 import { registerJobRoutes } from './jobs/jobs-routes.js';
+import type { IssueUploadGrant } from './uploads/upload-grant-issuer.js';
+import { registerUploadGrantRoutes } from './uploads/upload-grant-routes.js';
 
 type BuildServerOptions = {
+  issueUploadGrant: IssueUploadGrant;
   jobRepository: JobRepository;
   logger?: FastifyServerOptions['logger'];
   verifier: AccessTokenVerifier;
 };
 
-export const buildServer = ({ jobRepository, logger = false, verifier }: BuildServerOptions) => {
+export const buildServer = ({
+  issueUploadGrant,
+  jobRepository,
+  logger = false,
+  verifier,
+}: BuildServerOptions) => {
   const server = Fastify({
     logger,
   });
@@ -35,16 +43,23 @@ export const buildServer = ({ jobRepository, logger = false, verifier }: BuildSe
     async (v1) => {
       installAuth(v1, verifier);
 
-      // 본문 파싱 실패와 미지원 content-type은 invalid_request로 통일하고, 그 밖의 4xx는 기본 처리에 넘긴다.
-      // 5xx와 statusCode 없는 오류는 원인을 로그에만 남기고 응답에는 담지 않는다.
       v1.setErrorHandler((error, request, reply) => {
+        // 저장소 일시 장애는 재시도할 수 있어 503으로 응답한다. reason에는 분류 코드만 있다.
+        if (error instanceof JobStoreUnavailableError) {
+          request.log.warn({ reason: error.reason }, 'job store unavailable');
+
+          return reply.code(503).send({ error: 'job_store_unavailable' });
+        }
+
         const { code, statusCode } =
           typeof error === 'object' && error !== null ? (error as Partial<FastifyError>) : {};
 
+        // 본문 파싱 실패와 미지원 content-type은 invalid_request로 통일한다.
         if (code?.startsWith('FST_ERR_CTP_') && (statusCode === 400 || statusCode === 415)) {
           return reply.code(400).send({ error: 'invalid_request' });
         }
 
+        // 그 밖의 4xx는 Fastify 기본 처리에 넘긴다.
         if (
           typeof statusCode === 'number' &&
           Number.isInteger(statusCode) &&
@@ -54,6 +69,7 @@ export const buildServer = ({ jobRepository, logger = false, verifier }: BuildSe
           throw error;
         }
 
+        // 4xx가 아닌 오류는 원인을 로그에만 남기고 응답에는 담지 않는다.
         request.log.error({ err: error }, 'unhandled /v1 error');
 
         return reply.code(500).send({ error: 'internal' });
@@ -62,6 +78,7 @@ export const buildServer = ({ jobRepository, logger = false, verifier }: BuildSe
       v1.get('/auth-check', async (request) => ({ userId: getUserContext(request).id }));
 
       registerJobRoutes(v1, jobRepository);
+      registerUploadGrantRoutes(v1, jobRepository, issueUploadGrant);
     },
     { prefix: '/v1' },
   );

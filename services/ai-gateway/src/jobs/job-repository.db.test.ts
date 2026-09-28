@@ -139,3 +139,23 @@ describe('createJobRepository (local Supabase)', () => {
     expect('job' in resultA && 'job' in resultB && resultA.job.id !== resultB.job.id).toBe(true);
   });
 });
+
+describe('findOwnedJob (local Supabase)', () => {
+  it('owner의 job만 찾고 다른 owner에게는 null을 돌려준다', async () => {
+    const repository = createJobRepository({
+      secretKey: local.secretKey,
+      supabaseUrl: local.apiUrl,
+      timeoutMs: 5000,
+    });
+    const [ownerA, ownerB] = await Promise.all([createUser(), createUser()]);
+    const created = await repository.createJob(createInput(ownerA, randomUUID()));
+
+    if (created.kind !== 'created') throw new Error('job was not created');
+
+    const owned = await repository.findOwnedJob({ jobId: created.job.id, ownerId: ownerA });
+    const foreign = await repository.findOwnedJob({ jobId: created.job.id, ownerId: ownerB });
+
+    expect(owned).toEqual(created.job);
+    expect(foreign).toBeNull();
+  });
+});

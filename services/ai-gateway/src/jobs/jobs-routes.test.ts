@@ -30,8 +30,9 @@ afterEach(async () => {
 
 const buildJobsServer = (createJob: JobRepository['createJob'], userId = OWNER_ID) => {
   const logLines: string[] = [];
-  const jobRepository = { createJob: vi.fn(createJob) };
+  const jobRepository = { createJob: vi.fn(createJob), findOwnedJob: vi.fn() };
   const server = buildServer({
+    issueUploadGrant: vi.fn(),
     jobRepository,
     logger: { level: 'info', stream: { write: (line: string) => logLines.push(line) } },
     verifier: { verify: async () => ({ id: userId }) },

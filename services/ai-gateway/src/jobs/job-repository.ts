@@ -28,9 +28,11 @@ export type CreateJobResult =
 
 export type JobRepository = {
   createJob(input: CreateJobInput): Promise<CreateJobResult>;
+  // 다른 owner의 job은 없는 job과 같이 null이다.
+  findOwnedJob(input: { ownerId: string; jobId: string }): Promise<JobSnapshot | null>;
 };
 
-// 저장소에 닿지 못했거나 저장소가 일시적으로 응답할 수 없을 때. 재시도할 수 있으므로 503으로 응답한다.
+// 저장소에 닿지 못했거나 저장소가 일시적으로 응답할 수 없을 때. 재시도할 수 있는 장애로 분류한다.
 // reason에는 분류 코드만 담고 응답 body·key는 담지 않는다.
 export class JobStoreUnavailableError extends Error {
   readonly reason: string;
@@ -70,7 +72,10 @@ const toJobSnapshot = (row: z.infer<typeof jobRowSchema>): JobSnapshot => ({
   createdAt: new Date(row.created_at).toISOString(),
 });
 
-const callStore = async <T>(accessStore: () => Promise<T>) => {
+const JOB_COLUMNS = 'id,meeting_id,status,size_bytes,sha256,mime_type,created_at';
+
+// label은 오류 문구에서 어느 저장소 호출이 실패했는지만 구분한다.
+const callStore = async <T>(label: string, accessStore: () => Promise<T>) => {
   try {
     return await accessStore();
   } catch (error) {
@@ -83,11 +88,24 @@ const callStore = async <T>(accessStore: () => Promise<T>) => {
     if (error instanceof TypeError) throw new JobStoreUnavailableError('network');
 
     // eslint-disable-next-line preserve-caught-error -- 원본 오류가 응답 body 조각을 담을 수 있다.
-    if (error instanceof SyntaxError) throw new Error('create_job_v1 invalid response');
+    if (error instanceof SyntaxError) throw new Error(`${label} invalid response`);
 
     // eslint-disable-next-line preserve-caught-error -- 원본 message·cause에 무엇이 들었는지 알 수 없다.
-    throw new Error('create_job_v1 unexpected error');
+    throw new Error(`${label} unexpected error`);
   }
+};
+
+const ensureOk = (label: string, response: Response) => {
+  if (response.ok) return;
+
+  // 오류 body에는 SQL 오류 문구가 들 수 있어 읽지 않는다.
+  response.body?.cancel().catch(() => undefined);
+
+  if (UNAVAILABLE_STATUSES.has(response.status)) {
+    throw new JobStoreUnavailableError(`http_${response.status}`);
+  }
+
+  throw new Error(`${label} http_${response.status}`);
 };
 
 export const createJobRepository = ({
@@ -99,7 +117,7 @@ export const createJobRepository = ({
 
   return {
     async createJob(input) {
-      const response = await callStore(async () =>
+      const response = await callStore('create_job_v1', async () =>
         fetch(`${supabaseUrl}/rest/v1/rpc/create_job_v1`, {
           body: JSON.stringify({
             p_owner_id: input.ownerId,
@@ -117,18 +135,11 @@ export const createJobRepository = ({
         }),
       );
 
-      if (!response.ok) {
-        // 오류 body에는 SQL 오류 문구가 들 수 있어 읽지 않는다.
-        response.body?.cancel().catch(() => undefined);
+      ensureOk('create_job_v1', response);
 
-        if (UNAVAILABLE_STATUSES.has(response.status)) {
-          throw new JobStoreUnavailableError(`http_${response.status}`);
-        }
-
-        throw new Error(`create_job_v1 http_${response.status}`);
-      }
-
-      const parsed = createJobRowSchema.safeParse(await callStore(async () => response.json()));
+      const parsed = createJobRowSchema.safeParse(
+        await callStore('create_job_v1', async () => response.json()),
+      );
 
       if (!parsed.success) throw new Error('create_job_v1 invalid response');
 
@@ -140,6 +151,35 @@ export const createJobRepository = ({
         case 'conflict':
           return { kind: 'conflict' };
       }
+    },
+
+    async findOwnedJob({ jobId, ownerId }) {
+      const query = new URLSearchParams({
+        id: `eq.${jobId}`,
+        owner_id: `eq.${ownerId}`,
+        select: JOB_COLUMNS,
+      });
+      const response = await callStore('select_jobs', async () =>
+        fetch(`${supabaseUrl}/rest/v1/jobs?${query}`, {
+          headers,
+          redirect: 'manual',
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+
+      ensureOk('select_jobs', response);
+
+      // (id)가 primary key라 2건 이상은 저장소 응답 이상이다.
+      const parsed = z
+        .array(jobRowSchema)
+        .max(1)
+        .safeParse(await callStore('select_jobs', async () => response.json()));
+
+      if (!parsed.success) throw new Error('select_jobs invalid response');
+
+      const [row] = parsed.data;
+
+      return row === undefined ? null : toJobSnapshot(row);
     },
   };
 };
