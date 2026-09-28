@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { CompactSign, exportJWK, generateKeyPair, type JWTPayload, SignJWT } from 'jose';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../server.js';
 import { InvalidAccessTokenError, VerifierUnavailableError } from './access-token-verifier.js';
@@ -213,6 +213,7 @@ describe('Gateway 인증 로그', () => {
   const buildLoggedServer = (supabaseUrl: string) => {
     const logLines: string[] = [];
     const server = buildServer({
+      jobRepository: { createJob: vi.fn() },
       logger: { level: 'info', stream: { write: (line: string) => logLines.push(line) } },
       verifier: createVerifier(supabaseUrl),
     });

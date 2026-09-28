@@ -9,12 +9,15 @@
     "dev": "tsx watch --env-file-if-exists=.env.local src/index.ts",
     "lint": "eslint .",
     "start": "node dist/index.js",
-    "test": "vitest run",
+    "test": "vitest run --exclude \"**/*.db.test.ts\"",
+    "test:db": "vitest run src/jobs/job-repository.db.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@echonote/contracts": "workspace:*",
     "fastify": "5.11.2",
-    "jose": "6.2.12"
+    "jose": "6.2.12",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/node": "catalog:",
