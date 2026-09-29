@@ -60,6 +60,11 @@ export const UI_STRINGS = {
     completed: { metaLabel: '전사와 요약 완료', statusLabel: '완료' },
     failed: { metaLabel: '처리 실패', statusLabel: '실패' },
   },
+  uiLab: {
+    heading: 'UI Lab',
+    back: '‹ 회의',
+    backLabel: '회의 목록으로 이동',
+  },
   auth: {
     harnessHeading: '로그인 확인',
     email: '이메일',

@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -5,8 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { checkGatewayAuth, type GatewayAuthResult, useSession } from '@/features/authenticate';
 import { useGatewayClient } from '@/shared/api/gateway-client';
+import { ROUTES } from '@/shared/config/routes';
 import { palette } from '@/shared/config/theme';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
+import { NavigationHeader } from '@/shared/ui/navigation-header';
 import { createThemedStyles, useTheme } from '@/shared/ui/theme-provider';
 
 function statusLabel(kind: 'restoring' | 'signedIn' | 'signedOut'): string {
@@ -34,6 +37,7 @@ function toGatewayResultLabel(result: GatewayAuthResult): string {
 }
 
 export function UiLabPage() {
+  const router = useRouter();
   const theme = useTheme();
   const styles = useStyles();
   const { state, signIn, signOut } = useSession();
@@ -45,6 +49,17 @@ export function UiLabPage() {
   const [failureMessage, setFailureMessage] = useState<string | null>(null);
   const [gatewayResult, setGatewayResult] = useState<GatewayAuthResult | null>(null);
   const [isCheckingGateway, setIsCheckingGateway] = useState(false);
+
+  // deep link로 바로 들어오면 되돌아갈 화면이 없다.
+  function leave() {
+    if (router.canGoBack()) {
+      router.back();
+
+      return;
+    }
+
+    router.replace(ROUTES.meeting.list);
+  }
 
   async function handleCheckGatewayAuth() {
     setIsCheckingGateway(true);
@@ -75,10 +90,15 @@ export function UiLabPage() {
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
+      <NavigationHeader
+        action={{
+          accessibilityLabel: UI_STRINGS.uiLab.backLabel,
+          label: UI_STRINGS.uiLab.back,
+          onPress: leave,
+        }}
+        title={UI_STRINGS.uiLab.heading}
+      />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>ECHONOTE</Text>
-        <Text style={styles.title}>UI Lab</Text>
-        <View style={styles.divider} />
         <View style={styles.preview}>
           <Text style={styles.harnessHeading}>{UI_STRINGS.auth.harnessHeading}</Text>
           <Text style={styles.status}>{statusLabel(state.kind)}</Text>
@@ -154,16 +174,6 @@ const useStyles = createThemedStyles((theme) =>
       paddingHorizontal: theme.spacing[5],
       paddingVertical: theme.spacing[6],
     },
-    divider: {
-      backgroundColor: theme.colors.border,
-      height: StyleSheet.hairlineWidth,
-      marginTop: theme.spacing[5],
-    },
-    eyebrow: {
-      color: theme.colors.recording,
-      fontSize: theme.typography.fontSize.caption,
-      fontWeight: theme.typography.fontWeight.bold,
-    },
     preview: {
       flex: 1,
       gap: theme.spacing[3],
@@ -212,13 +222,6 @@ const useStyles = createThemedStyles((theme) =>
     safeArea: {
       backgroundColor: theme.colors.background,
       flex: 1,
-    },
-    title: {
-      color: theme.colors.textPrimary,
-      fontSize: theme.typography.fontSize.largeTitle,
-      fontWeight: theme.typography.fontWeight.bold,
-      lineHeight: theme.typography.lineHeight.largeTitle,
-      marginTop: theme.spacing[2],
     },
   }),
 );
