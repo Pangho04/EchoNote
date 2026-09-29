@@ -18,6 +18,7 @@ import {
   receiveUpload,
   UploadVerificationError,
 } from './receive-upload.js';
+import { UploadCompletionError } from './upload-completion-error.js';
 import type { UploadGrantClaims } from './upload-grant-verifier.js';
 
 const JOB_ID = '00000000-0000-4000-8000-0000000000f1';
@@ -61,7 +62,16 @@ const receive = (chunks: Buffer[], claims: UploadGrantClaims) =>
   });
 
 const incomingEntries = () => readdir(join(dataDir, '.incoming'));
-const finalEntries = () => readdir(join(dataDir, 'final'));
+const finalEntries = async () => (await readdir(join(dataDir, 'final'))).sort();
+const manifestPath = () => join(dataDir, 'final', `${JOB_ID}.json`);
+
+const commandFor = (body: Buffer) => ({
+  jobId: JOB_ID,
+  mimeType: 'audio/mp4',
+  ownerId: '00000000-0000-4000-8000-00000000000a',
+  sha256: createHash('sha256').update(body).digest('hex'),
+  sizeBytes: body.length,
+});
 
 describe('prepareUploadDirectories', () => {
   it('남은 temp와 probe 잔여를 지우고 final 파일은 보존한다', async () => {
@@ -90,20 +100,49 @@ describe('prepareUploadDirectories', () => {
 });
 
 describe('receiveUpload', () => {
-  it('검증을 통과한 body를 final/<jobId>.m4a로 확정하고 temp를 지운다', async () => {
+  it('검증을 통과한 body를 final에 확정하고 manifest를 남긴 뒤 command를 반환한다', async () => {
     await expect(
       receive([AUDIO.subarray(0, 3), AUDIO.subarray(3)], claimsFor(AUDIO)),
-    ).resolves.toBe('created');
+    ).resolves.toEqual(commandFor(AUDIO));
 
     expect(await readFile(join(dataDir, 'final', `${JOB_ID}.m4a`))).toEqual(AUDIO);
+    expect(JSON.parse(await readFile(manifestPath(), 'utf8'))).toEqual(commandFor(AUDIO));
     expect(await incomingEntries()).toEqual([]);
   });
 
-  it('같은 job final이 이미 있으면 덮어쓰지 않고 existing을 반환한다', async () => {
+  it('같은 job final·manifest가 이미 있으면 덮어쓰지 않고 같은 command를 반환한다', async () => {
     await receive([AUDIO], claimsFor(AUDIO));
 
-    await expect(receive([AUDIO], claimsFor(AUDIO))).resolves.toBe('existing');
-    expect(await finalEntries()).toEqual([`${JOB_ID}.m4a`]);
+    await expect(receive([AUDIO], claimsFor(AUDIO))).resolves.toEqual(commandFor(AUDIO));
+    expect(await finalEntries()).toEqual([`${JOB_ID}.json`, `${JOB_ID}.m4a`]);
+    expect(await incomingEntries()).toEqual([]);
+  });
+
+  it('final만 있고 manifest가 없으면 재수신이 manifest를 만든다', async () => {
+    await receive([AUDIO], claimsFor(AUDIO));
+    await rm(manifestPath());
+
+    await expect(receive([AUDIO], claimsFor(AUDIO))).resolves.toEqual(commandFor(AUDIO));
+    expect(JSON.parse(await readFile(manifestPath(), 'utf8'))).toEqual(commandFor(AUDIO));
+  });
+
+  it.each([
+    ['JSON 아님', '{"jobId":', 'manifest_invalid'],
+    ['schema 밖 필드', JSON.stringify({ ...commandFor(AUDIO), extra: 1 }), 'manifest_invalid'],
+    [
+      '다른 sha256',
+      JSON.stringify({ ...commandFor(AUDIO), sha256: 'f'.repeat(64) }),
+      'manifest_mismatch',
+    ],
+  ])('기존 manifest가 %s면 %s이고 final·manifest를 그대로 둔다', async (_label, text, reason) => {
+    await receive([AUDIO], claimsFor(AUDIO));
+    await writeFile(manifestPath(), text);
+
+    await expect(receive([AUDIO], claimsFor(AUDIO))).rejects.toEqual(
+      expect.objectContaining({ constructor: UploadCompletionError, reason }),
+    );
+    expect(await readFile(join(dataDir, 'final', `${JOB_ID}.m4a`))).toEqual(AUDIO);
+    expect(await readFile(manifestPath(), 'utf8')).toBe(text);
     expect(await incomingEntries()).toEqual([]);
   });
 

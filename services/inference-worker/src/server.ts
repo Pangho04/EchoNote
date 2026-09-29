@@ -2,6 +2,8 @@ import Fastify, { type FastifyError, type FastifyServerOptions } from 'fastify';
 
 import type { NonceStore } from './uploads/nonce-store.js';
 import { UploadVerificationError } from './uploads/receive-upload.js';
+import type { NotifyUploadCompletion } from './uploads/upload-completion-client.js';
+import { UploadCompletionError } from './uploads/upload-completion-error.js';
 import {
   InvalidUploadGrantError,
   type VerifyUploadGrant,
@@ -12,6 +14,7 @@ type BuildServerOptions = {
   dataDir: string;
   logger?: FastifyServerOptions['logger'];
   nonceStore: NonceStore;
+  notifyUploadCompletion: NotifyUploadCompletion;
   verifyGrant: VerifyUploadGrant;
 };
 
@@ -22,6 +25,7 @@ export const buildServer = ({
   dataDir,
   logger = false,
   nonceStore,
+  notifyUploadCompletion,
   verifyGrant,
 }: BuildServerOptions) => {
   const server = Fastify({ logger, requestTimeout: REQUEST_TIMEOUT_MS });
@@ -40,6 +44,22 @@ export const buildServer = ({
 
     if (error instanceof UploadVerificationError) {
       return reply.code(422).send({ error: 'upload_verification_failed' });
+    }
+
+    // final은 남아 있다. network·timeout·gateway 5xx는 새 grant로 다시 PUT하면 같은 command를 재전송한다.
+    if (error instanceof UploadCompletionError) {
+      // manifest 손상과 Gateway의 인증·충돌 거부는 재시도로 풀리지 않아 운영자가 봐야 한다.
+      const needsOperator =
+        error.reason.startsWith('manifest_') ||
+        error.reason === 'gateway_401' ||
+        error.reason === 'gateway_409';
+
+      request.log[needsOperator ? 'error' : 'warn'](
+        { reason: error.reason },
+        'upload completion failed',
+      );
+
+      return reply.code(502).send({ error: 'upload_completion_failed' });
     }
 
     const { code, statusCode } =
@@ -65,7 +85,7 @@ export const buildServer = ({
     return reply.code(500).send({ error: 'internal' });
   });
 
-  registerUploadRoutes(server, { dataDir, nonceStore, verifyGrant });
+  registerUploadRoutes(server, { dataDir, nonceStore, notifyUploadCompletion, verifyGrant });
 
   return server;
 };

@@ -4,12 +4,13 @@ import { loadEnvironment } from './config/environment.js';
 import { buildServer } from './server.js';
 import { type NonceStore, openNonceStore } from './uploads/nonce-store.js';
 import { prepareUploadDirectories } from './uploads/receive-upload.js';
+import { createUploadCompletionClient } from './uploads/upload-completion-client.js';
 import { createUploadGrantVerifier } from './uploads/upload-grant-verifier.js';
 
 // Tailscale Serve만 이 포트에 접근한다. tailnet이나 외부 주소에 직접 bind하지 않는다.
 const HOST = '127.0.0.1';
 
-const { dataDir, port, uploadGrantSecret } = loadEnvironment();
+const { dataDir, gatewayOrigin, port, uploadGrantSecret, workerApiToken } = loadEnvironment();
 
 let nonceStore: NonceStore;
 
@@ -26,6 +27,7 @@ const server = buildServer({
   dataDir,
   logger: true,
   nonceStore,
+  notifyUploadCompletion: createUploadCompletionClient({ gatewayOrigin, workerApiToken }),
   verifyGrant: createUploadGrantVerifier({ secret: uploadGrantSecret }),
 });
 

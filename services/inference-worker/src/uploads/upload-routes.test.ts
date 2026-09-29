@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { type IncomingMessage, request as httpRequest } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -11,6 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildServer } from '../server.js';
 import { type NonceStore, openNonceStore } from './nonce-store.js';
 import { prepareUploadDirectories } from './receive-upload.js';
+import type { NotifyUploadCompletion } from './upload-completion-client.js';
+import { UploadCompletionError } from './upload-completion-error.js';
 import { createUploadGrantVerifier } from './upload-grant-verifier.js';
 
 const SECRET = new Uint8Array(32).fill(7);
@@ -26,6 +28,20 @@ let dataDir: string;
 let nonceStore: NonceStore;
 let server: FastifyInstance;
 let logLines: string[];
+let notifyUploadCompletion: ReturnType<typeof vi.fn<NotifyUploadCompletion>>;
+
+// Gateway처럼 job마다 첫 통지는 created, 이후는 existing이다.
+const fakeGatewayNotify = () => {
+  const queuedJobIds = new Set<string>();
+
+  return vi.fn<NotifyUploadCompletion>(async ({ jobId }) => {
+    if (queuedJobIds.has(jobId)) return 'existing';
+
+    queuedJobIds.add(jobId);
+
+    return 'created';
+  });
+};
 
 const startServer = () => {
   nonceStore = openNonceStore(join(dataDir, 'nonces.sqlite'));
@@ -33,6 +49,7 @@ const startServer = () => {
     dataDir,
     logger: { level: 'info', stream: { write: (line: string) => void logLines.push(line) } },
     nonceStore,
+    notifyUploadCompletion,
     verifyGrant: createUploadGrantVerifier({ secret: SECRET }),
   });
 };
@@ -45,6 +62,7 @@ const stopServer = async () => {
 beforeEach(async () => {
   dataDir = await mkdtemp(join(tmpdir(), 'upload-routes-'));
   logLines = [];
+  notifyUploadCompletion = fakeGatewayNotify();
   await prepareUploadDirectories(dataDir);
   startServer();
 });
@@ -92,7 +110,12 @@ const put = (grant: string | undefined, headers: Record<string, string> = {}, pa
   });
 
 const incomingEntries = () => readdir(join(dataDir, '.incoming'));
-const finalEntries = () => readdir(join(dataDir, 'final'));
+const finalEntries = async () => (await readdir(join(dataDir, 'final'))).sort();
+
+const completionFailureLog = () =>
+  logLines
+    .map((line) => JSON.parse(line) as Record<string, unknown>)
+    .find((line) => line.msg === 'upload completion failed');
 
 const listen = async () => {
   await server.listen({ host: '127.0.0.1', port: 0 });
@@ -151,7 +174,7 @@ describe('PUT /uploads', () => {
 
     await stopServer();
     nonceStore = openNonceStore(join(dataDir, 'nonces.sqlite'));
-    server = buildServer({ dataDir, nonceStore, verifyGrant: verifyLater });
+    server = buildServer({ dataDir, nonceStore, notifyUploadCompletion, verifyGrant: verifyLater });
 
     expect((await put(await issueGrant({ jti }))).statusCode).toBe(401);
     expect(nonceStore.consume(jti, 0)).toBe(true);
@@ -331,7 +354,115 @@ describe('PUT /uploads', () => {
 
     expect(second.statusCode).toBe(200);
     expect(second.json()).toEqual({ jobId });
-    expect(await finalEntries()).toEqual([`${jobId}.m4a`]);
+    expect(await finalEntries()).toEqual([`${jobId}.json`, `${jobId}.m4a`]);
+  });
+
+  it('Worker token 없는 PUT도 manifest를 남기고 완료 통지 command를 보낸다', async () => {
+    const jobId = randomUUID();
+    const command = {
+      jobId,
+      mimeType: 'audio/mp4',
+      ownerId: OWNER_ID,
+      sha256: AUDIO_SHA256,
+      sizeBytes: AUDIO.length,
+    };
+
+    expect((await put(await issueGrant({ jobId }))).statusCode).toBe(201);
+    expect(notifyUploadCompletion).toHaveBeenCalledWith(command);
+    expect(JSON.parse(await readFile(join(dataDir, 'final', `${jobId}.json`), 'utf8'))).toEqual(
+      command,
+    );
+  });
+
+  it.each([
+    ['network', 'warn'],
+    ['gateway_401', 'error'],
+    ['gateway_409', 'error'],
+  ] as const)(
+    '완료 통지 %s 실패는 502이고 final·manifest를 남기며 reason만 %s 로그에 쓴다',
+    async (reason, level) => {
+      const jobId = randomUUID();
+
+      notifyUploadCompletion.mockRejectedValueOnce(new UploadCompletionError(reason));
+
+      const response = await put(await issueGrant({ jobId }));
+      const logLine = completionFailureLog();
+
+      expect(response.statusCode).toBe(502);
+      expect(response.json()).toEqual({ error: 'upload_completion_failed' });
+      expect(await finalEntries()).toEqual([`${jobId}.json`, `${jobId}.m4a`]);
+      expect(logLine).toMatchObject({ level: level === 'error' ? 50 : 40, reason });
+      expect(Object.keys(logLine ?? {}).sort()).toEqual(
+        ['hostname', 'level', 'msg', 'pid', 'reason', 'reqId', 'time'].sort(),
+      );
+      expect((await put(await issueGrant({ jobId }))).statusCode).toBe(201);
+    },
+  );
+
+  it('완료 통지의 분류 밖 예외는 500이고 오류 문구를 로그에 남기지 않는다', async () => {
+    notifyUploadCompletion.mockRejectedValueOnce(
+      new Error('https://gateway.example.test token-marker'),
+    );
+
+    const response = await put(await issueGrant());
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({ error: 'internal' });
+    expect(logLines.join('')).not.toMatch(/gateway\.example\.test|token-marker/);
+  });
+
+  it.each([
+    ['손상', () => '{"note":"manifest-body-marker"', 'manifest_invalid'],
+    [
+      '불일치',
+      () =>
+        JSON.stringify({
+          jobId: '00000000-0000-4000-8000-0000000000aa',
+          mimeType: 'audio/mp4',
+          ownerId: OWNER_ID,
+          sha256: 'f'.repeat(64),
+          sizeBytes: AUDIO.length,
+        }),
+      'manifest_mismatch',
+    ],
+  ])(
+    '기존 manifest가 %s면 502이고 통지하지 않으며 reason만 error 로그에 쓴다',
+    async (_label, manifestText, reason) => {
+      const jobId = randomUUID();
+      const text = manifestText();
+
+      expect((await put(await issueGrant({ jobId }))).statusCode).toBe(201);
+
+      await writeFile(join(dataDir, 'final', `${jobId}.json`), text);
+      notifyUploadCompletion.mockClear();
+
+      const response = await put(await issueGrant({ jobId }));
+
+      expect(response.statusCode).toBe(502);
+      expect(notifyUploadCompletion).not.toHaveBeenCalled();
+      expect(completionFailureLog()).toMatchObject({ level: 50, reason });
+      expect(logLines.join('')).not.toMatch(/manifest-body-marker|f{64}/);
+      expect(await readFile(join(dataDir, 'final', `${jobId}.m4a`))).toEqual(AUDIO);
+      expect(await readFile(join(dataDir, 'final', `${jobId}.json`), 'utf8')).toBe(text);
+    },
+  );
+
+  it('기존 manifest를 읽지 못하면 500이고 통지하지 않는다', async () => {
+    const jobId = randomUUID();
+
+    expect((await put(await issueGrant({ jobId }))).statusCode).toBe(201);
+
+    // link는 EEXIST로 실패하고 readFile은 EISDIR로 실패한다.
+    await rm(join(dataDir, 'final', `${jobId}.json`));
+    await mkdir(join(dataDir, 'final', `${jobId}.json`));
+    notifyUploadCompletion.mockClear();
+
+    const response = await put(await issueGrant({ jobId }));
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({ error: 'internal' });
+    expect(notifyUploadCompletion).not.toHaveBeenCalled();
+    expect(await readFile(join(dataDir, 'final', `${jobId}.m4a`))).toEqual(AUDIO);
   });
 
   it('로그에 grant·sub·sha256·jobId·데이터 경로를 남기지 않는다', async () => {
@@ -343,11 +474,15 @@ describe('PUT /uploads', () => {
     await put('forged.grant.value');
     await rm(join(dataDir, 'final'), { recursive: true });
     await put(await issueGrant({ jobId }));
+    await prepareUploadDirectories(dataDir);
+    notifyUploadCompletion.mockRejectedValueOnce(new UploadCompletionError('gateway_401'));
+    await put(await issueGrant({ jobId }));
 
     const logs = logLines.join('');
 
     expect(logs).toContain('unhandled upload error');
     expect(logs).toContain('upload grant rejected');
+    expect(logs).toContain('upload completion failed');
 
     // pino는 JSON으로 쓰므로 Windows 경로의 `\`는 escape된 형태로 나타난다.
     for (const secret of [

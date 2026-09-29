@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 
 import type { NonceStore } from './nonce-store.js';
 import { receiveUpload } from './receive-upload.js';
+import type { NotifyUploadCompletion } from './upload-completion-client.js';
 import type { VerifyUploadGrant } from './upload-grant-verifier.js';
 
 const OCTET_STREAM = 'application/octet-stream';
@@ -9,13 +10,14 @@ const OCTET_STREAM = 'application/octet-stream';
 type UploadRoutesOptions = {
   dataDir: string;
   nonceStore: NonceStore;
+  notifyUploadCompletion: NotifyUploadCompletion;
   verifyGrant: VerifyUploadGrant;
 };
 
 // fastify-plugin으로 감싸지 않는다. content-type parser 교체는 이 캡슐 안에만 적용된다.
 export const registerUploadRoutes = (
   server: FastifyInstance,
-  { dataDir, nonceStore, verifyGrant }: UploadRoutesOptions,
+  { dataDir, nonceStore, notifyUploadCompletion, verifyGrant }: UploadRoutesOptions,
 ) =>
   server.register(async (uploads) => {
     // body를 버퍼링하지 않고 stream 그대로 handler에 넘긴다. 다른 content-type은 415다.
@@ -39,14 +41,15 @@ export const registerUploadRoutes = (
         return reply.code(400).send({ error: 'invalid_request' });
       }
 
-      const outcome = await receiveUpload({
+      const command = await receiveUpload({
         body: request.raw,
         claims,
         dataDir,
         logTempCleanupFailure: (code) => request.log.warn({ code }, 'upload temp cleanup failed'),
       });
+      const result = await notifyUploadCompletion(command);
 
-      switch (outcome) {
+      switch (result) {
         case 'created':
           return reply.code(201).send({ jobId: claims.job_id });
 
@@ -54,7 +57,7 @@ export const registerUploadRoutes = (
           return reply.code(200).send({ jobId: claims.job_id });
 
         default:
-          return outcome satisfies never;
+          return result satisfies never;
       }
     });
   });

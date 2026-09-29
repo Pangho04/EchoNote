@@ -1,22 +1,43 @@
 import { isAbsolute } from 'node:path';
 
-const MIN_UPLOAD_GRANT_SECRET_BYTES = 32;
+const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(['127.0.0.1', 'localhost']);
+const MIN_SECRET_BYTES = 32;
 const DEFAULT_WORKER_PORT = 4318;
 
-const loadUploadGrantSecret = () => {
+// 검사를 통과한 Base64 원문을 돌려준다.
+const loadBase64Secret = (name: string) => {
   // trim하지 않는다. 앞뒤 공백·줄바꿈이 붙은 값도 설정 실수로 보고 아래 검사에서 거부한다.
-  const encoded = process.env.UPLOAD_GRANT_SECRET_B64 ?? '';
+  const encoded = process.env[name] ?? '';
   const decoded = Buffer.from(encoded, 'base64');
 
   // Buffer.from은 alphabet 밖 문자·공백을 버리고 padding 누락·URL-safe 문자도 받아들이므로,
   // 다시 표준 Base64로 encode한 결과가 입력과 같아야 한다.
-  if (decoded.toString('base64') !== encoded || decoded.length < MIN_UPLOAD_GRANT_SECRET_BYTES) {
+  if (decoded.toString('base64') !== encoded || decoded.length < MIN_SECRET_BYTES) {
+    throw new Error(`${name} must be standard Base64 of at least ${MIN_SECRET_BYTES} bytes`);
+  }
+
+  return encoded;
+};
+
+// Worker token을 담은 완료 통지가 향할 곳이다.
+const loadGatewayOrigin = () => {
+  const gatewayUrl = process.env.GATEWAY_BASE_URL;
+
+  if (gatewayUrl === undefined || !URL.canParse(gatewayUrl)) {
+    throw new Error('GATEWAY_BASE_URL must be an absolute URL');
+  }
+
+  const url = new URL(gatewayUrl);
+  const isLocalHttp = url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname);
+
+  // path·query·hash·userinfo가 붙은 값은 설정 실수로 보고 거부한다.
+  if ((url.protocol !== 'https:' && !isLocalHttp) || url.href !== `${url.origin}/`) {
     throw new Error(
-      `UPLOAD_GRANT_SECRET_B64 must be standard Base64 of at least ${MIN_UPLOAD_GRANT_SECRET_BYTES} bytes`,
+      'GATEWAY_BASE_URL must be an https origin without path, query, hash or userinfo (http is allowed only for localhost)',
     );
   }
 
-  return new Uint8Array(decoded);
+  return url.origin;
 };
 
 const loadWorkerPort = () => {
@@ -33,7 +54,7 @@ const loadWorkerPort = () => {
   return port;
 };
 
-// 오류 문구에 입력값을 넣지 않는다. 시작 실패 로그에 secret·경로가 남지 않게 한다.
+// 오류 문구에 입력값을 넣지 않는다. 시작 실패 로그에 secret·경로·URL이 남지 않게 한다.
 export const loadEnvironment = () => {
   const dataDir = process.env.WORKER_DATA_DIR;
 
@@ -42,9 +63,19 @@ export const loadEnvironment = () => {
     throw new Error('WORKER_DATA_DIR must be an absolute path');
   }
 
+  const uploadGrantSecret = loadBase64Secret('UPLOAD_GRANT_SECRET_B64');
+  const workerApiToken = loadBase64Secret('WORKER_API_TOKEN');
+
+  // 한 값이 새면 grant 위조와 완료 통지 위조가 함께 열린다.
+  if (workerApiToken === uploadGrantSecret) {
+    throw new Error('WORKER_API_TOKEN must differ from UPLOAD_GRANT_SECRET_B64');
+  }
+
   return {
     dataDir,
+    gatewayOrigin: loadGatewayOrigin(),
     port: loadWorkerPort(),
-    uploadGrantSecret: loadUploadGrantSecret(),
+    uploadGrantSecret: new Uint8Array(Buffer.from(uploadGrantSecret, 'base64')),
+    workerApiToken,
   };
 };
