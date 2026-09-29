@@ -94,3 +94,11 @@ node --env-file=services/inference-worker/.env.local -e "fetch(new URL('/v1/work
 | `code ENOTFOUND`    | 호스트명 오타 또는 MagicDNS 해석 실패         |
 
 `GATEWAY_BASE_URL`은 Gateway 기기에서 `tailscale serve status`로 확인한 https origin을 path 없이 넣는다. `.env.local`을 고친 뒤에는 Worker를 재시작한다. 실패한 job은 새 grant로 다시 PUT하면 같은 완료 통지를 재전송한다.
+
+## 모바일의 Gateway 요청이 전부 401
+
+**증상** — 모바일 로그인은 되지만 `/v1` 요청이 모두 401이다.
+
+**원인** — 모바일은 원격 Supabase로 로그인하는데 Gateway가 로컬 Supabase 기준으로 JWT를 검증한다. `pnpm dev:gateway:test`로 띄우면 `.env.test.local`의 로컬 `SUPABASE_URL`이 `.env.local` 값을 덮는다.
+
+**대응** — 모바일과 연동할 때는 `pnpm dev:gateway`로 띄운다. `.env.local`의 `SUPABASE_URL`이 모바일 `EXPO_PUBLIC_SUPABASE_URL`과 같은 프로젝트인지 확인한다.
