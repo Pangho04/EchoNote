@@ -243,6 +243,7 @@ pnpm dev:mobile:ios
 pnpm dev:mobile:aos
 pnpm dev:desktop
 pnpm dev:gateway
+pnpm dev:worker
 ```
 
 변경 완료 전 기본 검증은 다음과 같다.

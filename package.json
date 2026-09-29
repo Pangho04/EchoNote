@@ -16,6 +16,7 @@
     "dev:mobile:aos": "pnpm --filter @echonote/mobile android:device",
     "dev:mobile:go": "pnpm --filter @echonote/mobile start:go",
     "dev:mobile:ios": "pnpm --filter @echonote/mobile ios:device",
+    "dev:worker": "pnpm --filter @echonote/contracts build && pnpm --filter @echonote/inference-worker dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "turbo run lint",
