@@ -1,12 +1,13 @@
 import * as Crypto from 'expo-crypto';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { BackHandler, StyleSheet, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { recordingPermissionService } from '@/features/record-meeting/api/recording-permission-service.native';
 import { ROUTES } from '@/shared/config/routes';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
+import { AppText } from '@/shared/ui/app-text';
 import { useDialog } from '@/shared/ui/dialog';
 import { NavigationHeader } from '@/shared/ui/navigation-header';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
@@ -216,6 +217,21 @@ export function MeetingLibraryPage() {
           />
         </View>
 
+        {/* 개발 빌드에서만 보이는 임시 진입점이다. 로그인 화면이 생기면 ROUTES.dev와 함께 지운다. */}
+        {__DEV__ && !isEditing && (
+          <Pressable
+            accessibilityLabel={UI_STRINGS.meetingLibrary.openUiLabLabel}
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => router.push(ROUTES.dev.uiLab)}
+            style={styles.uiLabButtonPosition}
+          >
+            <AppText color="accent" variant="body">
+              {UI_STRINGS.meetingLibrary.openUiLab}
+            </AppText>
+          </Pressable>
+        )}
+
         {!isEditing && (
           <View style={styles.recordingButtonPosition}>
             <RecordingButton openTitleDialog={openRecordingTitleDialog} />
@@ -244,6 +260,11 @@ const useStyles = createThemedStyles((theme) =>
       bottom: theme.spacing[6],
       position: 'absolute',
       right: 18,
+    },
+    uiLabButtonPosition: {
+      bottom: theme.spacing[6],
+      left: 18,
+      position: 'absolute',
     },
   }),
 );

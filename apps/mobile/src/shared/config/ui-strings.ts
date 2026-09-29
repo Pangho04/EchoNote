@@ -20,6 +20,8 @@ export const UI_STRINGS = {
   },
   meetingLibrary: {
     heading: '회의',
+    openUiLab: 'UI Lab',
+    openUiLabLabel: 'UI Lab 열기',
     loadFailedTitle: '회의 목록을 열 수 없습니다',
     loadFailed: '회의 목록을 불러오지 못했습니다.',
     permissionDenied: '마이크 권한을 허용해야 녹음을 시작할 수 있습니다.',
