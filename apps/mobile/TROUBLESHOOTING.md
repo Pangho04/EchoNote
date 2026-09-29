@@ -71,3 +71,26 @@
 **원인** — 무선 디버깅 기기 하나가 mDNS 이름과 `IP:포트` 두 항목으로 동시에 잡힌다.
 
 **대응** — `adb devices`에서 `IP:포트` 항목을 골라 `adb -s <IP:포트>`로 지정한다.
+
+## Windows Worker 업로드 PUT이 502 `upload_completion_failed`, 로그 `reason: network`
+
+**증상** — 녹음 PUT은 Worker까지 도달하지만 502 `upload_completion_failed`를 받는다. Worker 로그는 `upload completion failed`, `reason: network`이고 job은 `created`에 머문다. final 파일은 남는다.
+
+**원인** — Worker가 `GATEWAY_BASE_URL`로 Gateway에 연결하지 못한다. 시작 검증은 URL 형식만 보므로 아래 값도 통과한다.
+
+- `http://127.0.0.1:4317`처럼 loopback을 넣으면 Windows 자기 자신을 가리켜 연결이 거부된다. loopback http는 Gateway와 Worker를 한 기기에서 띄울 때만 쓴다.
+- 호스트명 끝에 글자가 붙은 오타(`.ts.netw`)는 형식상 유효한 origin이라 이름 해석에서 `ENOTFOUND`로 실패한다.
+
+**대응** — Windows 저장소 루트에서 URL·token을 출력하지 않고 연결만 확인한다.
+
+```powershell
+node --env-file=services/inference-worker/.env.local -e "fetch(new URL('/v1/worker/upload-completions', process.env.GATEWAY_BASE_URL), {method: 'POST'}).then((r) => console.log('status', r.status)).catch((e) => console.log('code', e.cause?.code ?? e.name))"
+```
+
+| 출력                | 판정                                          |
+| ------------------- | --------------------------------------------- |
+| `status 401`        | 경로 정상. Worker가 옛 env로 떠 있으면 재시작 |
+| `code ECONNREFUSED` | 주소가 Gateway가 아님(loopback 등)            |
+| `code ENOTFOUND`    | 호스트명 오타 또는 MagicDNS 해석 실패         |
+
+`GATEWAY_BASE_URL`은 Gateway 기기에서 `tailscale serve status`로 확인한 https origin을 path 없이 넣는다. `.env.local`을 고친 뒤에는 Worker를 재시작한다. 실패한 job은 새 grant로 다시 PUT하면 같은 완료 통지를 재전송한다.
