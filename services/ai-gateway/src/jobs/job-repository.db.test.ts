@@ -159,3 +159,65 @@ describe('findOwnedJob (local Supabase)', () => {
     expect(foreign).toBeNull();
   });
 });
+
+describe('completeUpload (local Supabase)', () => {
+  it('같은 통지 동시 10건은 queued 1건·existing 9건이고 status는 queued다', async () => {
+    const repository = createJobRepository({
+      secretKey: local.secretKey,
+      supabaseUrl: local.apiUrl,
+      timeoutMs: 5000,
+    });
+    const ownerId = await createUser();
+    const created = await repository.createJob(createInput(ownerId, randomUUID()));
+
+    if (created.kind !== 'created') throw new Error('job was not created');
+
+    const completion = {
+      jobId: created.job.id,
+      mimeType: created.job.mimeType,
+      ownerId,
+      sha256: created.job.sha256,
+      sizeBytes: created.job.sizeBytes,
+    };
+
+    const results = await Promise.all(
+      Array.from({ length: 10 }, async () => repository.completeUpload(completion)),
+    );
+
+    expect(results.filter((result) => result.kind === 'queued')).toHaveLength(1);
+    expect(results.filter((result) => result.kind === 'existing')).toHaveLength(9);
+    expect(await repository.findOwnedJob({ jobId: created.job.id, ownerId })).toMatchObject({
+      status: 'queued',
+    });
+  });
+
+  it('payload가 다르면 conflict, 다른 owner면 not_found이고 status는 created다', async () => {
+    const repository = createJobRepository({
+      secretKey: local.secretKey,
+      supabaseUrl: local.apiUrl,
+      timeoutMs: 5000,
+    });
+    const [ownerA, ownerB] = await Promise.all([createUser(), createUser()]);
+    const created = await repository.createJob(createInput(ownerA, randomUUID()));
+
+    if (created.kind !== 'created') throw new Error('job was not created');
+
+    const completion = {
+      jobId: created.job.id,
+      mimeType: created.job.mimeType,
+      ownerId: ownerA,
+      sha256: created.job.sha256,
+      sizeBytes: created.job.sizeBytes,
+    };
+
+    await expect(
+      repository.completeUpload({ ...completion, sha256: 'b'.repeat(64) }),
+    ).resolves.toEqual({ kind: 'conflict' });
+    await expect(repository.completeUpload({ ...completion, ownerId: ownerB })).resolves.toEqual({
+      kind: 'not_found',
+    });
+    expect(await repository.findOwnedJob({ jobId: created.job.id, ownerId: ownerA })).toEqual(
+      created.job,
+    );
+  });
+});

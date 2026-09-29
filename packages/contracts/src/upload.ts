@@ -24,3 +24,14 @@ export const uploadGrantClaimsSchema = z
   .refine(({ exp, iat, nbf }) => nbf === iat && exp - iat === UPLOAD_GRANT_TTL_SECONDS, {
     message: `nbf는 iat와 같고 exp는 iat + ${UPLOAD_GRANT_TTL_SECONDS}초여야 합니다.`,
   });
+
+// Worker가 final 파일을 확정한 뒤 Gateway에 보내는 완료 통지. 필드는 grant claim에서 그대로 옮긴다.
+export const uploadCompletionRequestSchema = z.strictObject({
+  jobId: z.uuid(),
+  ownerId: z.uuid(),
+  sizeBytes: createJobRequestSchema.shape.sizeBytes,
+  sha256: createJobRequestSchema.shape.sha256,
+  mimeType: createJobRequestSchema.shape.mimeType,
+});
+
+export type UploadCompletionRequest = z.infer<typeof uploadCompletionRequestSchema>;

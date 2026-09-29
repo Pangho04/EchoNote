@@ -14,7 +14,7 @@ declare module 'fastify' {
   }
 }
 
-const BEARER_PATTERN = /^Bearer (\S+)$/i;
+export const BEARER_PATTERN = /^Bearer (\S+)$/i;
 
 export const sendUnauthorized = (reply: FastifyReply) =>
   reply.code(401).header('WWW-Authenticate', 'Bearer').send({ error: 'unauthorized' });

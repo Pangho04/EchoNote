@@ -2,6 +2,7 @@ import {
   createJobRequestSchema,
   type JobSnapshot,
   processingJobStatusSchema,
+  type UploadCompletionRequest,
 } from '@echonote/contracts';
 import { z } from 'zod';
 
@@ -26,8 +27,16 @@ export type CreateJobResult =
   | { kind: 'existing'; job: JobSnapshot }
   | { kind: 'conflict' };
 
+export type CompleteUploadResult =
+  | { kind: 'queued'; job: JobSnapshot }
+  | { kind: 'existing'; job: JobSnapshot }
+  | { kind: 'conflict' }
+  | { kind: 'not_found' };
+
 export type JobRepository = {
   createJob(input: CreateJobInput): Promise<CreateJobResult>;
+  // 다른 owner의 job은 없는 job과 같이 not_found다.
+  completeUpload(input: UploadCompletionRequest): Promise<CompleteUploadResult>;
   // 다른 owner의 job은 없는 job과 같이 null이다.
   findOwnedJob(input: { ownerId: string; jobId: string }): Promise<JobSnapshot | null>;
 };
@@ -60,6 +69,13 @@ const createJobRowSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('created'), job: jobRowSchema }),
   z.object({ kind: z.literal('existing'), job: jobRowSchema }),
   z.object({ kind: z.literal('conflict') }),
+]);
+
+const completeUploadRowSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('queued'), job: jobRowSchema }),
+  z.object({ kind: z.literal('existing'), job: jobRowSchema }),
+  z.object({ kind: z.literal('conflict') }),
+  z.object({ kind: z.literal('not_found') }),
 ]);
 
 const toJobSnapshot = (row: z.infer<typeof jobRowSchema>): JobSnapshot => ({
@@ -150,6 +166,42 @@ export const createJobRepository = ({
 
         case 'conflict':
           return { kind: 'conflict' };
+      }
+    },
+
+    async completeUpload(input) {
+      const response = await callStore('complete_upload_v1', async () =>
+        fetch(`${supabaseUrl}/rest/v1/rpc/complete_upload_v1`, {
+          body: JSON.stringify({
+            p_job_id: input.jobId,
+            p_owner_id: input.ownerId,
+            p_size_bytes: input.sizeBytes,
+            p_sha256: input.sha256,
+            p_mime_type: input.mimeType,
+          }),
+          headers,
+          method: 'POST',
+          redirect: 'manual',
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+
+      ensureOk('complete_upload_v1', response);
+
+      const parsed = completeUploadRowSchema.safeParse(
+        await callStore('complete_upload_v1', async () => response.json()),
+      );
+
+      if (!parsed.success) throw new Error('complete_upload_v1 invalid response');
+
+      switch (parsed.data.kind) {
+        case 'queued':
+        case 'existing':
+          return { kind: parsed.data.kind, job: toJobSnapshot(parsed.data.job) };
+
+        case 'conflict':
+        case 'not_found':
+          return { kind: parsed.data.kind };
       }
     },
 

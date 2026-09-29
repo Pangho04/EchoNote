@@ -41,13 +41,18 @@ const buildGrantServer = (
   }: { issue?: IssueUploadGrant; userId?: string } = {},
 ) => {
   const logLines: string[] = [];
-  const jobRepository = { createJob: vi.fn(), findOwnedJob: vi.fn(findOwnedJob) };
+  const jobRepository = {
+    completeUpload: vi.fn(),
+    createJob: vi.fn(),
+    findOwnedJob: vi.fn(findOwnedJob),
+  };
   const issueUploadGrant = vi.fn(issue);
   const server = buildServer({
     issueUploadGrant,
     jobRepository,
     logger: { level: 'info', stream: { write: (line: string) => logLines.push(line) } },
     verifier: { verify: async () => ({ id: userId }) },
+    workerApiToken: 'worker-token',
   });
 
   servers.push(server);

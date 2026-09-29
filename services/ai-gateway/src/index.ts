@@ -4,7 +4,7 @@ import { createJobRepository } from './jobs/job-repository.js';
 import { buildServer } from './server.js';
 import { createUploadGrantIssuer } from './uploads/upload-grant-issuer.js';
 
-const { supabaseSecretKey, supabaseUrl, uploadGrantSecret, workerReceiverOrigin } =
+const { supabaseSecretKey, supabaseUrl, uploadGrantSecret, workerApiToken, workerReceiverOrigin } =
   loadEnvironment();
 const host = process.env.ECHONOTE_BIND_HOST ?? '127.0.0.1';
 const port = Number.parseInt(process.env.ECHONOTE_GATEWAY_PORT ?? '4317', 10);
@@ -19,7 +19,13 @@ const issueUploadGrant = createUploadGrantIssuer({
   receiverOrigin: workerReceiverOrigin,
   secret: uploadGrantSecret,
 });
-const server = buildServer({ issueUploadGrant, jobRepository, logger: true, verifier });
+const server = buildServer({
+  issueUploadGrant,
+  jobRepository,
+  logger: true,
+  verifier,
+  workerApiToken,
+});
 
 try {
   await server.listen({ host, port });

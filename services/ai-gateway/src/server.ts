@@ -2,8 +2,10 @@ import Fastify, { type FastifyError, type FastifyServerOptions } from 'fastify';
 
 import type { AccessTokenVerifier } from './auth/access-token-verifier.js';
 import { getUserContext, installAuth } from './auth/require-user.js';
+import { installWorkerAuth } from './auth/require-worker.js';
 import { type JobRepository, JobStoreUnavailableError } from './jobs/job-repository.js';
 import { registerJobRoutes } from './jobs/jobs-routes.js';
+import { registerUploadCompletionRoutes } from './uploads/upload-completion-routes.js';
 import type { IssueUploadGrant } from './uploads/upload-grant-issuer.js';
 import { registerUploadGrantRoutes } from './uploads/upload-grant-routes.js';
 
@@ -12,6 +14,7 @@ type BuildServerOptions = {
   jobRepository: JobRepository;
   logger?: FastifyServerOptions['logger'];
   verifier: AccessTokenVerifier;
+  workerApiToken: string;
 };
 
 export const buildServer = ({
@@ -19,6 +22,7 @@ export const buildServer = ({
   jobRepository,
   logger = false,
   verifier,
+  workerApiToken,
 }: BuildServerOptions) => {
   const server = Fastify({
     logger,
@@ -41,8 +45,7 @@ export const buildServer = ({
 
   server.register(
     async (v1) => {
-      installAuth(v1, verifier);
-
+      // 두 자식 캡슐이 이 handler를 물려받는다.
       v1.setErrorHandler((error, request, reply) => {
         // 저장소 일시 장애는 재시도할 수 있어 503으로 응답한다. reason에는 분류 코드만 있다.
         if (error instanceof JobStoreUnavailableError) {
@@ -75,10 +78,24 @@ export const buildServer = ({
         return reply.code(500).send({ error: 'internal' });
       });
 
-      v1.get('/auth-check', async (request) => ({ userId: getUserContext(request).id }));
+      // 사용자 JWT와 Worker token은 서로의 route를 열지 못한다.
+      v1.register(async (user) => {
+        installAuth(user, verifier);
 
-      registerJobRoutes(v1, jobRepository);
-      registerUploadGrantRoutes(v1, jobRepository, issueUploadGrant);
+        user.get('/auth-check', async (request) => ({ userId: getUserContext(request).id }));
+
+        registerJobRoutes(user, jobRepository);
+        registerUploadGrantRoutes(user, jobRepository, issueUploadGrant);
+      });
+
+      v1.register(
+        async (worker) => {
+          installWorkerAuth(worker, workerApiToken);
+
+          registerUploadCompletionRoutes(worker, jobRepository);
+        },
+        { prefix: '/worker' },
+      );
     },
     { prefix: '/v1' },
   );

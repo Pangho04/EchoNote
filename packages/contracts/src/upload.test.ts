@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { uploadGrantClaimsSchema } from './index';
+import { uploadCompletionRequestSchema, uploadGrantClaimsSchema } from './index';
 
 const claims = {
   aud: 'echonote-upload-receiver',
@@ -32,5 +32,32 @@ describe('uploadGrantClaimsSchema', () => {
     ['지원하지 않는 MIME', { mime_type: 'audio/wav' }],
   ])('%s를 거부한다', (_label, override) => {
     expect(uploadGrantClaimsSchema.safeParse({ ...claims, ...override }).success).toBe(false);
+  });
+});
+
+const completion = {
+  jobId: '00000000-0000-4000-8000-0000000000f1',
+  mimeType: 'audio/mp4',
+  ownerId: '00000000-0000-4000-8000-00000000000a',
+  sha256: 'a'.repeat(64),
+  sizeBytes: 100,
+};
+
+describe('uploadCompletionRequestSchema', () => {
+  it('Worker가 보내는 완료 통지를 허용한다', () => {
+    expect(uploadCompletionRequestSchema.safeParse(completion).success).toBe(true);
+  });
+
+  it.each([
+    ['uuid가 아닌 jobId', { jobId: 'job-1' }],
+    ['uuid가 아닌 ownerId', { ownerId: 'user-1' }],
+    ['0 byte 파일', { sizeBytes: 0 }],
+    ['대문자 sha256', { sha256: 'A'.repeat(64) }],
+    ['지원하지 않는 MIME', { mimeType: 'audio/wav' }],
+    ['정의하지 않은 필드', { status: 'queued' }],
+  ])('%s를 거부한다', (_label, override) => {
+    expect(uploadCompletionRequestSchema.safeParse({ ...completion, ...override }).success).toBe(
+      false,
+    );
   });
 });

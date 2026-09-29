@@ -214,9 +214,10 @@ describe('Gateway 인증 로그', () => {
     const logLines: string[] = [];
     const server = buildServer({
       issueUploadGrant: vi.fn(),
-      jobRepository: { createJob: vi.fn(), findOwnedJob: vi.fn() },
+      jobRepository: { completeUpload: vi.fn(), createJob: vi.fn(), findOwnedJob: vi.fn() },
       logger: { level: 'info', stream: { write: (line: string) => logLines.push(line) } },
       verifier: createVerifier(supabaseUrl),
+      workerApiToken: 'worker-token',
     });
 
     fastifyServers.push(server);

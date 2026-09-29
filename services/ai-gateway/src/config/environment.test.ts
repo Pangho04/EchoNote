@@ -5,11 +5,13 @@ import { loadEnvironment } from './environment.js';
 const SECRET = 'sb_secret_TESTVALUE';
 const GRANT_SECRET_BYTES = Buffer.alloc(32, 7);
 const GRANT_SECRET_B64 = GRANT_SECRET_BYTES.toString('base64');
+const WORKER_API_TOKEN = Buffer.alloc(32, 9).toString('base64');
 
 beforeEach(() => {
   vi.stubEnv('SUPABASE_URL', 'https://example.supabase.co');
   vi.stubEnv('SUPABASE_SECRET_KEY', SECRET);
   vi.stubEnv('UPLOAD_GRANT_SECRET_B64', GRANT_SECRET_B64);
+  vi.stubEnv('WORKER_API_TOKEN', WORKER_API_TOKEN);
   vi.stubEnv('WORKER_RECEIVER_BASE_URL', 'https://receiver.example.ts.net');
 });
 
@@ -35,6 +37,7 @@ describe('loadEnvironment', () => {
       supabaseSecretKey: SECRET,
       supabaseUrl: 'https://example.supabase.co',
       uploadGrantSecret: new Uint8Array(GRANT_SECRET_BYTES),
+      workerApiToken: WORKER_API_TOKEN,
       workerReceiverOrigin: 'https://receiver.example.ts.net',
     });
   });
@@ -86,6 +89,29 @@ describe('loadEnvironment', () => {
     expect(error.message).toBe(
       'UPLOAD_GRANT_SECRET_B64 must be standard Base64 of at least 32 bytes',
     );
+  });
+
+  it.each([
+    ['누락', undefined],
+    ['32 byte 미만', Buffer.alloc(31, 9).toString('base64')],
+    ['padding 누락', WORKER_API_TOKEN.replace(/=+$/, '')],
+    ['끝 줄바꿈', `${WORKER_API_TOKEN}\n`],
+  ])('WORKER_API_TOKEN %s는 값을 드러내지 않고 throw한다', (_label, value) => {
+    vi.stubEnv('WORKER_API_TOKEN', value);
+
+    const error = captureError();
+
+    expect(error.message).toBe('WORKER_API_TOKEN must be standard Base64 of at least 32 bytes');
+    expect(error.stack).not.toContain(WORKER_API_TOKEN.slice(0, 20));
+  });
+
+  it('WORKER_API_TOKEN이 UPLOAD_GRANT_SECRET_B64와 같으면 값을 드러내지 않고 throw한다', () => {
+    vi.stubEnv('WORKER_API_TOKEN', GRANT_SECRET_B64);
+
+    const error = captureError();
+
+    expect(error.message).toBe('WORKER_API_TOKEN must differ from UPLOAD_GRANT_SECRET_B64');
+    expect(error.stack).not.toContain(GRANT_SECRET_B64);
   });
 
   it.each([
