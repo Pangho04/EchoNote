@@ -12,6 +12,7 @@
     "dev": "turbo run dev",
     "dev:desktop": "pnpm --filter @echonote/desktop start",
     "dev:gateway": "pnpm --filter @echonote/contracts build && pnpm --filter @echonote/ai-gateway dev",
+    "dev:gateway:test": "pnpm --filter @echonote/contracts build && pnpm --filter @echonote/ai-gateway dev:test",
     "dev:mobile": "pnpm --filter @echonote/mobile start",
     "dev:mobile:aos": "pnpm --filter @echonote/mobile android:device",
     "dev:mobile:go": "pnpm --filter @echonote/mobile start:go",
