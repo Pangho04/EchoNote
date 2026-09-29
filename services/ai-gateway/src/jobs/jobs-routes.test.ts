@@ -31,9 +31,11 @@ afterEach(async () => {
 const buildJobsServer = (createJob: JobRepository['createJob'], userId = OWNER_ID) => {
   const logLines: string[] = [];
   const jobRepository = {
+    claimJob: vi.fn(),
     completeUpload: vi.fn(),
     createJob: vi.fn(createJob),
     findOwnedJob: vi.fn(),
+    renewJobLease: vi.fn(),
   };
   const server = buildServer({
     issueUploadGrant: vi.fn(),

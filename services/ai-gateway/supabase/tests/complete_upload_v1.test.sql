@@ -9,9 +9,14 @@ insert into auth.users (id, email) values
 insert into public.jobs (id, owner_id, idempotency_key, meeting_id, size_bytes, sha256, mime_type, status)
 values
   ('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-00000000000a',
-   gen_random_uuid(), gen_random_uuid(), 100, repeat('a', 64), 'audio/mp4', 'created'),
+   gen_random_uuid(), gen_random_uuid(), 100, repeat('a', 64), 'audio/mp4', 'created');
+
+insert into public.jobs (id, owner_id, idempotency_key, meeting_id, size_bytes, sha256, mime_type, status,
+  lease_id, lease_expires_at)
+values
   ('00000000-0000-4000-8000-0000000000f2', '00000000-0000-4000-8000-00000000000a',
-   gen_random_uuid(), gen_random_uuid(), 100, repeat('a', 64), 'audio/mp4', 'processing');
+   gen_random_uuid(), gen_random_uuid(), 100, repeat('a', 64), 'audio/mp4', 'processing',
+   gen_random_uuid(), now() + interval '5 minutes');
 
 -- 구조
 select is(

@@ -221,3 +221,62 @@ describe('completeUpload (local Supabase)', () => {
     );
   });
 });
+
+describe('claimJob·renewJobLease (local Supabase)', () => {
+  it('queued job 둘에 동시 claim 10건은 두 job을 한 번씩만 가져가고 그 lease로만 연장된다', async () => {
+    const repository = createJobRepository({
+      secretKey: local.secretKey,
+      supabaseUrl: local.apiUrl,
+      timeoutMs: 5000,
+    });
+    const ownerId = await createUser();
+    const jobs = [];
+
+    for (const idempotencyKey of [randomUUID(), randomUUID()]) {
+      const created = await repository.createJob(createInput(ownerId, idempotencyKey));
+
+      if (created.kind !== 'created') throw new Error('job was not created');
+
+      jobs.push(created.job);
+    }
+
+    // claim은 모든 owner의 job을 본다. 이 파일의 앞선 테스트나 이전 실행이 남긴 claim 가능한 job을 먼저 비운다.
+    while ((await repository.claimJob()).kind === 'claimed');
+
+    for (const job of jobs) {
+      await repository.completeUpload({
+        jobId: job.id,
+        mimeType: job.mimeType,
+        ownerId,
+        sha256: job.sha256,
+        sizeBytes: job.sizeBytes,
+      });
+    }
+
+    const results = await Promise.all(
+      Array.from({ length: 10 }, async () => repository.claimJob()),
+    );
+    const claimed = results.filter((result) => result.kind === 'claimed');
+    const claimedIds = claimed.map((result) => result.job.id);
+
+    // 비운 뒤 lease가 막 끝난 이전 실행의 job이 함께 claim될 수 있어 만든 두 job의 포함만 단언한다.
+    expect(new Set(claimedIds).size).toBe(claimedIds.length);
+    expect(claimedIds).toEqual(expect.arrayContaining(jobs.map((job) => job.id)));
+
+    const [first] = claimed;
+
+    if (first === undefined) throw new Error('no job was claimed');
+
+    const renewed = await repository.renewJobLease({
+      jobId: first.job.id,
+      leaseId: first.lease.leaseId,
+    });
+
+    if (renewed.kind !== 'renewed') throw new Error('lease was not renewed');
+
+    expect(Date.parse(renewed.expiresAt)).toBeGreaterThan(Date.parse(first.lease.expiresAt));
+    await expect(
+      repository.renewJobLease({ jobId: first.job.id, leaseId: randomUUID() }),
+    ).resolves.toEqual({ kind: 'stale' });
+  });
+});

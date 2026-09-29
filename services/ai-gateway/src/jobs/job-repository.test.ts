@@ -266,3 +266,97 @@ describe('findOwnedJob', () => {
     expect(failed.message).toBe('select_jobs http_500');
   });
 });
+
+describe('claimJob', () => {
+  const leaseRow = {
+    expires_at: '2026-09-26T12:58:00.123456+00:00',
+    lease_id: '00000000-0000-4000-8000-0000000001f1',
+  };
+
+  it('claim_job_v1을 빈 인자로 호출하고 redirect를 따라가지 않는다', async () => {
+    const fetchMock = stubFetch(async () => Response.json({ kind: 'idle' }));
+
+    await createRepository().claimJob();
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+
+    expect(url).toBe('https://store.test/rest/v1/rpc/claim_job_v1');
+    expect(init.method).toBe('POST');
+    expect(init.redirect).toBe('manual');
+    expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
+    expect(JSON.parse(init.body as string)).toEqual({});
+  });
+
+  it('claimed는 JobSnapshot과 UTC ISO 기한의 lease로 바꾼다', async () => {
+    stubFetch(async () =>
+      Response.json({ job: { ...jobRow, status: 'processing' }, kind: 'claimed', lease: leaseRow }),
+    );
+
+    await expect(createRepository().claimJob()).resolves.toEqual({
+      job: { ...snapshot, status: 'processing' },
+      kind: 'claimed',
+      lease: { expiresAt: '2026-09-26T12:58:00.123Z', leaseId: leaseRow.lease_id },
+    });
+  });
+
+  it('idle은 job 없이 돌려준다', async () => {
+    stubFetch(async () => Response.json({ kind: 'idle' }));
+
+    await expect(createRepository().claimJob()).resolves.toEqual({ kind: 'idle' });
+  });
+
+  it('lease가 빠진 claimed는 invalid response Error다', async () => {
+    stubFetch(async () => Response.json({ job: jobRow, kind: 'claimed' }));
+
+    const error = await captureError(createRepository().claimJob());
+
+    expect(error).not.toBeInstanceOf(JobStoreUnavailableError);
+    expect(error.message).toBe('claim_job_v1 invalid response');
+  });
+});
+
+describe('renewJobLease', () => {
+  const renewal = { jobId: jobRow.id, leaseId: '00000000-0000-4000-8000-0000000001f1' };
+
+  it('renew_job_lease_v1에 snake_case 인자를 보내고 redirect를 따라가지 않는다', async () => {
+    const fetchMock = stubFetch(async () => Response.json({ kind: 'stale' }));
+
+    await createRepository().renewJobLease(renewal);
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+
+    expect(url).toBe('https://store.test/rest/v1/rpc/renew_job_lease_v1');
+    expect(init.method).toBe('POST');
+    expect(init.redirect).toBe('manual');
+    expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
+    expect(JSON.parse(init.body as string)).toEqual({
+      p_job_id: renewal.jobId,
+      p_lease_id: renewal.leaseId,
+    });
+  });
+
+  it('renewed는 UTC ISO 기한으로 바꾼다', async () => {
+    stubFetch(async () =>
+      Response.json({ expires_at: '2026-09-26T12:58:00.123456+00:00', kind: 'renewed' }),
+    );
+
+    await expect(createRepository().renewJobLease(renewal)).resolves.toEqual({
+      expiresAt: '2026-09-26T12:58:00.123Z',
+      kind: 'renewed',
+    });
+  });
+
+  it('stale은 기한 없이 돌려준다', async () => {
+    stubFetch(async () => Response.json({ kind: 'stale' }));
+
+    await expect(createRepository().renewJobLease(renewal)).resolves.toEqual({ kind: 'stale' });
+  });
+
+  it('HTTP 503은 저장소 일시 장애다', async () => {
+    stubFetch(async () => new Response(null, { status: 503 }));
+
+    const error = await captureError(createRepository().renewJobLease(renewal));
+
+    expect((error as JobStoreUnavailableError).reason).toBe('http_503');
+  });
+});

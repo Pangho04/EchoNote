@@ -5,6 +5,7 @@ import { getUserContext, installAuth } from './auth/require-user.js';
 import { installWorkerAuth } from './auth/require-worker.js';
 import { type JobRepository, JobStoreUnavailableError } from './jobs/job-repository.js';
 import { registerJobRoutes } from './jobs/jobs-routes.js';
+import { registerWorkerJobRoutes } from './jobs/worker-jobs-routes.js';
 import { registerUploadCompletionRoutes } from './uploads/upload-completion-routes.js';
 import type { IssueUploadGrant } from './uploads/upload-grant-issuer.js';
 import { registerUploadGrantRoutes } from './uploads/upload-grant-routes.js';
@@ -93,6 +94,7 @@ export const buildServer = ({
           installWorkerAuth(worker, workerApiToken);
 
           registerUploadCompletionRoutes(worker, jobRepository);
+          registerWorkerJobRoutes(worker, jobRepository);
         },
         { prefix: '/worker' },
       );

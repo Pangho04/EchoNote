@@ -13,7 +13,13 @@ const verifier = {
     return { id: 'user-1' };
   },
 };
-const jobRepository = { completeUpload: vi.fn(), createJob: vi.fn(), findOwnedJob: vi.fn() };
+const jobRepository = {
+  claimJob: vi.fn(),
+  completeUpload: vi.fn(),
+  createJob: vi.fn(),
+  findOwnedJob: vi.fn(),
+  renewJobLease: vi.fn(),
+};
 const issueUploadGrant = vi.fn();
 const servers: ReturnType<typeof buildServer>[] = [];
 

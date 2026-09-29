@@ -35,3 +35,8 @@ export type JobSnapshot = {
   mimeType: z.infer<typeof createJobRequestSchema>['mimeType'];
   createdAt: string;
 };
+
+// Worker가 처리 중 주기적으로 보내는 lease 연장 요청. lease_id가 그 job을 가진 Worker라는 유일한 증명이다.
+export const renewJobLeaseRequestSchema = z.strictObject({
+  leaseId: z.uuid(),
+});

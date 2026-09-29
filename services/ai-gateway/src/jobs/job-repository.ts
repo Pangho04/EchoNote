@@ -33,12 +33,21 @@ export type CompleteUploadResult =
   | { kind: 'conflict' }
   | { kind: 'not_found' };
 
+export type ClaimJobResult =
+  | { kind: 'claimed'; job: JobSnapshot; lease: { leaseId: string; expiresAt: string } }
+  | { kind: 'idle' };
+
+export type RenewJobLeaseResult = { kind: 'renewed'; expiresAt: string } | { kind: 'stale' };
+
 export type JobRepository = {
   createJob(input: CreateJobInput): Promise<CreateJobResult>;
   // 다른 owner의 job은 없는 job과 같이 not_found다.
   completeUpload(input: UploadCompletionRequest): Promise<CompleteUploadResult>;
   // 다른 owner의 job은 없는 job과 같이 null이다.
   findOwnedJob(input: { ownerId: string; jobId: string }): Promise<JobSnapshot | null>;
+  claimJob(): Promise<ClaimJobResult>;
+  // 없는 job, 다른 lease_id, 기한 지난 lease는 모두 stale이다.
+  renewJobLease(input: { jobId: string; leaseId: string }): Promise<RenewJobLeaseResult>;
 };
 
 // 저장소에 닿지 못했거나 저장소가 일시적으로 응답할 수 없을 때. 재시도할 수 있는 장애로 분류한다.
@@ -76,6 +85,20 @@ const completeUploadRowSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('existing'), job: jobRowSchema }),
   z.object({ kind: z.literal('conflict') }),
   z.object({ kind: z.literal('not_found') }),
+]);
+
+const claimJobRowSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('claimed'),
+    job: jobRowSchema,
+    lease: z.object({ lease_id: z.uuid(), expires_at: z.iso.datetime({ offset: true }) }),
+  }),
+  z.object({ kind: z.literal('idle') }),
+]);
+
+const renewJobLeaseRowSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('renewed'), expires_at: z.iso.datetime({ offset: true }) }),
+  z.object({ kind: z.literal('stale') }),
 ]);
 
 const toJobSnapshot = (row: z.infer<typeof jobRowSchema>): JobSnapshot => ({
@@ -232,6 +255,69 @@ export const createJobRepository = ({
       const [row] = parsed.data;
 
       return row === undefined ? null : toJobSnapshot(row);
+    },
+
+    async claimJob() {
+      const response = await callStore('claim_job_v1', async () =>
+        fetch(`${supabaseUrl}/rest/v1/rpc/claim_job_v1`, {
+          body: '{}',
+          headers,
+          method: 'POST',
+          redirect: 'manual',
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+
+      ensureOk('claim_job_v1', response);
+
+      const parsed = claimJobRowSchema.safeParse(
+        await callStore('claim_job_v1', async () => response.json()),
+      );
+
+      if (!parsed.success) throw new Error('claim_job_v1 invalid response');
+
+      switch (parsed.data.kind) {
+        case 'claimed':
+          return {
+            kind: 'claimed',
+            job: toJobSnapshot(parsed.data.job),
+            lease: {
+              leaseId: parsed.data.lease.lease_id,
+              expiresAt: new Date(parsed.data.lease.expires_at).toISOString(),
+            },
+          };
+
+        case 'idle':
+          return { kind: 'idle' };
+      }
+    },
+
+    async renewJobLease({ jobId, leaseId }) {
+      const response = await callStore('renew_job_lease_v1', async () =>
+        fetch(`${supabaseUrl}/rest/v1/rpc/renew_job_lease_v1`, {
+          body: JSON.stringify({ p_job_id: jobId, p_lease_id: leaseId }),
+          headers,
+          method: 'POST',
+          redirect: 'manual',
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+
+      ensureOk('renew_job_lease_v1', response);
+
+      const parsed = renewJobLeaseRowSchema.safeParse(
+        await callStore('renew_job_lease_v1', async () => response.json()),
+      );
+
+      if (!parsed.success) throw new Error('renew_job_lease_v1 invalid response');
+
+      switch (parsed.data.kind) {
+        case 'renewed':
+          return { kind: 'renewed', expiresAt: new Date(parsed.data.expires_at).toISOString() };
+
+        case 'stale':
+          return { kind: 'stale' };
+      }
     },
   };
 };

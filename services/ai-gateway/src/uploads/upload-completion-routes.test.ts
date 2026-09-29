@@ -32,9 +32,11 @@ afterEach(async () => {
 const buildCompletionServer = (completeUpload: JobRepository['completeUpload']) => {
   const logLines: string[] = [];
   const jobRepository = {
+    claimJob: vi.fn(),
     completeUpload: vi.fn(completeUpload),
     createJob: vi.fn(),
     findOwnedJob: vi.fn(),
+    renewJobLease: vi.fn(),
   };
   const server = buildServer({
     issueUploadGrant: vi.fn(),
