@@ -58,8 +58,9 @@ select is(
 );
 select ok(
   (select status = 'failed' and lease_id is null and lease_expires_at is null and attempt_count = 3
+     and error_code = 'attempts_exhausted'
    from public.jobs where id = '00000000-0000-4000-8000-0000000000d3'),
-  '3번 잡혔던 만료 job은 failed가 되고 lease 두 열을 비운다'
+  '3번 잡혔던 만료 job은 attempts_exhausted로 failed가 되고 lease 두 열을 비운다'
 );
 select is(
   (select attempt_count from public.jobs where id = '00000000-0000-4000-8000-0000000000d2'),
