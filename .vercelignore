@@ -1,0 +1,18 @@
+# 기본은 전부 제외하고 Gateway 빌드에 필요한 것만 올린다.
+/*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!packages
+!services
+packages/*
+!packages/contracts
+services/*
+!services/ai-gateway
+services/ai-gateway/supabase
+**/.env*
+**/dist
+**/node_modules
+**/.turbo
+**/*.test.ts
