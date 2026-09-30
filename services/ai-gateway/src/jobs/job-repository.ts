@@ -1,5 +1,7 @@
 import {
   createJobRequestSchema,
+  type JobFailureCode,
+  jobFailureCodeSchema,
   type JobSnapshot,
   processingJobStatusSchema,
   type TranscriptResult,
@@ -41,6 +43,8 @@ export type ClaimJobResult =
 
 export type RenewJobLeaseResult = { kind: 'renewed'; expiresAt: string } | { kind: 'stale' };
 
+export type OwnedJob = JobSnapshot & { errorCode: JobFailureCode | null };
+
 export type FailJobResult = { kind: 'failed' } | { kind: 'stale' };
 
 export type CompleteJobResult = { kind: 'completed' } | { kind: 'stale' };
@@ -50,12 +54,16 @@ export type JobRepository = {
   // 다른 owner의 job은 없는 job과 같이 not_found다.
   completeUpload(input: UploadCompletionRequest): Promise<CompleteUploadResult>;
   // 다른 owner의 job은 없는 job과 같이 null이다.
-  findOwnedJob(input: { ownerId: string; jobId: string }): Promise<JobSnapshot | null>;
+  findOwnedJob(input: { ownerId: string; jobId: string }): Promise<OwnedJob | null>;
   claimJob(): Promise<ClaimJobResult>;
   // 없는 job, 다른 lease_id, 기한 지난 lease는 모두 stale이다.
   renewJobLease(input: { jobId: string; leaseId: string }): Promise<RenewJobLeaseResult>;
   // renewJobLease와 같은 조건의 lease만 failed로 확정한다. 나머지는 stale이다.
-  failJob(input: { jobId: string; leaseId: string }): Promise<FailJobResult>;
+  failJob(input: {
+    jobId: string;
+    leaseId: string;
+    errorCode: JobFailureCode;
+  }): Promise<FailJobResult>;
   // renewJobLease와 같은 조건의 lease만 전사 결과를 저장하며 completed로 확정한다. 나머지는 stale이다.
   completeJob(input: {
     jobId: string;
@@ -142,7 +150,9 @@ const toJobSnapshot = (row: z.infer<typeof jobRowSchema>): JobSnapshot => ({
   createdAt: new Date(row.created_at).toISOString(),
 });
 
-const JOB_COLUMNS = 'id,meeting_id,status,size_bytes,sha256,mime_type,created_at';
+const ownedJobRowSchema = jobRowSchema.extend({ error_code: jobFailureCodeSchema.nullable() });
+
+const OWNED_JOB_COLUMNS = 'id,meeting_id,status,size_bytes,sha256,mime_type,created_at,error_code';
 
 // label은 오류 문구에서 어느 저장소 호출이 실패했는지만 구분한다.
 const callStore = async <T>(label: string, accessStore: () => Promise<T>) => {
@@ -263,7 +273,7 @@ export const createJobRepository = ({
       const query = new URLSearchParams({
         id: `eq.${jobId}`,
         owner_id: `eq.${ownerId}`,
-        select: JOB_COLUMNS,
+        select: OWNED_JOB_COLUMNS,
       });
       const response = await callStore('select_jobs', async () =>
         fetch(`${supabaseUrl}/rest/v1/jobs?${query}`, {
@@ -277,7 +287,7 @@ export const createJobRepository = ({
 
       // (id)가 primary key라 2건 이상은 저장소 응답 이상이다.
       const parsed = z
-        .array(jobRowSchema)
+        .array(ownedJobRowSchema)
         .max(1)
         .safeParse(await callStore('select_jobs', async () => response.json()));
 
@@ -285,7 +295,7 @@ export const createJobRepository = ({
 
       const [row] = parsed.data;
 
-      return row === undefined ? null : toJobSnapshot(row);
+      return row === undefined ? null : { ...toJobSnapshot(row), errorCode: row.error_code };
     },
 
     async claimJob() {
@@ -351,10 +361,10 @@ export const createJobRepository = ({
       }
     },
 
-    async failJob({ jobId, leaseId }) {
-      const response = await callStore('fail_job_v1', async () =>
-        fetch(`${supabaseUrl}/rest/v1/rpc/fail_job_v1`, {
-          body: JSON.stringify({ p_job_id: jobId, p_lease_id: leaseId }),
+    async failJob({ errorCode, jobId, leaseId }) {
+      const response = await callStore('fail_job_v2', async () =>
+        fetch(`${supabaseUrl}/rest/v1/rpc/fail_job_v2`, {
+          body: JSON.stringify({ p_job_id: jobId, p_lease_id: leaseId, p_error_code: errorCode }),
           headers,
           method: 'POST',
           redirect: 'manual',
@@ -362,13 +372,13 @@ export const createJobRepository = ({
         }),
       );
 
-      ensureOk('fail_job_v1', response);
+      ensureOk('fail_job_v2', response);
 
       const parsed = failJobRowSchema.safeParse(
-        await callStore('fail_job_v1', async () => response.json()),
+        await callStore('fail_job_v2', async () => response.json()),
       );
 
-      if (!parsed.success) throw new Error('fail_job_v1 invalid response');
+      if (!parsed.success) throw new Error('fail_job_v2 invalid response');
 
       return { kind: parsed.data.kind };
     },

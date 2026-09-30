@@ -80,7 +80,14 @@ const postLeaseAction =
     });
 
 const postRenewal = postLeaseAction('lease');
-const postFailure = postLeaseAction('fail');
+const postFailure = (
+  server: ReturnType<typeof buildServer>,
+  input: Parameters<ReturnType<typeof postLeaseAction>>[1] = {},
+) =>
+  postLeaseAction('fail')(server, {
+    payload: JSON.stringify({ errorCode: 'stt_failed', leaseId: LEASE_ID }),
+    ...input,
+  });
 
 const invalidLeaseRequests = [
   ['uuid가 아닌 jobId', { jobId: 'job-1' }],
@@ -226,7 +233,7 @@ describe('POST /v1/worker/jobs/:jobId/lease', () => {
 });
 
 describe('POST /v1/worker/jobs/:jobId/fail', () => {
-  it('failed는 body 없는 204이고 jobId·leaseId를 repository에 넘긴다', async () => {
+  it('failed는 body 없는 204이고 jobId·leaseId·errorCode를 repository에 넘긴다', async () => {
     const { jobRepository, server } = buildWorkerServer({
       failJob: async () => ({ kind: 'failed' }),
     });
@@ -235,7 +242,11 @@ describe('POST /v1/worker/jobs/:jobId/fail', () => {
 
     expect(response.statusCode).toBe(204);
     expect(response.body).toBe('');
-    expect(jobRepository.failJob).toHaveBeenCalledWith({ jobId: JOB_ID, leaseId: LEASE_ID });
+    expect(jobRepository.failJob).toHaveBeenCalledWith({
+      errorCode: 'stt_failed',
+      jobId: JOB_ID,
+      leaseId: LEASE_ID,
+    });
   });
 
   it('stale은 409 lease_stale이다', async () => {
@@ -247,7 +258,19 @@ describe('POST /v1/worker/jobs/:jobId/fail', () => {
     expect(response.json()).toEqual({ error: 'lease_stale' });
   });
 
-  it.each(invalidLeaseRequests)(
+  it.each([
+    ...invalidLeaseRequests,
+    ['errorCode 누락', { payload: JSON.stringify({ leaseId: LEASE_ID }) }],
+    [
+      '목록 밖 errorCode',
+      { payload: JSON.stringify({ errorCode: 'STT_EXIT', leaseId: LEASE_ID }) },
+    ],
+    // attempts_exhausted는 DB만 정한다.
+    [
+      'attempts_exhausted',
+      { payload: JSON.stringify({ errorCode: 'attempts_exhausted', leaseId: LEASE_ID }) },
+    ],
+  ] as const)(
     '%s는 400 invalid_request이고 repository를 호출하지 않는다',
     async (_label, input) => {
       const { jobRepository, server } = buildWorkerServer();
@@ -277,7 +300,7 @@ describe('POST /v1/worker/jobs/:jobId/fail', () => {
     });
     const unexpected = buildWorkerServer({
       failJob: async () => {
-        throw new Error('fail_job_v1 unexpected error');
+        throw new Error('fail_job_v2 unexpected error');
       },
     });
 
@@ -299,7 +322,7 @@ describe('POST /v1/worker/jobs/:jobId/fail', () => {
         throw new JobStoreUnavailableError('network');
       },
       async () => {
-        throw new Error('fail_job_v1 unexpected error');
+        throw new Error('fail_job_v2 unexpected error');
       },
     ];
 

@@ -32,6 +32,7 @@ const buildJobsServer = (
   createJob: JobRepository['createJob'],
   userId = OWNER_ID,
   findOwnedTranscript: JobRepository['findOwnedTranscript'] = async () => null,
+  findOwnedJob: JobRepository['findOwnedJob'] = async () => null,
 ) => {
   const logLines: string[] = [];
   const jobRepository = {
@@ -40,7 +41,7 @@ const buildJobsServer = (
     completeUpload: vi.fn(),
     createJob: vi.fn(createJob),
     failJob: vi.fn(),
-    findOwnedJob: vi.fn(),
+    findOwnedJob: vi.fn(findOwnedJob),
     findOwnedTranscript: vi.fn(findOwnedTranscript),
     renewJobLease: vi.fn(),
   };
@@ -209,6 +210,66 @@ describe('POST /v1/jobs', () => {
   });
 });
 
+const getJob = (server: ReturnType<typeof buildServer>, jobId = job.id) =>
+  server.inject({
+    headers: { authorization: `Bearer ${TOKEN}` },
+    method: 'GET',
+    url: `/v1/jobs/${jobId}`,
+  });
+
+const noCreate: JobRepository['createJob'] = async () => ({ kind: 'conflict' });
+
+describe('GET /v1/jobs/:jobId', () => {
+  it('owner의 job은 200 no-store이고 상태와 errorCode만 돌려준다', async () => {
+    const { jobRepository, server } = buildJobsServer(noCreate, OWNER_ID, undefined, async () => ({
+      ...job,
+      errorCode: 'stt_failed',
+      status: 'failed',
+    }));
+
+    const response = await getJob(server);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.json()).toEqual({
+      errorCode: 'stt_failed',
+      id: job.id,
+      meetingId: job.meetingId,
+      status: 'failed',
+    });
+    expect(jobRepository.findOwnedJob).toHaveBeenCalledWith({ jobId: job.id, ownerId: OWNER_ID });
+  });
+
+  it('없거나 다른 owner의 job은 404 job_not_found이고 no-store다', async () => {
+    const { server } = buildJobsServer(noCreate);
+
+    const response = await getJob(server);
+
+    expect(response.statusCode).toBe(404);
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.json()).toEqual({ error: 'job_not_found' });
+  });
+
+  it('uuid가 아닌 jobId는 400이고 repository를 호출하지 않는다', async () => {
+    const { jobRepository, server } = buildJobsServer(noCreate);
+
+    const response = await getJob(server, 'job-1');
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: 'invalid_request' });
+    expect(jobRepository.findOwnedJob).not.toHaveBeenCalled();
+  });
+
+  it('sub가 uuid가 아니면 401이고 repository를 호출하지 않는다', async () => {
+    const { jobRepository, server } = buildJobsServer(noCreate, 'user-1');
+
+    const response = await getJob(server);
+
+    expect(response.statusCode).toBe(401);
+    expect(jobRepository.findOwnedJob).not.toHaveBeenCalled();
+  });
+});
+
 const TRANSCRIPT_JOB_ID = job.id;
 const SEGMENT_TEXT = 'segment-text-leak-probe';
 const transcript = {
@@ -222,8 +283,6 @@ const getTranscript = (server: ReturnType<typeof buildServer>, jobId = TRANSCRIP
     method: 'GET',
     url: `/v1/jobs/${jobId}/transcript`,
   });
-
-const noCreate: JobRepository['createJob'] = async () => ({ kind: 'conflict' });
 
 describe('GET /v1/jobs/:jobId/transcript', () => {
   it('owner의 전사 결과는 200 no-store이고 owner로 찾는다', async () => {

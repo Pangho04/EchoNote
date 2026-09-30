@@ -221,17 +221,39 @@ describe('findOwnedJob', () => {
     expect(Object.fromEntries(searchParams)).toEqual({
       id: `eq.${jobRow.id}`,
       owner_id: `eq.${input.ownerId}`,
-      select: 'id,meeting_id,status,size_bytes,sha256,mime_type,created_at',
+      select: 'id,meeting_id,status,size_bytes,sha256,mime_type,created_at,error_code',
     });
     expect(init.method).toBeUndefined();
     expect(init.redirect).toBe('manual');
     expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
   });
 
-  it('row 1건은 JobSnapshot으로 바꾼다', async () => {
-    stubFetch(async () => Response.json([jobRow]));
+  it('row 1건은 JobSnapshot에 errorCode를 더해 돌려준다', async () => {
+    stubFetch(async () => Response.json([{ ...jobRow, error_code: null }]));
 
-    await expect(createRepository().findOwnedJob(ownedInput)).resolves.toEqual(snapshot);
+    await expect(createRepository().findOwnedJob(ownedInput)).resolves.toEqual({
+      ...snapshot,
+      errorCode: null,
+    });
+  });
+
+  it('failed job의 error_code를 errorCode로 옮긴다', async () => {
+    stubFetch(async () =>
+      Response.json([{ ...jobRow, error_code: 'attempts_exhausted', status: 'failed' }]),
+    );
+
+    await expect(createRepository().findOwnedJob(ownedInput)).resolves.toMatchObject({
+      errorCode: 'attempts_exhausted',
+      status: 'failed',
+    });
+  });
+
+  it('목록 밖 error_code는 invalid response Error다', async () => {
+    stubFetch(async () => Response.json([{ ...jobRow, error_code: 'STT_EXIT' }]));
+
+    const error = await captureError(createRepository().findOwnedJob(ownedInput));
+
+    expect(error.message).toBe('select_jobs invalid response');
   });
 
   it('row가 없으면 null을 돌려준다', async () => {
@@ -362,20 +384,25 @@ describe('renewJobLease', () => {
 });
 
 describe('failJob', () => {
-  const failure = { jobId: jobRow.id, leaseId: '00000000-0000-4000-8000-0000000001f1' };
+  const failure = {
+    errorCode: 'stt_failed' as const,
+    jobId: jobRow.id,
+    leaseId: '00000000-0000-4000-8000-0000000001f1',
+  };
 
-  it('fail_job_v1에 snake_case 인자를 보내고 redirect를 따라가지 않는다', async () => {
+  it('fail_job_v2에 snake_case 인자를 보내고 redirect를 따라가지 않는다', async () => {
     const fetchMock = stubFetch(async () => Response.json({ kind: 'stale' }));
 
     await createRepository().failJob(failure);
 
     const [url, init] = fetchMock.mock.calls[0]!;
 
-    expect(url).toBe('https://store.test/rest/v1/rpc/fail_job_v1');
+    expect(url).toBe('https://store.test/rest/v1/rpc/fail_job_v2');
     expect(init.method).toBe('POST');
     expect(init.redirect).toBe('manual');
     expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
     expect(JSON.parse(init.body as string)).toEqual({
+      p_error_code: 'stt_failed',
       p_job_id: failure.jobId,
       p_lease_id: failure.leaseId,
     });
@@ -392,7 +419,7 @@ describe('failJob', () => {
 
     const error = await captureError(createRepository().failJob(failure));
 
-    expect(error.message).toBe('fail_job_v1 invalid response');
+    expect(error.message).toBe('fail_job_v2 invalid response');
   });
 
   it('HTTP 503은 저장소 일시 장애다', async () => {

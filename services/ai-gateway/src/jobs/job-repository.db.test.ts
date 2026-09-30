@@ -157,7 +157,7 @@ describe('findOwnedJob (local Supabase)', () => {
     const owned = await repository.findOwnedJob({ jobId: created.job.id, ownerId: ownerA });
     const foreign = await repository.findOwnedJob({ jobId: created.job.id, ownerId: ownerB });
 
-    expect(owned).toEqual(created.job);
+    expect(owned).toEqual({ ...created.job, errorCode: null });
     expect(foreign).toBeNull();
   });
 });
@@ -218,9 +218,10 @@ describe('completeUpload (local Supabase)', () => {
     await expect(repository.completeUpload({ ...completion, ownerId: ownerB })).resolves.toEqual({
       kind: 'not_found',
     });
-    expect(await repository.findOwnedJob({ jobId: created.job.id, ownerId: ownerA })).toEqual(
-      created.job,
-    );
+    expect(await repository.findOwnedJob({ jobId: created.job.id, ownerId: ownerA })).toEqual({
+      ...created.job,
+      errorCode: null,
+    });
   });
 });
 
@@ -282,15 +283,20 @@ describe('claimJob·renewJobLease·failJob (local Supabase)', () => {
       repository.renewJobLease({ jobId: first.job.id, leaseId: randomUUID() }),
     ).resolves.toEqual({ kind: 'stale' });
     await expect(
-      repository.failJob({ jobId: first.job.id, leaseId: randomUUID() }),
+      repository.failJob({ errorCode: 'stt_failed', jobId: first.job.id, leaseId: randomUUID() }),
     ).resolves.toEqual({ kind: 'stale' });
 
     const lease = { jobId: first.job.id, leaseId: first.lease.leaseId };
+    const failure = { ...lease, errorCode: 'stt_failed' as const };
 
-    await expect(repository.failJob(lease)).resolves.toEqual({ kind: 'failed' });
+    await expect(repository.failJob(failure)).resolves.toEqual({ kind: 'failed' });
+    expect(await repository.findOwnedJob({ jobId: first.job.id, ownerId })).toMatchObject({
+      errorCode: 'stt_failed',
+      status: 'failed',
+    });
     // failed가 되면 lease가 사라져 같은 lease로도 연장·재확정할 수 없다.
     await expect(repository.renewJobLease(lease)).resolves.toEqual({ kind: 'stale' });
-    await expect(repository.failJob(lease)).resolves.toEqual({ kind: 'stale' });
+    await expect(repository.failJob(failure)).resolves.toEqual({ kind: 'stale' });
   });
 });
 
@@ -359,7 +365,9 @@ describe('completeJob·findOwnedTranscript (local Supabase)', () => {
     await expect(repository.completeJob({ jobId: job.id, leaseId, transcript })).resolves.toEqual({
       kind: 'stale',
     });
-    await expect(repository.failJob({ jobId: job.id, leaseId })).resolves.toEqual({
+    await expect(
+      repository.failJob({ errorCode: 'stt_failed', jobId: job.id, leaseId }),
+    ).resolves.toEqual({
       kind: 'stale',
     });
   });
