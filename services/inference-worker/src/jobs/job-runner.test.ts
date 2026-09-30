@@ -91,7 +91,9 @@ const start = ({
   };
   const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn() };
   const process = vi.fn(processJob);
-  const runner = startJobRunner({ client, logger, processJob: process });
+  const release = vi.fn();
+  const preventSleep = vi.fn(() => release);
+  const runner = startJobRunner({ client, logger, preventSleep, processJob: process });
 
   runners.push(runner);
 
@@ -102,7 +104,7 @@ const start = ({
     );
   const logged = (message: string) => logs().filter(([, text]) => text === message);
 
-  return { client, logged, logs, process, runner };
+  return { client, logged, logs, preventSleep, process, release, runner };
 };
 
 beforeEach(() => {
@@ -199,13 +201,69 @@ describe('startJobRunner', () => {
     expect(logged('job processing threw')).toEqual([
       ['warn', 'job processing threw', { code: 'ENOENT', jobId: JOB_ID }],
     ]);
-    expect(client.fail).toHaveBeenCalledWith({ jobId: JOB_ID, leaseId: LEASE_ID });
+    expect(client.fail).toHaveBeenCalledWith({ jobId: JOB_ID, leaseId: LEASE_ID }, 'audio_missing');
     expect(logged('job fail reported')).toEqual([
-      ['info', 'job fail reported', { jobId: JOB_ID, reason: 'failed' }],
+      [
+        'info',
+        'job fail reported',
+        { errorCode: 'audio_missing', jobId: JOB_ID, reason: 'failed' },
+      ],
     ]);
     expect(client.claim).toHaveBeenCalledTimes(2);
     expect(JSON.stringify(logs())).not.toContain(DATA_PATH);
     expect(JSON.stringify(logs())).not.toContain(LEASE_ID);
+  });
+
+  it.each([
+    ['STT_DOCKER', 'stt_unavailable'],
+    ['STT_GPU', 'stt_unavailable'],
+    ['STT_IMAGE', 'stt_unavailable'],
+    ['STT_MODEL', 'stt_unavailable'],
+    ['STT_VOLUME', 'stt_unavailable'],
+    ['STT_EXIT', 'stt_failed'],
+    ['STT_TIMEOUT', 'stt_failed'],
+    ['INVALID_WHISPER_OUTPUT', 'stt_failed'],
+    ['EACCES', 'unexpected'],
+    [undefined, 'unexpected'],
+  ] as const)('처리 함수 오류 code %s는 %s로 fail한다', async (code, errorCode) => {
+    const { client } = start({
+      claim: claimOnce(),
+      processJob: async () => {
+        throw Object.assign(new Error('probe'), { code });
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(client.fail).toHaveBeenCalledExactlyOnceWith(
+      { jobId: JOB_ID, leaseId: LEASE_ID },
+      errorCode,
+    );
+  });
+
+  it('claim한 job 하나마다 결과 전송이 끝날 때까지 잠자기를 막는다', async () => {
+    const completing = deferred<{ kind: 'completed' }>();
+    const { preventSleep, release } = start({
+      claim: claimOnce(),
+      complete: async () => completing.promise,
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(preventSleep).toHaveBeenCalledTimes(1);
+    expect(release).not.toHaveBeenCalled();
+
+    completing.resolve({ kind: 'completed' });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it('idle이면 잠자기를 막지 않는다', async () => {
+    const { preventSleep } = start();
+
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(preventSleep).not.toHaveBeenCalled();
   });
 
   it('S2 끝난 job의 기한 timer는 해제된다', async () => {
@@ -229,7 +287,7 @@ describe('startJobRunner', () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(logged('job processing threw')[0]?.[2]).toEqual({ code: undefined, jobId: JOB_ID });
-    expect(logged('job fail reported')[0]?.[2]).toEqual({ jobId: JOB_ID, reason: 'stale' });
+    expect(logged('job fail reported')[0]?.[2]).toMatchObject({ jobId: JOB_ID, reason: 'stale' });
   });
 
   it('S4 renew가 stale이면 abort하고 fail 없이 처리 함수 종료를 기다린 뒤 즉시 다음 claim한다', async () => {
@@ -708,7 +766,10 @@ describe('startJobRunner', () => {
       expect(logged('job complete rejected')).toEqual([
         ['warn', 'job complete rejected', { jobId: JOB_ID, reason }],
       ]);
-      expect(client.fail).toHaveBeenCalledExactlyOnceWith({ jobId: JOB_ID, leaseId: LEASE_ID });
+      expect(client.fail).toHaveBeenCalledExactlyOnceWith(
+        { jobId: JOB_ID, leaseId: LEASE_ID },
+        'result_rejected',
+      );
       expect(logged('job fail reported')).toHaveLength(1);
       expect(client.claim).toHaveBeenCalledTimes(2);
     },

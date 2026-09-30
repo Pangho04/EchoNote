@@ -1,6 +1,7 @@
 import {
   type ClaimJobResponse,
   claimJobResponseSchema,
+  type FailJobRequest,
   renewJobLeaseResponseSchema,
   type TranscriptResult,
 } from '@echonote/contracts';
@@ -17,7 +18,10 @@ export type JobLease = { jobId: string; leaseId: string };
 export type JobLeaseClient = {
   claim(): Promise<({ kind: 'claimed' } & ClaimJobResponse) | { kind: 'idle' }>;
   renew(lease: JobLease): Promise<{ kind: 'renewed'; expiresAt: string } | { kind: 'stale' }>;
-  fail(lease: JobLease): Promise<{ kind: 'failed' } | { kind: 'stale' }>;
+  fail(
+    lease: JobLease,
+    errorCode: FailJobRequest['errorCode'],
+  ): Promise<{ kind: 'failed' } | { kind: 'stale' }>;
   complete(
     lease: JobLease,
     transcript: TranscriptResult,
@@ -140,8 +144,8 @@ export const createJobLeaseClient = ({
       throw new JobLeaseClientError(`gateway_${response.status}`);
     },
 
-    async fail({ jobId, leaseId }) {
-      const response = await post(`/v1/worker/jobs/${jobId}/fail`, { leaseId });
+    async fail({ jobId, leaseId }, errorCode) {
+      const response = await post(`/v1/worker/jobs/${jobId}/fail`, { errorCode, leaseId });
 
       if (response.status === 204) {
         await discard(response);

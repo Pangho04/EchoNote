@@ -85,6 +85,9 @@ export const buildServer = ({
     return reply.code(500).send({ error: 'internal' });
   });
 
+  // 앱이 전사를 맡기기 전에 이 PC가 깨어 있는지 확인한다. 인증 없이 아무 정보도 돌려주지 않는다.
+  server.get('/live', async (_request, reply) => reply.code(204).send());
+
   registerUploadRoutes(server, { dataDir, nonceStore, notifyUploadCompletion, verifyGrant });
 
   return server;

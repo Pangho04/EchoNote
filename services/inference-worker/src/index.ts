@@ -4,6 +4,7 @@ import { loadEnvironment } from './config/environment.js';
 import { createJobLeaseClient } from './jobs/job-lease-client.js';
 import { startJobRunner } from './jobs/job-runner.js';
 import { createClaimedJobProcessor } from './jobs/process-claimed-job.js';
+import { createSleepPreventer } from './power/prevent-sleep.js';
 import { buildServer } from './server.js';
 import {
   checkSttReady,
@@ -83,6 +84,7 @@ try {
       runner = startJobRunner({
         client: createJobLeaseClient({ gatewayOrigin, workerApiToken }),
         logger: server.log,
+        preventSleep: createSleepPreventer({ logger: server.log }),
         processJob: createClaimedJobProcessor({
           dataDir,
           logger: server.log,
