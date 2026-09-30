@@ -44,13 +44,16 @@ const setup = () => {
 };
 
 describe('createClaimedJobProcessor', () => {
-  it('final/<jobId>.m4a를 signal과 함께 전사하고 본문 없이 개수·길이만 로그로 남긴다', async () => {
+  it('final/<jobId>.m4a를 signal과 함께 전사하고 schemaVersion 없는 결과를 돌려준다', async () => {
     await writeFile(join(dataDir, 'final', `${job.id}.m4a`), 'audio');
 
     const { logger, process, transcribe } = setup();
     const signal = new AbortController().signal;
 
-    await process(job, signal);
+    await expect(process(job, signal)).resolves.toEqual({
+      durationMs: transcript.durationMs,
+      segments: transcript.segments,
+    });
 
     expect(transcribe).toHaveBeenCalledWith(job.id, signal);
     expect(logger.info).toHaveBeenCalledWith(
@@ -60,16 +63,15 @@ describe('createClaimedJobProcessor', () => {
     expect(JSON.stringify(logger.info.mock.calls)).not.toContain('회의 본문');
   });
 
-  it('이 프로세스에서 전사한 job이 다시 오면 전사하지 않는다', async () => {
+  it('같은 job이 다시 오면 다시 전사한다', async () => {
     await writeFile(join(dataDir, 'final', `${job.id}.m4a`), 'audio');
 
-    const { logger, process, transcribe } = setup();
+    const { process, transcribe } = setup();
 
     await process(job, new AbortController().signal);
     await process(job, new AbortController().signal);
 
-    expect(transcribe).toHaveBeenCalledTimes(1);
-    expect(logger.info).toHaveBeenLastCalledWith({ jobId: job.id }, 'job transcription skipped');
+    expect(transcribe).toHaveBeenCalledTimes(2);
   });
 
   it('파일이 없으면 전사하지 않고 fs 오류를 그대로 던진다', async () => {

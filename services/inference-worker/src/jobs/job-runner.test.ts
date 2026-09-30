@@ -1,3 +1,4 @@
+import type { TranscriptResult } from '@echonote/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { JobLeaseClient } from './job-lease-client.js';
@@ -7,6 +8,7 @@ import { type ProcessJob, startJobRunner } from './job-runner.js';
 const JOB_ID = '00000000-0000-4000-8000-0000000000f1';
 const LEASE_ID = '00000000-0000-4000-8000-0000000001f1';
 const DATA_PATH = '/secret/data/final/job.m4a';
+const SEGMENT_TEXT = 'segment-text-leak-probe';
 
 const job = {
   createdAt: '2026-09-29T12:00:00.123Z',
@@ -26,6 +28,11 @@ const claimed = {
 
 const renewed = { expiresAt: '2026-09-29T12:05:00.000Z', kind: 'renewed' as const };
 
+const transcript: TranscriptResult = {
+  durationMs: 2_000,
+  segments: [{ endMs: 1_000, startMs: 0, text: SEGMENT_TEXT }],
+};
+
 const deferred = <T = void>() => {
   let resolve!: (value: T) => void;
   let reject!: (error: unknown) => void;
@@ -44,10 +51,11 @@ const enoent = () =>
 
 // abort될 때까지 처리 중으로 남는다.
 const untilAborted: ProcessJob = async (_job, signal) =>
-  new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve()));
+  new Promise((resolve) => signal.addEventListener('abort', () => resolve(transcript)));
 
 type Harness = {
   claim?: JobLeaseClient['claim'];
+  complete?: JobLeaseClient['complete'];
   fail?: JobLeaseClient['fail'];
   processJob?: ProcessJob;
   renew?: JobLeaseClient['renew'];
@@ -70,11 +78,17 @@ const claimOnce = () => {
 
 const start = ({
   claim = async () => ({ kind: 'idle' }),
+  complete = async () => ({ kind: 'completed' }),
   fail = async () => ({ kind: 'failed' }),
-  processJob = async () => undefined,
+  processJob = async () => transcript,
   renew = async () => renewed,
 }: Harness = {}) => {
-  const client = { claim: vi.fn(claim), fail: vi.fn(fail), renew: vi.fn(renew) };
+  const client = {
+    claim: vi.fn(claim),
+    complete: vi.fn(complete),
+    fail: vi.fn(fail),
+    renew: vi.fn(renew),
+  };
   const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn() };
   const process = vi.fn(processJob);
   const runner = startJobRunner({ client, logger, processJob: process });
@@ -117,13 +131,14 @@ describe('startJobRunner', () => {
   });
 
   it('S2 renew가 계속 성공하면 270초를 넘겨도 abort 없이 끝나고 즉시 다음 claim한다', async () => {
-    const processing = deferred();
+    const processing = deferred<TranscriptResult>();
     let signal: AbortSignal | undefined;
     const { client, logged } = start({
       claim: claimOnce(),
       processJob: async (_job, received) => {
         signal = received;
-        await processing.promise;
+
+        return processing.promise;
       },
     });
 
@@ -132,11 +147,15 @@ describe('startJobRunner', () => {
     expect(client.renew).toHaveBeenCalledTimes(6);
     expect(client.renew).toHaveBeenCalledWith({ jobId: JOB_ID, leaseId: LEASE_ID });
 
-    processing.resolve();
+    processing.resolve(transcript);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(logged('job claimed')).toHaveLength(1);
-    expect(logged('job succeeded')).toEqual([['info', 'job succeeded', { jobId: JOB_ID }]]);
+    expect(client.complete).toHaveBeenCalledExactlyOnceWith(
+      { jobId: JOB_ID, leaseId: LEASE_ID },
+      transcript,
+    );
+    expect(logged('job completed')).toEqual([['info', 'job completed', { jobId: JOB_ID }]]);
     expect(client.claim).toHaveBeenCalledTimes(2);
 
     await vi.advanceTimersByTimeAsync(120_000);
@@ -194,7 +213,7 @@ describe('startJobRunner', () => {
 
     await vi.advanceTimersByTimeAsync(700_000);
 
-    expect(logged('job succeeded')).toHaveLength(1);
+    expect(logged('job completed')).toHaveLength(1);
     expect(logged('job aborted')).toHaveLength(0);
   });
 
@@ -214,7 +233,7 @@ describe('startJobRunner', () => {
   });
 
   it('S4 renew가 stale이면 abort하고 fail 없이 처리 함수 종료를 기다린 뒤 즉시 다음 claim한다', async () => {
-    const processing = deferred();
+    const processing = deferred<TranscriptResult>();
     let signal: AbortSignal | undefined;
     const { client, logged } = start({
       claim: claimOnce(),
@@ -236,7 +255,7 @@ describe('startJobRunner', () => {
     await vi.advanceTimersByTimeAsync(120_000);
     expect(client.renew).toHaveBeenCalledTimes(1);
 
-    processing.resolve();
+    processing.resolve(transcript);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(client.fail).not.toHaveBeenCalled();
@@ -251,7 +270,8 @@ describe('startJobRunner', () => {
       claim: claimOnce(),
       processJob: async (_job, received) => {
         signal = received;
-        await untilAborted(job, received);
+
+        return untilAborted(job, received);
       },
       renew: async () => {
         renewCount += 1;
@@ -350,7 +370,7 @@ describe('startJobRunner', () => {
 
   it('처리가 끝난 뒤 도착한 진행 중 renew의 stale은 무시한다', async () => {
     const renewal = deferred<{ kind: 'stale' }>();
-    const processing = deferred();
+    const processing = deferred<TranscriptResult>();
     const { client, logged } = start({
       claim: claimOnce(),
       processJob: async () => processing.promise,
@@ -358,12 +378,12 @@ describe('startJobRunner', () => {
     });
 
     await vi.advanceTimersByTimeAsync(60_000);
-    processing.resolve();
+    processing.resolve(transcript);
     await vi.advanceTimersByTimeAsync(0);
     renewal.resolve({ kind: 'stale' });
     await vi.advanceTimersByTimeAsync(120_000);
 
-    expect(logged('job succeeded')).toHaveLength(1);
+    expect(logged('job completed')).toHaveLength(1);
     expect(logged('job aborted')).toHaveLength(0);
     expect(client.renew).toHaveBeenCalledTimes(1);
   });
@@ -463,13 +483,14 @@ describe('startJobRunner', () => {
   });
 
   it('S8 처리 중 stop은 shutdown으로 abort하고 처리 함수 종료까지 기다린다', async () => {
-    const processing = deferred();
+    const processing = deferred<TranscriptResult>();
     let signal: AbortSignal | undefined;
     const { client, logged, runner } = start({
       claim: claimOnce(),
       processJob: async (_job, received) => {
         signal = received;
-        await processing.promise;
+
+        return processing.promise;
       },
     });
 
@@ -485,10 +506,10 @@ describe('startJobRunner', () => {
     expect(logged('job aborted')[0]?.[2]).toEqual({ jobId: JOB_ID, reason: 'shutdown' });
     expect(stopped).toBe(false);
 
-    processing.resolve();
+    processing.resolve(transcript);
     await stopping;
 
-    expect(logged('job succeeded')).toHaveLength(0);
+    expect(logged('job completed')).toHaveLength(0);
     expect(client.fail).not.toHaveBeenCalled();
     expect(client.claim).toHaveBeenCalledTimes(1);
   });
@@ -514,7 +535,7 @@ describe('startJobRunner', () => {
 
   it('S8 처리가 끝난 뒤에도 진행 중인 renew는 stop이 끝을 기다린다', async () => {
     const renewal = deferred<typeof renewed>();
-    const processing = deferred();
+    const processing = deferred<TranscriptResult>();
     const { runner } = start({
       claim: claimOnce(),
       processJob: async () => processing.promise,
@@ -522,7 +543,7 @@ describe('startJobRunner', () => {
     });
 
     await vi.advanceTimersByTimeAsync(60_000);
-    processing.resolve();
+    processing.resolve(transcript);
     await vi.advanceTimersByTimeAsync(0);
 
     let stopped = false;
@@ -565,7 +586,7 @@ describe('startJobRunner', () => {
   });
 
   it('처리 함수가 abort를 무시해도 shutdown 뒤에는 renew를 보내지 않는다', async () => {
-    const processing = deferred();
+    const processing = deferred<TranscriptResult>();
     const { client, runner } = start({
       claim: claimOnce(),
       processJob: async () => processing.promise,
@@ -579,7 +600,7 @@ describe('startJobRunner', () => {
     await vi.advanceTimersByTimeAsync(120_000);
     expect(client.renew).not.toHaveBeenCalled();
 
-    processing.resolve();
+    processing.resolve(transcript);
     await stopping;
   });
 
@@ -593,7 +614,7 @@ describe('startJobRunner', () => {
   ] as const)(
     'abort 뒤 도착한 renew 결과(%s)는 버리고 renew를 다시 예약하지 않는다',
     async (_label, settle) => {
-      const processing = deferred();
+      const processing = deferred<TranscriptResult>();
       const renewal = deferred<typeof renewed>();
       const { client, logged, runner } = start({
         claim: claimOnce(),
@@ -619,13 +640,13 @@ describe('startJobRunner', () => {
       ]);
       expect(logged('job lease renew failed')).toHaveLength(0);
 
-      processing.resolve();
+      processing.resolve(transcript);
       await stopping;
     },
   );
 
   it('S8 이미 stale로 abort된 job은 shutdown에서 다시 로그하지 않는다', async () => {
-    const processing = deferred();
+    const processing = deferred<TranscriptResult>();
     const { logged, runner } = start({
       claim: claimOnce(),
       processJob: async () => processing.promise,
@@ -636,7 +657,7 @@ describe('startJobRunner', () => {
 
     const stopping = runner.stop();
 
-    processing.resolve();
+    processing.resolve(transcript);
     await stopping;
 
     expect(logged('job aborted')).toEqual([
@@ -644,12 +665,168 @@ describe('startJobRunner', () => {
     ]);
   });
 
-  it('S9 성공한 job에는 fail이나 다른 전이 요청을 보내지 않는다', async () => {
-    const { client } = start({ claim: claimOnce() });
+  it('S9 성공한 job은 complete를 한 번만 보내고 fail·renew는 보내지 않는다', async () => {
+    const { client, logs } = start({ claim: claimOnce() });
 
     await vi.advanceTimersByTimeAsync(0);
 
+    expect(client.complete).toHaveBeenCalledTimes(1);
     expect(client.fail).not.toHaveBeenCalled();
     expect(client.renew).not.toHaveBeenCalled();
+    expect(JSON.stringify(logs())).not.toContain(SEGMENT_TEXT);
+    expect(JSON.stringify(logs())).not.toContain(LEASE_ID);
+  });
+
+  it('complete가 stale이면 경고만 남기고 fail 없이 즉시 다음 claim한다', async () => {
+    const { client, logged } = start({
+      claim: claimOnce(),
+      complete: async () => ({ kind: 'stale' }),
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(logged('job complete stale')).toEqual([
+      ['warn', 'job complete stale', { jobId: JOB_ID }],
+    ]);
+    expect(logged('job completed')).toHaveLength(0);
+    expect(client.fail).not.toHaveBeenCalled();
+    expect(client.claim).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['gateway_400', 'gateway_413'] as const)(
+    'Gateway가 결과를 거부(%s)하면 fail을 한 번 보낸다',
+    async (reason) => {
+      const { client, logged } = start({
+        claim: claimOnce(),
+        complete: async () => {
+          throw new JobLeaseClientError(reason);
+        },
+      });
+
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(logged('job complete rejected')).toEqual([
+        ['warn', 'job complete rejected', { jobId: JOB_ID, reason }],
+      ]);
+      expect(client.fail).toHaveBeenCalledExactlyOnceWith({ jobId: JOB_ID, leaseId: LEASE_ID });
+      expect(logged('job fail reported')).toHaveLength(1);
+      expect(client.claim).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each([
+    'gateway_200',
+    'gateway_302',
+    'gateway_401',
+    'gateway_404',
+    'gateway_408',
+    'gateway_409',
+    'gateway_429',
+    'gateway_500',
+    'gateway_503',
+    'timeout',
+    'network',
+    'invalid_response',
+  ] as const)('complete 실패(%s)는 경고만 남기고 fail하지 않는다', async (reason) => {
+    const { client, logged } = start({
+      claim: claimOnce(),
+      complete: async () => {
+        throw new JobLeaseClientError(reason);
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(logged('job complete failed')).toEqual([
+      ['warn', 'job complete failed', { jobId: JOB_ID, reason }],
+    ]);
+    expect(client.fail).not.toHaveBeenCalled();
+    expect(client.claim).toHaveBeenCalledTimes(2);
+  });
+
+  it('complete의 예상 밖 오류는 unexpected로 경고하고 fail하지 않는다', async () => {
+    const { client, logged, logs } = start({
+      claim: claimOnce(),
+      complete: async () => {
+        throw new RangeError(`${SEGMENT_TEXT} ${LEASE_ID}`);
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(logged('job complete failed')).toEqual([
+      ['warn', 'job complete failed', { jobId: JOB_ID, reason: 'unexpected' }],
+    ]);
+    expect(client.fail).not.toHaveBeenCalled();
+    expect(JSON.stringify(logs())).not.toContain(SEGMENT_TEXT);
+    expect(JSON.stringify(logs())).not.toContain(LEASE_ID);
+  });
+
+  it('abort된 job은 처리 함수가 결과를 돌려줘도 complete하지 않는다', async () => {
+    const { client } = start({
+      claim: claimOnce(),
+      processJob: untilAborted,
+      renew: async () => ({ kind: 'stale' }),
+    });
+
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(client.complete).not.toHaveBeenCalled();
+    expect(client.fail).not.toHaveBeenCalled();
+  });
+
+  it('S8 진행 중인 complete는 abort하지 않고 stop이 끝을 기다린다', async () => {
+    const completing = deferred<{ kind: 'completed' }>();
+    const { client, logged, runner } = start({
+      claim: claimOnce(),
+      complete: async () => completing.promise,
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.complete).toHaveBeenCalledTimes(1);
+
+    let stopped = false;
+    const stopping = runner.stop().then(() => {
+      stopped = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(stopped).toBe(false);
+
+    completing.resolve({ kind: 'completed' });
+    await stopping;
+
+    expect(client.complete).toHaveBeenCalledTimes(1);
+    expect(logged('job aborted')).toHaveLength(0);
+    expect(logged('job completed')).toHaveLength(1);
+    expect(client.claim).toHaveBeenCalledTimes(1);
+  });
+
+  it('S8 거부된 complete 뒤의 fail도 stop이 끝을 기다린다', async () => {
+    const completing = deferred<{ kind: 'completed' }>();
+    const failing = deferred<{ kind: 'failed' }>();
+    const { client, runner } = start({
+      claim: claimOnce(),
+      complete: async () => completing.promise,
+      fail: async () => failing.promise,
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+
+    let stopped = false;
+    const stopping = runner.stop().then(() => {
+      stopped = true;
+    });
+
+    completing.reject(new JobLeaseClientError('gateway_400'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.fail).toHaveBeenCalledTimes(1);
+    expect(stopped).toBe(false);
+
+    failing.resolve({ kind: 'failed' });
+    await stopping;
+
+    expect(client.fail).toHaveBeenCalledTimes(1);
+    expect(client.claim).toHaveBeenCalledTimes(1);
   });
 });

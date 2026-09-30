@@ -47,6 +47,8 @@ describe('parseWhisperOutput', () => {
       'segment 20,000개 초과',
       output({ segments: Array.from({ length: 20_001 }, () => segment(0, 0)) }),
     ],
+    ['NUL 포함 text', output({ segments: [segment(0, 1, 'a\u0000b')] })],
+    ['짝 없는 surrogate text', output({ segments: [segment(0, 1, 'a\ud800')] })],
   ])('%s는 본문 없는 INVALID_WHISPER_OUTPUT으로 거부한다', (_label, raw) => {
     let caught: unknown;
 

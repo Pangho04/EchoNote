@@ -1,4 +1,4 @@
-import type { JobSnapshot } from '@echonote/contracts';
+import type { JobSnapshot, TranscriptResult } from '@echonote/contracts';
 import type { FastifyBaseLogger } from 'fastify';
 
 import type { JobLease, JobLeaseClient } from './job-lease-client.js';
@@ -12,7 +12,7 @@ const LEASE_DEADLINE_MS = 270_000;
 type AbortReason = 'stale' | 'lease_deadline' | 'shutdown';
 
 // signal이 abort되면 처리를 멈춰야 한다. abort 뒤 결과는 버린다.
-export type ProcessJob = (job: JobSnapshot, signal: AbortSignal) => Promise<void>;
+export type ProcessJob = (job: JobSnapshot, signal: AbortSignal) => Promise<TranscriptResult>;
 
 type JobRunnerOptions = {
   client: JobLeaseClient;
@@ -33,6 +33,7 @@ const reasonOf = (error: unknown) =>
 const now = () => performance.now();
 
 // 한 번에 job 하나만 처리한다. stop은 진행 중 요청과 처리 함수가 끝날 때까지 기다린다.
+// 처리가 끝난 뒤의 complete는 abort하지 않는다. complete와 이어지는 fail까지 최대 20초 기다린다.
 export const startJobRunner = ({ client, logger, processJob }: JobRunnerOptions) => {
   let stopping = false;
   // 처리가 끝난 뒤에도 응답을 기다리는 renew가 있을 수 있다. stop이 기다린다.
@@ -61,6 +62,42 @@ export const startJobRunner = ({ client, logger, processJob }: JobRunnerOptions)
     } catch (error) {
       // job은 processing으로 남고 lease가 끝나면 다시 claim된다.
       logger.warn({ jobId: lease.jobId, reason: reasonOf(error) }, 'job fail request failed');
+    }
+  };
+
+  const reportCompletion = async (lease: JobLease, transcript: TranscriptResult) => {
+    let result: Awaited<ReturnType<JobLeaseClient['complete']>>;
+
+    try {
+      result = await client.complete(lease, transcript);
+    } catch (error) {
+      const reason = reasonOf(error);
+
+      // Gateway가 결과 형태나 크기를 거부했다. 다시 전사해도 같은 결과라 실패로 확정한다.
+      if (reason === 'gateway_400' || reason === 'gateway_413') {
+        logger.warn({ jobId: lease.jobId, reason }, 'job complete rejected');
+        await reportFailure(lease);
+
+        return;
+      }
+
+      // job은 processing으로 남고 lease가 끝나면 다시 claim돼 다시 전사된다.
+      logger.warn({ jobId: lease.jobId, reason }, 'job complete failed');
+
+      return;
+    }
+
+    switch (result.kind) {
+      case 'completed':
+        logger.info({ jobId: lease.jobId }, 'job completed');
+
+        break;
+
+      // 기한이 지나 다른 Worker가 가져갔거나 이미 확정됐다. 결과는 버린다.
+      case 'stale':
+        logger.warn({ jobId: lease.jobId }, 'job complete stale');
+
+        break;
     }
   };
 
@@ -132,12 +169,13 @@ export const startJobRunner = ({ client, logger, processJob }: JobRunnerOptions)
     heartbeat = setTimeout(() => void renew(), HEARTBEAT_MS);
     logger.info({ jobId: job.id }, 'job claimed');
 
-    let failure: { error: unknown } | undefined;
+    let outcome:
+      { kind: 'processed'; transcript: TranscriptResult } | { kind: 'threw'; error: unknown };
 
     try {
-      await processJob(job, controller.signal);
+      outcome = { kind: 'processed', transcript: await processJob(job, controller.signal) };
     } catch (error) {
-      failure = { error };
+      outcome = { error, kind: 'threw' };
     } finally {
       ended = true;
       abortCurrent = undefined;
@@ -147,14 +185,18 @@ export const startJobRunner = ({ client, logger, processJob }: JobRunnerOptions)
 
     if (controller.signal.aborted) return;
 
-    if (failure === undefined) {
-      logger.info({ jobId: job.id }, 'job succeeded');
+    switch (outcome.kind) {
+      case 'processed':
+        await reportCompletion(lease, outcome.transcript);
 
-      return;
+        break;
+
+      case 'threw':
+        logger.warn({ code: errorCode(outcome.error), jobId: job.id }, 'job processing threw');
+        await reportFailure(lease);
+
+        break;
     }
-
-    logger.warn({ code: errorCode(failure.error), jobId: job.id }, 'job processing threw');
-    await reportFailure(lease);
   };
 
   // 다음 claim까지 기다릴 시간을 돌려준다.

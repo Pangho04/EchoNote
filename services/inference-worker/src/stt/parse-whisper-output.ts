@@ -1,34 +1,7 @@
+import { transcriptResultSchema } from '@echonote/contracts';
 import { z } from 'zod';
 
-const MAX_DURATION_MS = 6 * 60 * 60 * 1000;
-const MAX_SEGMENTS = 20_000;
-const MAX_TEXT_LENGTH = 2_000;
-
-const msSchema = z.int().min(0);
-
-const segmentSchema = z.strictObject({
-  endMs: msSchema,
-  startMs: msSchema,
-  text: z
-    .string()
-    .max(MAX_TEXT_LENGTH)
-    .refine((text) => text.trim() !== ''),
-});
-
-const whisperOutputSchema = z
-  .strictObject({
-    durationMs: msSchema.max(MAX_DURATION_MS),
-    schemaVersion: z.literal(1),
-    segments: z.array(segmentSchema).max(MAX_SEGMENTS),
-  })
-  .refine(({ durationMs, segments }) =>
-    segments.every(
-      ({ endMs, startMs }, index) =>
-        startMs <= endMs &&
-        endMs <= durationMs &&
-        (index === 0 || segments[index - 1]!.startMs <= startMs),
-    ),
-  );
+const whisperOutputSchema = transcriptResultSchema.safeExtend({ schemaVersion: z.literal(1) });
 
 export type ParsedTranscript = z.infer<typeof whisperOutputSchema>;
 

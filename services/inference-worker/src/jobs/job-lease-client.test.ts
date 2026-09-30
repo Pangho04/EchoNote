@@ -1,3 +1,4 @@
+import { completeJobRequestSchema } from '@echonote/contracts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createJobLeaseClient } from './job-lease-client.js';
@@ -19,6 +20,8 @@ const job = {
 };
 
 const lease = { expiresAt: '2026-09-29T12:05:00.000Z', leaseId: LEASE_ID };
+
+const transcript = { durationMs: 2000, segments: [{ endMs: 1000, startMs: 0, text: '안녕' }] };
 
 const client = createJobLeaseClient({
   gatewayOrigin: GATEWAY_ORIGIN,
@@ -45,6 +48,7 @@ const captureError = async (promise: Promise<unknown>) => {
 
 const calls = {
   claim: () => client.claim(),
+  complete: () => client.complete({ jobId: JOB_ID, leaseId: LEASE_ID }, transcript),
   fail: () => client.fail({ jobId: JOB_ID, leaseId: LEASE_ID }),
   renew: () => client.renew({ jobId: JOB_ID, leaseId: LEASE_ID }),
 } as const;
@@ -59,6 +63,7 @@ describe('createJobLeaseClient', () => {
     ['claim', '/v1/worker/jobs/claim', {}],
     ['renew', `/v1/worker/jobs/${JOB_ID}/lease`, { leaseId: LEASE_ID }],
     ['fail', `/v1/worker/jobs/${JOB_ID}/fail`, { leaseId: LEASE_ID }],
+    ['complete', `/v1/worker/jobs/${JOB_ID}/complete`, { leaseId: LEASE_ID, transcript }],
   ] as const)(
     '%s는 Worker token으로 %s에 POST하고 redirect를 따라가지 않는다',
     async (name, path, body) => {
@@ -103,13 +108,36 @@ describe('createJobLeaseClient', () => {
     await expect(calls.fail()).resolves.toEqual({ kind: 'failed' });
   });
 
-  it.each(['renew', 'fail'] as const)('%s 409 lease_stale은 stale이다', async (name) => {
-    stubFetch(async () => Response.json({ error: 'lease_stale' }, { status: 409 }));
+  it('complete 204는 completed다', async () => {
+    stubFetch(async () => new Response(null, { status: 204 }));
 
-    await expect(calls[name]()).resolves.toEqual({ kind: 'stale' });
+    await expect(calls.complete()).resolves.toEqual({ kind: 'completed' });
   });
 
-  it.each(['renew', 'fail'] as const)('%s의 다른 409는 gateway_409다', async (name) => {
+  it('complete는 transcript의 계약 밖 필드를 보내지 않는다', async () => {
+    const fetchMock = stubFetch(async () => new Response(null, { status: 204 }));
+
+    await client.complete({ jobId: JOB_ID, leaseId: LEASE_ID }, {
+      ...transcript,
+      schemaVersion: 1,
+    } as typeof transcript);
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [URL, RequestInit];
+
+    expect(JSON.parse(init.body as string)).toEqual({ leaseId: LEASE_ID, transcript });
+    expect(completeJobRequestSchema.safeParse(JSON.parse(init.body as string)).success).toBe(true);
+  });
+
+  it.each(['renew', 'fail', 'complete'] as const)(
+    '%s 409 lease_stale은 stale이다',
+    async (name) => {
+      stubFetch(async () => Response.json({ error: 'lease_stale' }, { status: 409 }));
+
+      await expect(calls[name]()).resolves.toEqual({ kind: 'stale' });
+    },
+  );
+
+  it.each(['renew', 'fail', 'complete'] as const)('%s의 다른 409는 gateway_409다', async (name) => {
     for (const body of [JSON.stringify({ error: 'other' }), 'not json', null]) {
       stubFetch(async () => new Response(body, { status: 409 }));
 
@@ -124,6 +152,9 @@ describe('createJobLeaseClient', () => {
     ['claim', 302],
     ['renew', 401],
     ['fail', 503],
+    ['complete', 200],
+    ['complete', 400],
+    ['complete', 413],
   ] as const)('%s의 예상 밖 상태 %i는 gateway_<status>다', async (name, status) => {
     stubFetch(async () => new Response(null, { status }));
 
@@ -196,6 +227,13 @@ describe('createJobLeaseClient', () => {
       'timeout',
     ],
     ['fail 409 network', 'fail', 409, new TypeError('terminated'), 'network'],
+    [
+      'complete 409 timeout',
+      'complete',
+      409,
+      new DOMException('signal timed out', 'TimeoutError'),
+      'timeout',
+    ],
   ] as const)('%s: 본문 읽기가 끊겨도 분류한다', async (_label, name, status, cause, reason) => {
     const body = new ReadableStream({
       start(controller) {

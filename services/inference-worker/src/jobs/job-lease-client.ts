@@ -2,6 +2,7 @@ import {
   type ClaimJobResponse,
   claimJobResponseSchema,
   renewJobLeaseResponseSchema,
+  type TranscriptResult,
 } from '@echonote/contracts';
 import { z } from 'zod';
 
@@ -17,6 +18,10 @@ export type JobLeaseClient = {
   claim(): Promise<({ kind: 'claimed' } & ClaimJobResponse) | { kind: 'idle' }>;
   renew(lease: JobLease): Promise<{ kind: 'renewed'; expiresAt: string } | { kind: 'stale' }>;
   fail(lease: JobLease): Promise<{ kind: 'failed' } | { kind: 'stale' }>;
+  complete(
+    lease: JobLease,
+    transcript: TranscriptResult,
+  ): Promise<{ kind: 'completed' } | { kind: 'stale' }>;
 };
 
 type JobLeaseClientOptions = {
@@ -85,7 +90,7 @@ export const createJobLeaseClient = ({
     return parsed.data;
   };
 
-  // renew·fail이 공유한다. 409 lease_stale만 stale이고 다른 409는 gateway_409다.
+  // renew·fail·complete가 공유한다. 409 lease_stale만 stale이고 다른 409는 gateway_409다.
   const isLeaseStale = async (response: Response) => {
     if (response.status !== 409) return false;
 
@@ -142,6 +147,25 @@ export const createJobLeaseClient = ({
         await discard(response);
 
         return { kind: 'failed' };
+      }
+
+      if (await isLeaseStale(response)) return { kind: 'stale' };
+
+      await discard(response);
+
+      throw new JobLeaseClientError(`gateway_${response.status}`);
+    },
+
+    async complete({ jobId, leaseId }, { durationMs, segments }) {
+      const response = await post(`/v1/worker/jobs/${jobId}/complete`, {
+        leaseId,
+        transcript: { durationMs, segments },
+      });
+
+      if (response.status === 204) {
+        await discard(response);
+
+        return { kind: 'completed' };
       }
 
       if (await isLeaseStale(response)) return { kind: 'stale' };
