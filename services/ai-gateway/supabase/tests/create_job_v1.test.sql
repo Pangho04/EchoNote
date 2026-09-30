@@ -10,7 +10,7 @@ insert into auth.users (id, email) values
 select columns_are(
   'public', 'jobs',
   array['id', 'owner_id', 'meeting_id', 'size_bytes', 'sha256', 'mime_type', 'status',
-        'idempotency_key', 'created_at', 'lease_id', 'lease_expires_at']
+        'idempotency_key', 'created_at', 'lease_id', 'lease_expires_at', 'attempt_count']
 );
 select is(
   (select count(*) from information_schema.columns
