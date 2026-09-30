@@ -4,6 +4,7 @@ import {
   claimJobResponseSchema,
   completeJobRequestSchema,
   createJobRequestSchema,
+  failJobRequestSchema,
   jobLeaseRequestSchema,
   processingJobSchema,
   processingJobStatusSchema,
@@ -46,6 +47,13 @@ describe('processingJobSchema', () => {
     expect(processingJobSchema.safeParse(job).success).toBe(true);
     expect(processingJobSchema.safeParse({ ...job, meetingId: '' }).success).toBe(false);
   });
+
+  it('목록에 있는 errorCode만 허용한다', () => {
+    const job = { id: 'job-1', meetingId: 'meeting-1', status: 'failed' };
+
+    expect(processingJobSchema.safeParse({ ...job, errorCode: 'stt_failed' }).success).toBe(true);
+    expect(processingJobSchema.safeParse({ ...job, errorCode: 'STT_EXIT' }).success).toBe(false);
+  });
 });
 
 describe('createJobRequestSchema', () => {
@@ -85,6 +93,26 @@ describe('jobLeaseRequestSchema', () => {
 
   it('정의하지 않은 필드를 거부한다', () => {
     expect(jobLeaseRequestSchema.safeParse({ leaseId, status: 'failed' }).success).toBe(false);
+  });
+});
+
+describe('failJobRequestSchema', () => {
+  const leaseId = '6f1c1f9e-8a3b-4c2d-9e5f-0a1b2c3d4e5f';
+
+  it.each(['audio_missing', 'stt_unavailable', 'stt_failed', 'result_rejected', 'unexpected'])(
+    'errorCode %s를 허용한다',
+    (errorCode) => {
+      expect(failJobRequestSchema.safeParse({ errorCode, leaseId }).success).toBe(true);
+    },
+  );
+
+  it.each([
+    ['DB만 쓰는 attempts_exhausted', { errorCode: 'attempts_exhausted', leaseId }],
+    ['목록 밖 errorCode', { errorCode: 'STT_EXIT', leaseId }],
+    ['errorCode 없음', { leaseId }],
+    ['추가 필드', { errorCode: 'stt_failed', leaseId, status: 'failed' }],
+  ])('%s를 거부한다', (_label, body) => {
+    expect(failJobRequestSchema.safeParse(body).success).toBe(false);
   });
 });
 

@@ -95,6 +95,32 @@ node --env-file=services/inference-worker/.env.local -e "fetch(new URL('/v1/work
 
 `GATEWAY_BASE_URL`은 Gateway 기기에서 `tailscale serve status`로 확인한 https origin을 path 없이 넣는다. `.env.local`을 고친 뒤에는 Worker를 재시작한다. 실패한 job은 새 grant로 다시 PUT하면 같은 완료 통지를 재전송한다.
 
+## Vercel 빌드가 `Response`에 TS2339로 실패
+
+**증상** — Gateway를 Vercel에 배포하면 빌드가 `services/ai-gateway/src/*.ts`의 `Response`에 `Property ... does not exist` 같은 TS2339로 실패한다.
+
+**원인** — Vercel zero-config Fastify 빌드는 `@vercel/fastify` 빌더(내부적으로 `@vercel/node`)가 타입 오류를 빌드 실패로 처리한다. 이 빌더의 타입 검사 호스트는 symlink 실경로를 따라가지 않는다. pnpm 격리(`isolated`) 배치에서 `@types/node` 옆에 있어야 할 `undici-types`를 못 찾아 전역 `Response` 타입이 빈 interface가 된다.
+
+**대응** — `undici-types`를 `pnpm-workspace.yaml`의 `catalog`(`~7.18.0`, `@types/node`가 요구하는 범위와 맞춤)로 두고 `services/ai-gateway/package.json`에 직접 devDependency로 추가한다.
+
+## Vercel 함수가 500 `Invalid export found in module src/server.js`
+
+**증상** — 빌드는 성공하지만 배포된 함수를 호출하면 500과 `Invalid export found in module src/server.js`를 받는다.
+
+**원인** — Vercel Fastify 빌더는 `app, index, server, src/app, src/index, src/server` 후보 파일 중 fastify를 import하는 내용을 가진 파일만 진입점으로 고른다. 이 선택 방식은 설정으로 바꿀 수 없다. `src/index.ts`가 fastify를 직접 import하지 않아 서버를 만들기만 하는 `src/server.ts`가 대신 선택된다.
+
+**대응** — `src/index.ts` 맨 위에 `import 'fastify';`를 추가해 빌더가 `index.ts`를 진입점으로 고르게 한다.
+
+## Vercel 배포 뒤 요청이 멈추고 500
+
+**증상** — 진입 파일 문제를 고친 뒤에도 배포된 함수에 요청을 보내면 응답 없이 멈추다가 결국 500이 난다.
+
+**원인** — Vercel은 `http.Server.prototype.listen`을 가로채 서버 설정만 잡고 완료 콜백을 부르지 않는다. `await server.listen(...)`으로 작성하면 이 await가 끝나지 않아 모듈 로드 자체가 끝나지 않고, Vercel이 요청을 그 함수로 넘기지 못한다.
+
+**대응** — `server.listen(...).catch((error) => { ... })`로 await하지 않고 실패만 처리한다.
+
+**참고** — 진단용 명령을 Vercel 프로젝트 `buildCommand`에 넣을 때 256자를 넘으면 `Error: If defined, the Build Command must have a maximum length of 256 characters. (400)`로 거부된다. 진단이 끝나면 `buildCommand`를 원래 값으로 되돌린다.
+
 ## 모바일의 Gateway 요청이 전부 401
 
 **증상** — 모바일 로그인은 되지만 `/v1` 요청이 모두 401이다.

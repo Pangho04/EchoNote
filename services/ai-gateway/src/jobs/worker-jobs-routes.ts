@@ -1,4 +1,8 @@
-import { completeJobRequestSchema, jobLeaseRequestSchema } from '@echonote/contracts';
+import {
+  completeJobRequestSchema,
+  failJobRequestSchema,
+  jobLeaseRequestSchema,
+} from '@echonote/contracts';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
@@ -48,13 +52,14 @@ export const registerWorkerJobRoutes = (
 
   instance.post('/jobs/:jobId/fail', async (request, reply) => {
     const params = jobParamsSchema.safeParse(request.params);
-    const failure = jobLeaseRequestSchema.safeParse(request.body);
+    const failure = failJobRequestSchema.safeParse(request.body);
 
     if (!params.success || !failure.success) {
       return reply.code(400).send({ error: 'invalid_request' });
     }
 
     const result = await jobRepository.failJob({
+      errorCode: failure.data.errorCode,
       jobId: params.data.jobId,
       leaseId: failure.data.leaseId,
     });

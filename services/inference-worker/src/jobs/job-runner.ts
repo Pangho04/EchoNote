@@ -1,4 +1,4 @@
-import type { JobSnapshot, TranscriptResult } from '@echonote/contracts';
+import type { FailJobRequest, JobSnapshot, TranscriptResult } from '@echonote/contracts';
 import type { FastifyBaseLogger } from 'fastify';
 
 import type { JobLease, JobLeaseClient } from './job-lease-client.js';
@@ -17,6 +17,8 @@ export type ProcessJob = (job: JobSnapshot, signal: AbortSignal) => Promise<Tran
 type JobRunnerOptions = {
   client: JobLeaseClient;
   logger: Pick<FastifyBaseLogger, 'error' | 'info' | 'warn'>;
+  // job 하나를 처리하는 동안 PC가 잠들지 않게 하고, 해제 함수를 돌려준다.
+  preventSleep: () => () => void;
   processJob: ProcessJob;
 };
 
@@ -26,6 +28,30 @@ const errorCode = (error: unknown) =>
     ? error.code
     : undefined;
 
+// 처리 함수가 던진 오류의 code를 앱에 보여 줄 실패 이유로 바꾼다.
+const failureCodeOf = (code: string | undefined): FailJobRequest['errorCode'] => {
+  switch (code) {
+    // receiveUpload가 확정한 녹음 파일이 없다.
+    case 'ENOENT':
+      return 'audio_missing';
+
+    case 'STT_DOCKER':
+    case 'STT_GPU':
+    case 'STT_IMAGE':
+    case 'STT_MODEL':
+    case 'STT_VOLUME':
+      return 'stt_unavailable';
+
+    case 'INVALID_WHISPER_OUTPUT':
+    case 'STT_EXIT':
+    case 'STT_TIMEOUT':
+      return 'stt_failed';
+
+    default:
+      return 'unexpected';
+  }
+};
+
 const reasonOf = (error: unknown) =>
   error instanceof JobLeaseClientError ? error.reason : 'unexpected';
 
@@ -34,7 +60,7 @@ const now = () => performance.now();
 
 // 한 번에 job 하나만 처리한다. stop은 진행 중 요청과 처리 함수가 끝날 때까지 기다린다.
 // 처리가 끝난 뒤의 complete는 abort하지 않는다. complete와 이어지는 fail까지 최대 20초 기다린다.
-export const startJobRunner = ({ client, logger, processJob }: JobRunnerOptions) => {
+export const startJobRunner = ({ client, logger, preventSleep, processJob }: JobRunnerOptions) => {
   let stopping = false;
   // 처리가 끝난 뒤에도 응답을 기다리는 renew가 있을 수 있다. stop이 기다린다.
   // HTTP timeout(10초)이 heartbeat(60초)보다 짧아 진행 중 renew는 최대 하나다.
@@ -54,11 +80,11 @@ export const startJobRunner = ({ client, logger, processJob }: JobRunnerOptions)
       wake = done;
     });
 
-  const reportFailure = async (lease: JobLease) => {
+  const reportFailure = async (lease: JobLease, errorCode: FailJobRequest['errorCode']) => {
     try {
-      const result = await client.fail(lease);
+      const result = await client.fail(lease, errorCode);
 
-      logger.info({ jobId: lease.jobId, reason: result.kind }, 'job fail reported');
+      logger.info({ errorCode, jobId: lease.jobId, reason: result.kind }, 'job fail reported');
     } catch (error) {
       // job은 processing으로 남고 lease가 끝나면 다시 claim된다.
       logger.warn({ jobId: lease.jobId, reason: reasonOf(error) }, 'job fail request failed');
@@ -76,7 +102,7 @@ export const startJobRunner = ({ client, logger, processJob }: JobRunnerOptions)
       // Gateway가 결과 형태나 크기를 거부했다. 다시 전사해도 같은 결과라 실패로 확정한다.
       if (reason === 'gateway_400' || reason === 'gateway_413') {
         logger.warn({ jobId: lease.jobId, reason }, 'job complete rejected');
-        await reportFailure(lease);
+        await reportFailure(lease, 'result_rejected');
 
         return;
       }
@@ -191,11 +217,14 @@ export const startJobRunner = ({ client, logger, processJob }: JobRunnerOptions)
 
         break;
 
-      case 'threw':
-        logger.warn({ code: errorCode(outcome.error), jobId: job.id }, 'job processing threw');
-        await reportFailure(lease);
+      case 'threw': {
+        const code = errorCode(outcome.error);
+
+        logger.warn({ code, jobId: job.id }, 'job processing threw');
+        await reportFailure(lease, failureCodeOf(code));
 
         break;
+      }
     }
   };
 
@@ -218,17 +247,25 @@ export const startJobRunner = ({ client, logger, processJob }: JobRunnerOptions)
       case 'idle':
         return IDLE_WAIT_MS;
 
-      case 'claimed':
+      case 'claimed': {
         // 종료 중에 받은 job은 처리하지 않는다. lease가 끝나면 다시 claim된다.
         if (stopping) return 0;
 
-        await runClaimed(
-          claim.job,
-          { jobId: claim.job.id, leaseId: claim.lease.leaseId },
-          claimSentAt,
-        );
+        // 결과 전송까지 끝나야 해제한다.
+        const release = preventSleep();
+
+        try {
+          await runClaimed(
+            claim.job,
+            { jobId: claim.job.id, leaseId: claim.lease.leaseId },
+            claimSentAt,
+          );
+        } finally {
+          release();
+        }
 
         return 0;
+      }
     }
   };
 

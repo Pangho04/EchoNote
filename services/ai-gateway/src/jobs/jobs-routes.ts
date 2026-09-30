@@ -37,6 +37,28 @@ export const registerJobRoutes = (instance: FastifyInstance, jobRepository: JobR
     }
   });
 
+  // 앱이 전사 진행을 확인한다. errorCode는 failed일 때만 값이 있다.
+  instance.get<{ Params: { jobId: string } }>('/jobs/:jobId', async (request, reply) => {
+    const ownerId = parseOwnerId(request);
+
+    if (ownerId === undefined) return sendUnauthorized(reply);
+
+    const jobId = z.uuid().safeParse(request.params.jobId);
+
+    if (!jobId.success) return reply.code(400).send({ error: 'invalid_request' });
+
+    // 다른 사용자의 job도 없는 job과 같은 404다.
+    const job = await jobRepository.findOwnedJob({ jobId: jobId.data, ownerId });
+
+    reply.header('Cache-Control', 'no-store');
+
+    if (job === null) return reply.code(404).send({ error: 'job_not_found' });
+
+    return reply
+      .code(200)
+      .send({ errorCode: job.errorCode, id: job.id, meetingId: job.meetingId, status: job.status });
+  });
+
   instance.get<{ Params: { jobId: string } }>('/jobs/:jobId/transcript', async (request, reply) => {
     const ownerId = parseOwnerId(request);
 

@@ -49,7 +49,7 @@ const captureError = async (promise: Promise<unknown>) => {
 const calls = {
   claim: () => client.claim(),
   complete: () => client.complete({ jobId: JOB_ID, leaseId: LEASE_ID }, transcript),
-  fail: () => client.fail({ jobId: JOB_ID, leaseId: LEASE_ID }),
+  fail: () => client.fail({ jobId: JOB_ID, leaseId: LEASE_ID }, 'stt_failed'),
   renew: () => client.renew({ jobId: JOB_ID, leaseId: LEASE_ID }),
 } as const;
 
@@ -62,7 +62,7 @@ describe('createJobLeaseClient', () => {
   it.each([
     ['claim', '/v1/worker/jobs/claim', {}],
     ['renew', `/v1/worker/jobs/${JOB_ID}/lease`, { leaseId: LEASE_ID }],
-    ['fail', `/v1/worker/jobs/${JOB_ID}/fail`, { leaseId: LEASE_ID }],
+    ['fail', `/v1/worker/jobs/${JOB_ID}/fail`, { errorCode: 'stt_failed', leaseId: LEASE_ID }],
     ['complete', `/v1/worker/jobs/${JOB_ID}/complete`, { leaseId: LEASE_ID, transcript }],
   ] as const)(
     '%s는 Worker token으로 %s에 POST하고 redirect를 따라가지 않는다',

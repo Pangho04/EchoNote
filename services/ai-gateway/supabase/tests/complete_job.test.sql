@@ -33,18 +33,18 @@ values
 
 -- 구조
 select is(
-  (select prosecdef from pg_proc where oid = 'public.complete_job_v1'::regproc),
+  (select prosecdef from pg_proc where oid = 'public.complete_job'::regproc),
   true,
   'complete_job_v1은 security definer다'
 );
 select ok(
-  (select proconfig from pg_proc where oid = 'public.complete_job_v1'::regproc) @> array['search_path=""'],
+  (select proconfig from pg_proc where oid = 'public.complete_job'::regproc) @> array['search_path=""'],
   'complete_job_v1은 빈 search_path로 실행된다'
 );
 select is(
-  (select proowner from pg_proc where oid = 'public.complete_job_v1'::regproc),
+  (select proowner from pg_proc where oid = 'public.complete_job'::regproc),
   (select relowner from pg_class where oid = 'public.jobs'::regclass),
-  'complete_job_v1 소유자는 jobs 소유자다'
+  'complete_job 소유자는 jobs 소유자다'
 );
 select is(
   (select relowner from pg_class where oid = 'public.transcripts'::regclass),
@@ -53,9 +53,9 @@ select is(
 );
 select is(
   (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'public' and p.proname = 'complete_job_v1'),
+   where n.nspname = 'public' and p.proname = 'complete_job'),
   1::bigint,
-  'complete_job_v1 overload는 하나다'
+  'complete_job overload는 하나다'
 );
 select is(
   (select relrowsecurity from pg_class where oid = 'public.transcripts'::regclass),
@@ -65,15 +65,15 @@ select is(
 
 -- 권한
 select ok(
-  not has_function_privilege('anon', 'public.complete_job_v1(uuid,uuid,integer,jsonb)', 'execute'),
+  not has_function_privilege('anon', 'public.complete_job(uuid,uuid,integer,jsonb)', 'execute'),
   'anon은 complete_job_v1을 실행할 수 없다'
 );
 select ok(
-  not has_function_privilege('authenticated', 'public.complete_job_v1(uuid,uuid,integer,jsonb)', 'execute'),
+  not has_function_privilege('authenticated', 'public.complete_job(uuid,uuid,integer,jsonb)', 'execute'),
   'authenticated는 complete_job_v1을 실행할 수 없다'
 );
 select ok(
-  has_function_privilege('service_role', 'public.complete_job_v1(uuid,uuid,integer,jsonb)', 'execute'),
+  has_function_privilege('service_role', 'public.complete_job(uuid,uuid,integer,jsonb)', 'execute'),
   'service_role은 complete_job_v1을 실행할 수 있다'
 );
 select table_privs_are('public', 'transcripts', 'service_role', array['SELECT']);
@@ -84,7 +84,7 @@ set local role service_role;
 
 -- 성공
 select is(
-  public.complete_job_v1('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000001b1',
+  public.complete_job('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000001b1',
     2000, '[{"startMs": 0, "endMs": 1000, "text": "안녕"}]'::jsonb),
   '{"kind": "completed"}'::jsonb,
   '기한 전 같은 lease_id는 completed다'
@@ -101,7 +101,7 @@ select ok(
   '전사 결과는 job owner와 함께 저장된다'
 );
 select is(
-  public.complete_job_v1('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000001b1',
+  public.complete_job('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000001b1',
     2000, '[]'::jsonb),
   '{"kind": "stale"}'::jsonb,
   '이미 completed인 job에 다시 보내면 stale이다'
@@ -114,28 +114,28 @@ select is(
 
 -- stale
 select is(
-  public.complete_job_v1('00000000-0000-4000-8000-0000000000b2', gen_random_uuid(), 0, '[]'::jsonb),
+  public.complete_job('00000000-0000-4000-8000-0000000000b2', gen_random_uuid(), 0, '[]'::jsonb),
   '{"kind": "stale"}'::jsonb,
   '다른 lease_id는 stale이다'
 );
 select is(
-  public.complete_job_v1('00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000001e1',
+  public.complete_job('00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000001e1',
     0, '[]'::jsonb),
   '{"kind": "stale"}'::jsonb,
   '기한 지난 lease는 같은 lease_id라도 stale이다'
 );
 select is(
-  public.complete_job_v1('00000000-0000-4000-8000-0000000000a1', gen_random_uuid(), 0, '[]'::jsonb),
+  public.complete_job('00000000-0000-4000-8000-0000000000a1', gen_random_uuid(), 0, '[]'::jsonb),
   '{"kind": "stale"}'::jsonb,
   'queued job은 stale이다'
 );
 select is(
-  public.complete_job_v1('00000000-0000-4000-8000-0000000000f1', gen_random_uuid(), 0, '[]'::jsonb),
+  public.complete_job('00000000-0000-4000-8000-0000000000f1', gen_random_uuid(), 0, '[]'::jsonb),
   '{"kind": "stale"}'::jsonb,
   'failed job은 stale이다'
 );
 select is(
-  public.complete_job_v1('00000000-0000-4000-8000-0000000000f9', gen_random_uuid(), 0, '[]'::jsonb),
+  public.complete_job('00000000-0000-4000-8000-0000000000f9', gen_random_uuid(), 0, '[]'::jsonb),
   '{"kind": "stale"}'::jsonb,
   '없는 job은 stale이다'
 );
@@ -150,7 +150,7 @@ select ok(
 
 -- insert가 실패하면 completed 전이도 되돌아간다.
 select throws_ok(
-  $$select public.complete_job_v1('00000000-0000-4000-8000-0000000000c1',
+  $$select public.complete_job('00000000-0000-4000-8000-0000000000c1',
     '00000000-0000-4000-8000-0000000001c1', 0, '{}'::jsonb)$$,
   '23514', null, '배열이 아닌 segments는 거부한다'
 );
@@ -163,8 +163,8 @@ select ok(
 
 -- completed job은 다시 claim되지 않는다. b2·c1(기한 남음)도 대상이 아니다.
 select is(
-  array[public.claim_job_v1() -> 'job' ->> 'id', public.claim_job_v1() -> 'job' ->> 'id',
-    public.claim_job_v1() ->> 'kind'],
+  array[public.claim_job() -> 'job' ->> 'id', public.claim_job() -> 'job' ->> 'id',
+    public.claim_job() ->> 'kind'],
   array['00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000000a1', 'idle'],
   'completed job은 claim 대상이 아니다'
 );
@@ -174,7 +174,7 @@ set local role authenticated;
 
 select is(current_user::text, 'authenticated', 'authenticated로 실행 중이다');
 select throws_ok(
-  $$select public.complete_job_v1(gen_random_uuid(), gen_random_uuid(), 0, '[]'::jsonb)$$,
+  $$select public.complete_job(gen_random_uuid(), gen_random_uuid(), 0, '[]'::jsonb)$$,
   '42501', null, 'authenticated는 complete_job_v1을 호출할 수 없다'
 );
 

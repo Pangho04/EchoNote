@@ -10,43 +10,43 @@ insert into auth.users (id, email) values
 select columns_are(
   'public', 'jobs',
   array['id', 'owner_id', 'meeting_id', 'size_bytes', 'sha256', 'mime_type', 'status',
-        'idempotency_key', 'created_at', 'lease_id', 'lease_expires_at', 'attempt_count']
+        'idempotency_key', 'created_at', 'lease_id', 'lease_expires_at', 'attempt_count', 'error_code']
 );
 select is(
   (select count(*) from information_schema.columns
    where table_schema = 'public' and table_name = 'jobs' and is_nullable = 'YES'),
-  2::bigint,
-  'jobs에서 nullable 열은 lease 두 열뿐이다'
+  3::bigint,
+  'jobs에서 nullable 열은 lease 두 열과 error_code뿐이다'
 );
 select col_is_unique('public', 'jobs', array['owner_id', 'idempotency_key']);
 select ok(
-  (select proconfig from pg_proc where oid = 'public.create_job_v1'::regproc)
+  (select proconfig from pg_proc where oid = 'public.create_job'::regproc)
     @> array['search_path=""'],
   'create_job_v1은 빈 search_path로 실행된다'
 );
 select is(
-  (select prosecdef from pg_proc where oid = 'public.create_job_v1'::regproc),
+  (select prosecdef from pg_proc where oid = 'public.create_job'::regproc),
   false,
   'create_job_v1은 security invoker다'
 );
 select is(
   (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'public' and p.proname = 'create_job_v1'),
+   where n.nspname = 'public' and p.proname = 'create_job'),
   1::bigint,
-  'create_job_v1 overload는 하나다'
+  'create_job overload는 하나다'
 );
 
 -- 권한
 select ok(
-  not has_function_privilege('anon', 'public.create_job_v1(uuid,uuid,uuid,bigint,text,text)', 'execute'),
+  not has_function_privilege('anon', 'public.create_job(uuid,uuid,uuid,bigint,text,text)', 'execute'),
   'anon은 create_job_v1을 실행할 수 없다'
 );
 select ok(
-  not has_function_privilege('authenticated', 'public.create_job_v1(uuid,uuid,uuid,bigint,text,text)', 'execute'),
+  not has_function_privilege('authenticated', 'public.create_job(uuid,uuid,uuid,bigint,text,text)', 'execute'),
   'authenticated는 create_job_v1을 실행할 수 없다'
 );
 select ok(
-  has_function_privilege('service_role', 'public.create_job_v1(uuid,uuid,uuid,bigint,text,text)', 'execute'),
+  has_function_privilege('service_role', 'public.create_job(uuid,uuid,uuid,bigint,text,text)', 'execute'),
   'service_role은 create_job_v1을 실행할 수 있다'
 );
 select table_privs_are('public', 'jobs', 'service_role', array['SELECT', 'INSERT']);
@@ -102,19 +102,19 @@ set local role service_role;
 
 select is(current_user::text, 'service_role', 'service_role로 실행 중이다');
 select is(
-  public.create_job_v1('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
+  public.create_job('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-00000000000c', 100, repeat('a', 64), 'audio/mp4') ->> 'kind',
   'created',
   '새 key는 created다'
 );
 select is(
-  public.create_job_v1('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
+  public.create_job('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-00000000000c', 100, repeat('a', 64), 'audio/mp4') ->> 'kind',
   'existing',
   '같은 key·payload는 existing이다'
 );
 select is(
-  public.create_job_v1('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
+  public.create_job('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-00000000000c', 100, repeat('a', 64), 'audio/mp4') -> 'job' ->> 'id',
   (select id::text from public.jobs
    where owner_id = '00000000-0000-4000-8000-00000000000a'
@@ -123,48 +123,48 @@ select is(
 );
 select is(
   (select array_agg(key order by key) from jsonb_object_keys(
-    public.create_job_v1('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
+    public.create_job('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
       '00000000-0000-4000-8000-00000000000c', 100, repeat('a', 64), 'audio/mp4') -> 'job') as key),
   array['created_at', 'id', 'meeting_id', 'mime_type', 'sha256', 'size_bytes', 'status'],
   'job은 7개 키를 가진다'
 );
 select matches(
-  public.create_job_v1('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
+  public.create_job('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-00000000000c', 100, repeat('a', 64), 'audio/mp4') -> 'job' ->> 'created_at',
   '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?([+-][0-9]{2}:[0-9]{2}|Z)$',
   'created_at은 ISO 8601 형식이다'
 );
 select is(
-  public.create_job_v1('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
+  public.create_job('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-00000000000d', 100, repeat('a', 64), 'audio/mp4') ->> 'kind',
   'conflict',
   'meeting_id가 다르면 conflict다'
 );
 select is(
-  public.create_job_v1('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
+  public.create_job('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-00000000000c', 101, repeat('a', 64), 'audio/mp4') ->> 'kind',
   'conflict',
   'size_bytes가 다르면 conflict다'
 );
 select is(
-  public.create_job_v1('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
+  public.create_job('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-00000000000c', 100, repeat('b', 64), 'audio/mp4') ->> 'kind',
   'conflict',
   'sha256이 다르면 conflict다'
 );
 -- CHECK는 on conflict 판정보다 먼저 평가된다.
 select throws_ok(
-  $$select public.create_job_v1('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
+  $$select public.create_job('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-00000000000c', 100, repeat('a', 64), 'audio/mpeg')$$,
   '23514', null, '같은 key여도 허용하지 않는 mime_type은 CHECK로 거부한다'
 );
 select ok(
-  not (public.create_job_v1('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
+  not (public.create_job('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-00000000000d', 100, repeat('a', 64), 'audio/mp4') ? 'job'),
   'conflict는 job을 담지 않는다'
 );
 select is(
-  public.create_job_v1('00000000-0000-4000-8000-00000000000b', '00000000-0000-4000-8000-000000000001',
+  public.create_job('00000000-0000-4000-8000-00000000000b', '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-00000000000c', 100, repeat('a', 64), 'audio/mp4') ->> 'kind',
   'created',
   '다른 owner는 같은 key로도 created다'
@@ -189,7 +189,7 @@ where owner_id = '00000000-0000-4000-8000-00000000000a'
 set local role service_role;
 
 select is(
-  public.create_job_v1('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
+  public.create_job('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-00000000000c', 100, repeat('a', 64), 'audio/mp4') -> 'job' ->> 'status',
   'queued',
   'existing은 바뀐 status를 돌려준다'
@@ -200,7 +200,7 @@ set local role authenticated;
 
 select is(current_user::text, 'authenticated', 'authenticated로 실행 중이다');
 select throws_ok(
-  $$select public.create_job_v1('00000000-0000-4000-8000-00000000000a', gen_random_uuid(),
+  $$select public.create_job('00000000-0000-4000-8000-00000000000a', gen_random_uuid(),
     gen_random_uuid(), 1, repeat('a', 64), 'audio/mp4')$$,
   '42501', null, 'authenticated는 create_job_v1을 호출할 수 없다'
 );

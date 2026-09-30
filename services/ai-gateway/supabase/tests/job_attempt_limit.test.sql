@@ -34,17 +34,17 @@ select throws_ok(
   '23514', null, 'attempt_count는 음수가 될 수 없다'
 );
 select is(
-  (select prosecdef from pg_proc where oid = 'public.claim_job_v1'::regproc),
+  (select prosecdef from pg_proc where oid = 'public.claim_job'::regproc),
   true,
   'claim_job_v1은 security definer로 남는다'
 );
 select ok(
-  (select proconfig from pg_proc where oid = 'public.claim_job_v1'::regproc) @> array['search_path=""'],
+  (select proconfig from pg_proc where oid = 'public.claim_job'::regproc) @> array['search_path=""'],
   'claim_job_v1은 빈 search_path로 남는다'
 );
 select ok(
-  not has_function_privilege('authenticated', 'public.claim_job_v1()', 'execute')
-    and has_function_privilege('service_role', 'public.claim_job_v1()', 'execute'),
+  not has_function_privilege('authenticated', 'public.claim_job()', 'execute')
+    and has_function_privilege('service_role', 'public.claim_job()', 'execute'),
   'claim_job_v1은 service_role만 실행한다'
 );
 
@@ -52,14 +52,15 @@ set local role service_role;
 
 -- 첫 claim이 d3을 failed로 확정한 뒤 d2를 세 번째로 잡는다.
 select is(
-  public.claim_job_v1() -> 'job' ->> 'id',
+  public.claim_job() -> 'job' ->> 'id',
   '00000000-0000-4000-8000-0000000000d2',
   '2번 잡혔던 만료 job은 다시 잡힌다'
 );
 select ok(
   (select status = 'failed' and lease_id is null and lease_expires_at is null and attempt_count = 3
+     and error_code = 'attempts_exhausted'
    from public.jobs where id = '00000000-0000-4000-8000-0000000000d3'),
-  '3번 잡혔던 만료 job은 failed가 되고 lease 두 열을 비운다'
+  '3번 잡혔던 만료 job은 attempts_exhausted로 failed가 되고 lease 두 열을 비운다'
 );
 select is(
   (select attempt_count from public.jobs where id = '00000000-0000-4000-8000-0000000000d2'),
@@ -67,7 +68,7 @@ select is(
   'claim은 attempt_count를 1 올린다'
 );
 select is(
-  public.claim_job_v1() -> 'job' ->> 'id',
+  public.claim_job() -> 'job' ->> 'id',
   '00000000-0000-4000-8000-0000000000a1',
   'queued job을 잡는다'
 );
@@ -85,7 +86,7 @@ where id = '00000000-0000-4000-8000-0000000000d2';
 
 set local role service_role;
 
-select is(public.claim_job_v1() ->> 'kind', 'idle', '세 번째 lease가 끝난 job은 다시 잡히지 않는다');
+select is(public.claim_job() ->> 'kind', 'idle', '세 번째 lease가 끝난 job은 다시 잡히지 않는다');
 select is(
   (select status from public.jobs where id = '00000000-0000-4000-8000-0000000000d2'),
   'failed',

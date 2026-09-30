@@ -140,7 +140,7 @@ describe('POST /v1/worker/upload-completions', () => {
         throw new JobStoreUnavailableError('network');
       },
       async () => {
-        throw new Error('complete_upload_v1 unexpected error');
+        throw new Error('complete_upload unexpected error');
       },
     ];
 

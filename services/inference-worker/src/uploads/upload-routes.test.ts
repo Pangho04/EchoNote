@@ -123,6 +123,15 @@ const listen = async () => {
   return (server.server.address() as AddressInfo).port;
 };
 
+describe('GET /live', () => {
+  it('인증 없이 body 없는 204다', async () => {
+    const response = await server.inject({ method: 'GET', url: '/live' });
+
+    expect(response.statusCode).toBe(204);
+    expect(response.body).toBe('');
+  });
+});
+
 describe('PUT /uploads', () => {
   it('검증을 통과한 body를 final/<jobId>.m4a로 확정하고 201을 반환한다', async () => {
     const jobId = randomUUID();

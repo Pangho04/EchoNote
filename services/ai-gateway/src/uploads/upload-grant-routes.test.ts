@@ -1,8 +1,12 @@
-import { type JobSnapshot, uploadGrantClaimsSchema } from '@echonote/contracts';
+import { uploadGrantClaimsSchema } from '@echonote/contracts';
 import { jwtVerify } from 'jose';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { type JobRepository, JobStoreUnavailableError } from '../jobs/job-repository.js';
+import {
+  type JobRepository,
+  JobStoreUnavailableError,
+  type OwnedJob,
+} from '../jobs/job-repository.js';
 import { buildServer } from '../server.js';
 import { createUploadGrantIssuer, type IssueUploadGrant } from './upload-grant-issuer.js';
 
@@ -11,13 +15,14 @@ const JOB_ID = '00000000-0000-4000-8000-0000000000f1';
 const TOKEN = 'token-leak-probe-91c2';
 const GRANT = 'grant-leak-probe-4d7e';
 
-const job: JobSnapshot = {
+const job: OwnedJob = {
   createdAt: '2026-09-26T12:53:00.123Z',
   id: JOB_ID,
   meetingId: '00000000-0000-4000-8000-00000000000c',
   mimeType: 'audio/mp4',
   sha256: 'e'.repeat(64),
   sizeBytes: 100,
+  errorCode: null,
   status: 'created',
 };
 

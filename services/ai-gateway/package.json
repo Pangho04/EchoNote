@@ -24,6 +24,7 @@
     "@types/node": "catalog:",
     "tsx": "4.23.5",
     "typescript": "catalog:",
+    "undici-types": "catalog:",
     "vitest": "catalog:"
   }
 }
