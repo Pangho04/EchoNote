@@ -11,8 +11,21 @@ export const processingJobStatusSchema = z.enum([
   'failed',
 ]);
 
+// 실패한 job에 남기는 이유. 앱이 사용자 문구로 바꿔 보여 준다. DB check 제약과 같은 목록이다.
+export const jobFailureCodeSchema = z.enum([
+  'audio_missing',
+  'stt_unavailable',
+  'stt_failed',
+  'result_rejected',
+  'attempts_exhausted',
+  'unexpected',
+]);
+
+export type JobFailureCode = z.infer<typeof jobFailureCodeSchema>;
+
+// 앱이 GET /v1/jobs/:jobId로 받는 job 상태. errorCode는 failed일 때만 값이 있다.
 export const processingJobSchema = z.object({
-  errorCode: z.string().trim().min(1).nullable(),
+  errorCode: jobFailureCodeSchema.nullable(),
   id: identifierSchema,
   meetingId: identifierSchema,
   status: processingJobStatusSchema,
@@ -40,10 +53,18 @@ export const jobSnapshotSchema = z.object({
 
 export type JobSnapshot = z.infer<typeof jobSnapshotSchema>;
 
-// Worker가 보내는 lease 연장·실패 확정 요청. lease_id가 그 job을 가진 Worker라는 유일한 증명이다.
+// Worker가 보내는 lease 연장 요청. lease_id가 그 job을 가진 Worker라는 유일한 증명이다.
 export const jobLeaseRequestSchema = z.strictObject({
   leaseId: z.uuid(),
 });
+
+// Worker가 job을 failed로 확정하는 요청. attempts_exhausted는 DB가 claim 때만 쓴다.
+export const failJobRequestSchema = z.strictObject({
+  leaseId: jobLeaseRequestSchema.shape.leaseId,
+  errorCode: jobFailureCodeSchema.exclude(['attempts_exhausted']),
+});
+
+export type FailJobRequest = z.infer<typeof failJobRequestSchema>;
 
 // Worker가 전사 결과를 저장하며 job을 completed로 확정하는 요청.
 export const completeJobRequestSchema = z.strictObject({
