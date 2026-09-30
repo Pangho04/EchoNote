@@ -1,3 +1,6 @@
+// Vercel fastify 빌더는 fastify를 import하는 후보 파일만 진입점으로 고른다. 없으면 src/server.ts가 선택된다.
+import 'fastify';
+
 import { createSupabaseAccessTokenVerifier } from './auth/supabase-access-token-verifier.js';
 import { loadEnvironment } from './config/environment.js';
 import { createJobRepository } from './jobs/job-repository.js';
@@ -27,21 +30,20 @@ const server = buildServer({
   workerApiToken,
 });
 
-try {
-  await server.listen({ host, port });
+const shutdown = async () => {
+  try {
+    await server.close();
+  } catch (error) {
+    server.log.error(error);
+    process.exitCode = 1;
+  }
+};
 
-  const shutdown = async () => {
-    try {
-      await server.close();
-    } catch (error) {
-      server.log.error(error);
-      process.exitCode = 1;
-    }
-  };
+process.once('SIGINT', () => void shutdown());
+process.once('SIGTERM', () => void shutdown());
 
-  process.once('SIGINT', () => void shutdown());
-  process.once('SIGTERM', () => void shutdown());
-} catch (error) {
+// Vercel은 listen을 가로채고 완료를 알리지 않는다. await하면 모듈 로드가 끝나지 않아 요청이 멈춘다.
+server.listen({ host, port }).catch((error: unknown) => {
   server.log.error(error);
   process.exitCode = 1;
-}
+});
