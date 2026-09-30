@@ -185,6 +185,12 @@ Meeting·Recording·목록·SQLite·ViewModel 작업 전 반드시 읽는다 →
 - Windows 업로드 API는 loopback에 바인딩하고 Tailscale Serve로만 노출한다.
 - 녹음 파일과 전사·요약 본문을 Vercel·Supabase 로그에 남기지 않는다.
 - Electron은 임의 IPC, 원격 Node.js 실행, 무검증 외부 탐색을 허용하지 않는다.
+- 사용자가 여럿이라고 전제한다. 배포 중에도 옛 Gateway가 요청을 처리할 수 있다.
+- Supabase RPC 이름에는 버전 접미사를 붙이지 않는다. 호출 모양(매개변수·반환)이 깨지는 변경만 확장→축소(expand/contract) 순서를 따른다.
+  1. 확장: 옛 함수를 남긴 채 새 매개변수에 default를 주거나, 불가능하면 `_v2` 같은 새 이름으로 추가한다.
+  2. Gateway를 배포해 새 함수를 호출한다.
+  3. 축소: 옛 Gateway가 사라진 뒤 다음 migration에서 옛 함수를 지운다. 같은 migration에서 지우지 않는다.
+- 앱 SQLite migration은 배포한 적 없는 version만 합칠 수 있다. 배포한 version은 이어지는 migration으로만 바꾼다.
 
 ## 9. 개발과 검증
 
