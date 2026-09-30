@@ -6,6 +6,7 @@ const GRANT_SECRET_BYTES = Buffer.alloc(32, 7);
 const GRANT_SECRET_B64 = GRANT_SECRET_BYTES.toString('base64');
 const WORKER_API_TOKEN = Buffer.alloc(32, 9).toString('base64');
 const DATA_DIR = '/srv/echonote-worker';
+const DOCKER_PATH = '/usr/local/bin/docker';
 const GATEWAY_ORIGIN = 'https://gateway.example.test';
 
 beforeEach(() => {
@@ -13,12 +14,18 @@ beforeEach(() => {
   vi.stubEnv('WORKER_API_TOKEN', WORKER_API_TOKEN);
   vi.stubEnv('GATEWAY_BASE_URL', GATEWAY_ORIGIN);
   vi.stubEnv('WORKER_DATA_DIR', DATA_DIR);
+  vi.stubEnv('DOCKER_PATH', DOCKER_PATH);
   vi.stubEnv('ECHONOTE_WORKER_PORT', undefined);
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  Object.defineProperty(process, 'platform', { value: PLATFORM });
 });
+
+const PLATFORM = process.platform;
+
+const asWindows = () => Object.defineProperty(process, 'platform', { value: 'win32' });
 
 const captureError = () => {
   try {
@@ -31,9 +38,10 @@ const captureError = () => {
 };
 
 describe('loadEnvironment', () => {
-  it('데이터 경로·Gateway origin·기본 포트 4318·secret byte·Worker token을 반환한다', () => {
+  it('데이터 경로·docker 경로·Gateway origin·기본 포트 4318·secret byte·Worker token을 반환한다', () => {
     expect(loadEnvironment()).toEqual({
       dataDir: DATA_DIR,
+      dockerPath: DOCKER_PATH,
       gatewayOrigin: GATEWAY_ORIGIN,
       port: 4318,
       uploadGrantSecret: new Uint8Array(GRANT_SECRET_BYTES),
@@ -122,7 +130,54 @@ describe('loadEnvironment', () => {
   ])('WORKER_DATA_DIR %s는 값을 드러내지 않고 throw한다', (_label, value) => {
     vi.stubEnv('WORKER_DATA_DIR', value);
 
-    expect(captureError().message).toBe('WORKER_DATA_DIR must be an absolute path');
+    expect(captureError().message).toBe(
+      'WORKER_DATA_DIR must be an absolute path (a drive path on Windows)',
+    );
+  });
+
+  it('WORKER_DATA_DIR에 쉼표가 있으면 docker --mount 값이 갈라지므로 throw한다', () => {
+    vi.stubEnv('WORKER_DATA_DIR', '/srv/echo,note');
+
+    expect(captureError().message).toBe('WORKER_DATA_DIR must not contain a comma');
+  });
+
+  it('Windows에서는 드라이브 경로와 .exe docker 경로를 받는다', () => {
+    asWindows();
+    vi.stubEnv('WORKER_DATA_DIR', 'D:\\echonote-worker');
+    vi.stubEnv('DOCKER_PATH', 'C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.EXE');
+
+    expect(loadEnvironment()).toMatchObject({ dataDir: 'D:\\echonote-worker' });
+  });
+
+  it.each([
+    ['UNC 공유 경로', '\\\\server\\share\\echonote'],
+    ['드라이브 없는 루트', '\\echonote'],
+    ['POSIX 경로', '/srv/echonote-worker'],
+  ])('Windows에서 WORKER_DATA_DIR %s는 throw한다', (_label, value) => {
+    asWindows();
+    vi.stubEnv('WORKER_DATA_DIR', value);
+
+    expect(captureError().message).toBe(
+      'WORKER_DATA_DIR must be an absolute path (a drive path on Windows)',
+    );
+  });
+
+  it.each([
+    ['누락', undefined, false],
+    ['상대 경로', 'docker', false],
+    ['Windows에서 .exe 아님', 'C:\\Docker\\docker.cmd', true],
+    ['Windows에서 UNC', '\\\\server\\share\\docker.exe', true],
+  ])('DOCKER_PATH %s는 값을 드러내지 않고 throw한다', (_label, value, windows) => {
+    if (windows) {
+      asWindows();
+      vi.stubEnv('WORKER_DATA_DIR', 'D:\\echonote-worker');
+    }
+
+    vi.stubEnv('DOCKER_PATH', value);
+
+    expect(captureError().message).toBe(
+      'DOCKER_PATH must be an absolute path to the docker executable',
+    );
   });
 
   it('ECHONOTE_WORKER_PORT를 정수로 읽는다', () => {
