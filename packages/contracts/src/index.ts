@@ -4,6 +4,7 @@ import { identifierSchema } from './identifier.js';
 
 export { identifierSchema } from './identifier.js';
 export * from './job.js';
+export * from './transcript.js';
 export * from './upload.js';
 
 export const transcriptSegmentSchema = z

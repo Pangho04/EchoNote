@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { identifierSchema } from './identifier.js';
+import { transcriptResultSchema } from './transcript.js';
 
 export const processingJobStatusSchema = z.enum([
   'created',
@@ -42,6 +43,12 @@ export type JobSnapshot = z.infer<typeof jobSnapshotSchema>;
 // Worker가 보내는 lease 연장·실패 확정 요청. lease_id가 그 job을 가진 Worker라는 유일한 증명이다.
 export const jobLeaseRequestSchema = z.strictObject({
   leaseId: z.uuid(),
+});
+
+// Worker가 전사 결과를 저장하며 job을 completed로 확정하는 요청.
+export const completeJobRequestSchema = z.strictObject({
+  leaseId: jobLeaseRequestSchema.shape.leaseId,
+  transcript: transcriptResultSchema,
 });
 
 // Worker가 받는 응답이라 Gateway가 필드를 더해도 거부하지 않는다.

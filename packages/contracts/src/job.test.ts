@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   claimJobResponseSchema,
+  completeJobRequestSchema,
   createJobRequestSchema,
   jobLeaseRequestSchema,
   processingJobSchema,
@@ -84,6 +85,31 @@ describe('jobLeaseRequestSchema', () => {
 
   it('정의하지 않은 필드를 거부한다', () => {
     expect(jobLeaseRequestSchema.safeParse({ leaseId, status: 'failed' }).success).toBe(false);
+  });
+});
+
+describe('completeJobRequestSchema', () => {
+  const leaseId = '6f1c1f9e-8a3b-4c2d-9e5f-0a1b2c3d4e5f';
+  const transcript = { durationMs: 2_000, segments: [{ endMs: 1_000, startMs: 0, text: '안녕' }] };
+
+  it('uuid leaseId와 전사 결과만 허용한다', () => {
+    expect(completeJobRequestSchema.safeParse({ leaseId, transcript }).success).toBe(true);
+    expect(completeJobRequestSchema.safeParse({ leaseId: 'lease-1', transcript }).success).toBe(
+      false,
+    );
+    expect(completeJobRequestSchema.safeParse({ leaseId }).success).toBe(false);
+  });
+
+  it('정의하지 않은 필드와 schemaVersion 섞인 전사를 거부한다', () => {
+    expect(completeJobRequestSchema.safeParse({ leaseId, status: 'x', transcript }).success).toBe(
+      false,
+    );
+    expect(
+      completeJobRequestSchema.safeParse({
+        leaseId,
+        transcript: { ...transcript, schemaVersion: 1 },
+      }).success,
+    ).toBe(false);
   });
 });
 
