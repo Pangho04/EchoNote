@@ -10,10 +10,13 @@ type UserVersionRow = {
 // migration 목록의 마지막 항목을 앱이 이해하는 최신 schema version으로 삼는다.
 const DATABASE_VERSION = DATABASE_MIGRATIONS[DATABASE_MIGRATIONS.length - 1]?.version ?? 0;
 
-// migration 목록 전체가 1, 2, 3처럼 빈칸·중복 없이 정렬됐는지 먼저 검사한다.
+// 첫 migration 바로 앞 version이다. 이보다 낮은 옛 DB는 이어서 올릴 migration이 없다.
+const BASELINE_VERSION = (DATABASE_MIGRATIONS[0]?.version ?? 1) - 1;
+
+// migration 목록 전체가 5, 6, 7처럼 빈칸·중복 없이 정렬됐는지 먼저 검사한다.
 // 이미 migration을 적용한 DB를 열어도 잘못된 목록을 놓치지 않는다.
 for (const [index, migration] of DATABASE_MIGRATIONS.entries()) {
-  const expectedVersion = index + 1;
+  const expectedVersion = BASELINE_VERSION + index + 1;
 
   if (migration.version !== expectedVersion) {
     throw new InvalidMigrationListError('순서가 어긋난 DB migration입니다: ' + migration.version);
@@ -34,7 +37,11 @@ export async function migrateDatabase(database: SQLiteDatabase) {
   const currentVersion = versionRow?.user_version ?? 0;
 
   // 더 최신 앱이 만든 DB를 구버전 코드로 열면 schema 해석이 틀릴 수 있다.
-  if (currentVersion > DATABASE_VERSION) {
+  // 새 DB(0)가 아닌데 기준선보다 낮으면 합쳐 없앤 옛 migration이 필요해 열 수 없다.
+  if (
+    currentVersion > DATABASE_VERSION ||
+    (currentVersion > 0 && currentVersion < BASELINE_VERSION)
+  ) {
     throw new UnsupportedDatabaseVersionError(
       '현재 앱이 지원하지 않는 DB version입니다: ' + currentVersion,
     );
@@ -47,7 +54,7 @@ export async function migrateDatabase(database: SQLiteDatabase) {
 
   // 필요한 migration과 version 갱신을 한 transaction으로 묶어 부분 적용을 막는다.
   await database.withTransactionAsync(async () => {
-    let nextVersion = currentVersion + 1;
+    let nextVersion = Math.max(currentVersion, BASELINE_VERSION) + 1;
 
     for (const migration of DATABASE_MIGRATIONS) {
       if (migration.version <= currentVersion) {

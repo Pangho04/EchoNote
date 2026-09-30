@@ -1,9 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { migrateToVersion1 } from './v1';
-import { migrateToVersion2 } from './v2';
-import { migrateToVersion3 } from './v3';
-import { migrateToVersion4 } from './v4';
+import { migrateToVersion5 } from './v5';
 
 type DatabaseMigration = {
   version: number;
@@ -12,8 +9,5 @@ type DatabaseMigration = {
 
 // version이 올라가는 순서대로 한 줄씩 등록한다.
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
-  { version: 1, migrate: migrateToVersion1 },
-  { version: 2, migrate: migrateToVersion2 },
-  { version: 3, migrate: migrateToVersion3 },
-  { version: 4, migrate: migrateToVersion4 },
+  { version: 5, migrate: migrateToVersion5 },
 ];
