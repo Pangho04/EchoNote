@@ -1,6 +1,9 @@
 import { join } from 'node:path';
 
 import { loadEnvironment } from './config/environment.js';
+import { createJobLeaseClient } from './jobs/job-lease-client.js';
+import { startJobRunner } from './jobs/job-runner.js';
+import { createClaimedJobProcessor } from './jobs/process-claimed-job.js';
 import { buildServer } from './server.js';
 import { type NonceStore, openNonceStore } from './uploads/nonce-store.js';
 import { prepareUploadDirectories } from './uploads/receive-upload.js';
@@ -34,8 +37,21 @@ const server = buildServer({
 try {
   await server.listen({ host: HOST, port });
 
+  const runner = startJobRunner({
+    client: createJobLeaseClient({ gatewayOrigin, workerApiToken }),
+    logger: server.log,
+    processJob: createClaimedJobProcessor(dataDir),
+  });
+  let shuttingDown = false;
+
+  // 진행 중 job과 요청이 끝난 뒤 server를 닫는다. 두 번째 이후 신호는 무시한다.
   const shutdown = async () => {
+    if (shuttingDown) return;
+
+    shuttingDown = true;
+
     try {
+      await runner.stop();
       await server.close();
       nonceStore.close();
     } catch (error) {
@@ -44,8 +60,8 @@ try {
     }
   };
 
-  process.once('SIGINT', () => void shutdown());
-  process.once('SIGTERM', () => void shutdown());
+  process.on('SIGINT', () => void shutdown());
+  process.on('SIGTERM', () => void shutdown());
 } catch (error) {
   server.log.error({ code: (error as NodeJS.ErrnoException).code }, 'worker listen failed');
   process.exitCode = 1;
