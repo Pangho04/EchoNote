@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { createJobRequestSchema, processingJobSchema, processingJobStatusSchema } from './index';
+import {
+  claimJobResponseSchema,
+  createJobRequestSchema,
+  jobLeaseRequestSchema,
+  processingJobSchema,
+  processingJobStatusSchema,
+  renewJobLeaseResponseSchema,
+} from './index';
 
 describe('processingJobStatusSchema', () => {
   it.each(['created', 'queued', 'processing', 'completed', 'failed'])(
@@ -63,5 +70,67 @@ describe('createJobRequestSchema', () => {
     ['추가 필드', { ownerId: '6f1c1f9e-8a3b-4c2d-9e5f-0a1b2c3d4e5f' }],
   ])('%s를 거부한다', (_label, override) => {
     expect(createJobRequestSchema.safeParse({ ...request, ...override }).success).toBe(false);
+  });
+});
+
+describe('jobLeaseRequestSchema', () => {
+  const leaseId = '6f1c1f9e-8a3b-4c2d-9e5f-0a1b2c3d4e5f';
+
+  it('uuid leaseId만 허용한다', () => {
+    expect(jobLeaseRequestSchema.safeParse({ leaseId }).success).toBe(true);
+    expect(jobLeaseRequestSchema.safeParse({ leaseId: 'lease-1' }).success).toBe(false);
+    expect(jobLeaseRequestSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('정의하지 않은 필드를 거부한다', () => {
+    expect(jobLeaseRequestSchema.safeParse({ leaseId, status: 'failed' }).success).toBe(false);
+  });
+});
+
+describe('claimJobResponseSchema', () => {
+  const response = {
+    job: {
+      createdAt: '2026-09-29T12:00:00.123Z',
+      id: '00000000-0000-4000-8000-0000000000f1',
+      meetingId: '00000000-0000-4000-8000-00000000000c',
+      mimeType: 'audio/mp4',
+      sha256: 'e'.repeat(64),
+      sizeBytes: 100,
+      status: 'processing',
+    },
+    lease: {
+      expiresAt: '2026-09-29T12:05:00.000Z',
+      leaseId: '00000000-0000-4000-8000-0000000001f1',
+    },
+  };
+
+  it('Gateway claim 응답을 허용하고 추가 필드를 거부하지 않는다', () => {
+    expect(claimJobResponseSchema.safeParse(response).success).toBe(true);
+    expect(claimJobResponseSchema.safeParse({ ...response, extra: 1 }).success).toBe(true);
+  });
+
+  it.each([
+    ['uuid가 아닌 leaseId', { lease: { ...response.lease, leaseId: 'lease-1' } }],
+    ['ISO가 아닌 기한', { lease: { ...response.lease, expiresAt: 'soon' } }],
+    ['uuid가 아닌 job id', { job: { ...response.job, id: 'job-1' } }],
+    ['sizeBytes 누락', { job: { ...response.job, sizeBytes: undefined } }],
+  ])('%s를 거부한다', (_label, override) => {
+    expect(claimJobResponseSchema.safeParse({ ...response, ...override }).success).toBe(false);
+  });
+});
+
+describe('renewJobLeaseResponseSchema', () => {
+  it('ISO 기한만 허용한다', () => {
+    expect(
+      renewJobLeaseResponseSchema.safeParse({ expiresAt: '2026-09-29T12:05:00.000Z' }).success,
+    ).toBe(true);
+    expect(renewJobLeaseResponseSchema.safeParse({ expiresAt: 'soon' }).success).toBe(false);
+  });
+
+  it('Gateway가 더한 필드는 거부하지 않는다', () => {
+    expect(
+      renewJobLeaseResponseSchema.safeParse({ expiresAt: '2026-09-29T12:05:00.000Z', extra: 1 })
+        .success,
+    ).toBe(true);
   });
 });

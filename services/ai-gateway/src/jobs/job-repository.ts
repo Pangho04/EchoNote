@@ -39,6 +39,8 @@ export type ClaimJobResult =
 
 export type RenewJobLeaseResult = { kind: 'renewed'; expiresAt: string } | { kind: 'stale' };
 
+export type FailJobResult = { kind: 'failed' } | { kind: 'stale' };
+
 export type JobRepository = {
   createJob(input: CreateJobInput): Promise<CreateJobResult>;
   // 다른 owner의 job은 없는 job과 같이 not_found다.
@@ -48,6 +50,8 @@ export type JobRepository = {
   claimJob(): Promise<ClaimJobResult>;
   // 없는 job, 다른 lease_id, 기한 지난 lease는 모두 stale이다.
   renewJobLease(input: { jobId: string; leaseId: string }): Promise<RenewJobLeaseResult>;
+  // renewJobLease와 같은 조건의 lease만 failed로 확정한다. 나머지는 stale이다.
+  failJob(input: { jobId: string; leaseId: string }): Promise<FailJobResult>;
 };
 
 // 저장소에 닿지 못했거나 저장소가 일시적으로 응답할 수 없을 때. 재시도할 수 있는 장애로 분류한다.
@@ -98,6 +102,11 @@ const claimJobRowSchema = z.discriminatedUnion('kind', [
 
 const renewJobLeaseRowSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('renewed'), expires_at: z.iso.datetime({ offset: true }) }),
+  z.object({ kind: z.literal('stale') }),
+]);
+
+const failJobRowSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('failed') }),
   z.object({ kind: z.literal('stale') }),
 ]);
 
@@ -318,6 +327,28 @@ export const createJobRepository = ({
         case 'stale':
           return { kind: 'stale' };
       }
+    },
+
+    async failJob({ jobId, leaseId }) {
+      const response = await callStore('fail_job_v1', async () =>
+        fetch(`${supabaseUrl}/rest/v1/rpc/fail_job_v1`, {
+          body: JSON.stringify({ p_job_id: jobId, p_lease_id: leaseId }),
+          headers,
+          method: 'POST',
+          redirect: 'manual',
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+
+      ensureOk('fail_job_v1', response);
+
+      const parsed = failJobRowSchema.safeParse(
+        await callStore('fail_job_v1', async () => response.json()),
+      );
+
+      if (!parsed.success) throw new Error('fail_job_v1 invalid response');
+
+      return { kind: parsed.data.kind };
     },
   };
 };

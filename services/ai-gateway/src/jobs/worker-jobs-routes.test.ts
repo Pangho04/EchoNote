@@ -27,13 +27,15 @@ afterEach(async () => {
 
 const buildWorkerServer = ({
   claimJob = async () => ({ kind: 'idle' }),
+  failJob = async () => ({ kind: 'stale' }),
   renewJobLease = async () => ({ kind: 'stale' }),
-}: Partial<Pick<JobRepository, 'claimJob' | 'renewJobLease'>> = {}) => {
+}: Partial<Pick<JobRepository, 'claimJob' | 'failJob' | 'renewJobLease'>> = {}) => {
   const logLines: string[] = [];
   const jobRepository = {
     claimJob: vi.fn(claimJob),
     completeUpload: vi.fn(),
     createJob: vi.fn(),
+    failJob: vi.fn(failJob),
     findOwnedJob: vi.fn(),
     renewJobLease: vi.fn(renewJobLease),
   };
@@ -57,20 +59,33 @@ const postClaim = (server: ReturnType<typeof buildServer>, token = WORKER_API_TO
     url: '/v1/worker/jobs/claim',
   });
 
-const postRenewal = (
-  server: ReturnType<typeof buildServer>,
-  {
-    jobId = JOB_ID,
-    payload = JSON.stringify({ leaseId: LEASE_ID }),
-    token = WORKER_API_TOKEN,
-  } = {},
-) =>
-  server.inject({
-    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-    method: 'POST',
-    payload,
-    url: `/v1/worker/jobs/${jobId}/lease`,
-  });
+const postLeaseAction =
+  (action: 'fail' | 'lease') =>
+  (
+    server: ReturnType<typeof buildServer>,
+    {
+      jobId = JOB_ID,
+      payload = JSON.stringify({ leaseId: LEASE_ID }),
+      token = WORKER_API_TOKEN,
+    } = {},
+  ) =>
+    server.inject({
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      method: 'POST',
+      payload,
+      url: `/v1/worker/jobs/${jobId}/${action}`,
+    });
+
+const postRenewal = postLeaseAction('lease');
+const postFailure = postLeaseAction('fail');
+
+const invalidLeaseRequests = [
+  ['uuid가 아닌 jobId', { jobId: 'job-1' }],
+  ['uuid가 아닌 leaseId', { payload: JSON.stringify({ leaseId: 'lease-1' }) }],
+  ['leaseId 누락', { payload: '{}' }],
+  ['정의하지 않은 필드', { payload: JSON.stringify({ leaseId: LEASE_ID, status: 'processing' }) }],
+  ['malformed JSON', { payload: '{"leaseId":' }],
+] as const;
 
 describe('POST /v1/worker/jobs/claim', () => {
   it('claimed는 200과 job·lease를 반환한다', async () => {
@@ -161,24 +176,18 @@ describe('POST /v1/worker/jobs/:jobId/lease', () => {
     expect(response.json()).toEqual({ error: 'lease_stale' });
   });
 
-  it.each([
-    ['uuid가 아닌 jobId', { jobId: 'job-1' }],
-    ['uuid가 아닌 leaseId', { payload: JSON.stringify({ leaseId: 'lease-1' }) }],
-    ['leaseId 누락', { payload: '{}' }],
-    [
-      '정의하지 않은 필드',
-      { payload: JSON.stringify({ leaseId: LEASE_ID, status: 'processing' }) },
-    ],
-    ['malformed JSON', { payload: '{"leaseId":' }],
-  ])('%s는 400 invalid_request이고 repository를 호출하지 않는다', async (_label, input) => {
-    const { jobRepository, server } = buildWorkerServer();
+  it.each(invalidLeaseRequests)(
+    '%s는 400 invalid_request이고 repository를 호출하지 않는다',
+    async (_label, input) => {
+      const { jobRepository, server } = buildWorkerServer();
 
-    const response = await postRenewal(server, input);
+      const response = await postRenewal(server, input);
 
-    expect(response.statusCode).toBe(400);
-    expect(response.json()).toEqual({ error: 'invalid_request' });
-    expect(jobRepository.renewJobLease).not.toHaveBeenCalled();
-  });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'invalid_request' });
+      expect(jobRepository.renewJobLease).not.toHaveBeenCalled();
+    },
+  );
 
   it('Worker token이 틀리면 401이고 repository를 호출하지 않는다', async () => {
     const { jobRepository, server } = buildWorkerServer();
@@ -205,6 +214,96 @@ describe('POST /v1/worker/jobs/:jobId/lease', () => {
       const { logLines, server } = buildWorkerServer({ renewJobLease });
 
       await postRenewal(server);
+
+      expect(logLines.length).toBeGreaterThan(0);
+      expect(logLines.join('')).not.toContain(WORKER_API_TOKEN);
+      expect(logLines.join('')).not.toContain(LEASE_ID);
+    }
+  });
+});
+
+describe('POST /v1/worker/jobs/:jobId/fail', () => {
+  it('failed는 body 없는 204이고 jobId·leaseId를 repository에 넘긴다', async () => {
+    const { jobRepository, server } = buildWorkerServer({
+      failJob: async () => ({ kind: 'failed' }),
+    });
+
+    const response = await postFailure(server);
+
+    expect(response.statusCode).toBe(204);
+    expect(response.body).toBe('');
+    expect(jobRepository.failJob).toHaveBeenCalledWith({ jobId: JOB_ID, leaseId: LEASE_ID });
+  });
+
+  it('stale은 409 lease_stale이다', async () => {
+    const { server } = buildWorkerServer();
+
+    const response = await postFailure(server);
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ error: 'lease_stale' });
+  });
+
+  it.each(invalidLeaseRequests)(
+    '%s는 400 invalid_request이고 repository를 호출하지 않는다',
+    async (_label, input) => {
+      const { jobRepository, server } = buildWorkerServer();
+
+      const response = await postFailure(server, input);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'invalid_request' });
+      expect(jobRepository.failJob).not.toHaveBeenCalled();
+    },
+  );
+
+  it('Worker token이 틀리면 401이고 repository를 호출하지 않는다', async () => {
+    const { jobRepository, server } = buildWorkerServer();
+
+    const response = await postFailure(server, { token: Buffer.alloc(32, 8).toString('base64') });
+
+    expect(response.statusCode).toBe(401);
+    expect(jobRepository.failJob).not.toHaveBeenCalled();
+  });
+
+  it('저장소 일시 장애는 503, 예상 밖 오류는 500이다', async () => {
+    const unavailable = buildWorkerServer({
+      failJob: async () => {
+        throw new JobStoreUnavailableError('timeout');
+      },
+    });
+    const unexpected = buildWorkerServer({
+      failJob: async () => {
+        throw new Error('fail_job_v1 unexpected error');
+      },
+    });
+
+    const [unavailableResponse, unexpectedResponse] = await Promise.all([
+      postFailure(unavailable.server),
+      postFailure(unexpected.server),
+    ]);
+
+    expect(unavailableResponse.statusCode).toBe(503);
+    expect(unavailableResponse.json()).toEqual({ error: 'job_store_unavailable' });
+    expect(unexpectedResponse.statusCode).toBe(500);
+  });
+
+  it('어떤 응답 경로의 로그에도 token과 leaseId가 남지 않는다', async () => {
+    const outcomes: JobRepository['failJob'][] = [
+      async () => ({ kind: 'failed' }),
+      async () => ({ kind: 'stale' }),
+      async () => {
+        throw new JobStoreUnavailableError('network');
+      },
+      async () => {
+        throw new Error('fail_job_v1 unexpected error');
+      },
+    ];
+
+    for (const failJob of outcomes) {
+      const { logLines, server } = buildWorkerServer({ failJob });
+
+      await postFailure(server);
 
       expect(logLines.length).toBeGreaterThan(0);
       expect(logLines.join('')).not.toContain(WORKER_API_TOKEN);

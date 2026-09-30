@@ -34,6 +34,7 @@ const buildJobsServer = (createJob: JobRepository['createJob'], userId = OWNER_I
     claimJob: vi.fn(),
     completeUpload: vi.fn(),
     createJob: vi.fn(createJob),
+    failJob: vi.fn(),
     findOwnedJob: vi.fn(),
     renewJobLease: vi.fn(),
   };

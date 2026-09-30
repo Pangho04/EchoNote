@@ -45,6 +45,7 @@ const buildGrantServer = (
     claimJob: vi.fn(),
     completeUpload: vi.fn(),
     createJob: vi.fn(),
+    failJob: vi.fn(),
     findOwnedJob: vi.fn(findOwnedJob),
     renewJobLease: vi.fn(),
   };

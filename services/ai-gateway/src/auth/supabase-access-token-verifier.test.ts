@@ -218,6 +218,7 @@ describe('Gateway 인증 로그', () => {
         claimJob: vi.fn(),
         completeUpload: vi.fn(),
         createJob: vi.fn(),
+        failJob: vi.fn(),
         findOwnedJob: vi.fn(),
         renewJobLease: vi.fn(),
       },

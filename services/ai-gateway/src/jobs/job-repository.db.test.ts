@@ -222,8 +222,8 @@ describe('completeUpload (local Supabase)', () => {
   });
 });
 
-describe('claimJob·renewJobLease (local Supabase)', () => {
-  it('queued job 둘에 동시 claim 10건은 두 job을 한 번씩만 가져가고 그 lease로만 연장된다', async () => {
+describe('claimJob·renewJobLease·failJob (local Supabase)', () => {
+  it('queued job 둘에 동시 claim 10건은 두 job을 한 번씩만 가져가고 그 lease로만 연장·실패 확정된다', async () => {
     const repository = createJobRepository({
       secretKey: local.secretKey,
       supabaseUrl: local.apiUrl,
@@ -278,5 +278,15 @@ describe('claimJob·renewJobLease (local Supabase)', () => {
     await expect(
       repository.renewJobLease({ jobId: first.job.id, leaseId: randomUUID() }),
     ).resolves.toEqual({ kind: 'stale' });
+    await expect(
+      repository.failJob({ jobId: first.job.id, leaseId: randomUUID() }),
+    ).resolves.toEqual({ kind: 'stale' });
+
+    const lease = { jobId: first.job.id, leaseId: first.lease.leaseId };
+
+    await expect(repository.failJob(lease)).resolves.toEqual({ kind: 'failed' });
+    // failed가 되면 lease가 사라져 같은 lease로도 연장·재확정할 수 없다.
+    await expect(repository.renewJobLease(lease)).resolves.toEqual({ kind: 'stale' });
+    await expect(repository.failJob(lease)).resolves.toEqual({ kind: 'stale' });
   });
 });

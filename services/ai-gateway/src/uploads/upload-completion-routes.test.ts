@@ -35,6 +35,7 @@ const buildCompletionServer = (completeUpload: JobRepository['completeUpload']) 
     claimJob: vi.fn(),
     completeUpload: vi.fn(completeUpload),
     createJob: vi.fn(),
+    failJob: vi.fn(),
     findOwnedJob: vi.fn(),
     renewJobLease: vi.fn(),
   };

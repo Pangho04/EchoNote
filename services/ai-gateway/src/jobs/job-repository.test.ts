@@ -360,3 +360,46 @@ describe('renewJobLease', () => {
     expect((error as JobStoreUnavailableError).reason).toBe('http_503');
   });
 });
+
+describe('failJob', () => {
+  const failure = { jobId: jobRow.id, leaseId: '00000000-0000-4000-8000-0000000001f1' };
+
+  it('fail_job_v1에 snake_case 인자를 보내고 redirect를 따라가지 않는다', async () => {
+    const fetchMock = stubFetch(async () => Response.json({ kind: 'stale' }));
+
+    await createRepository().failJob(failure);
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+
+    expect(url).toBe('https://store.test/rest/v1/rpc/fail_job_v1');
+    expect(init.method).toBe('POST');
+    expect(init.redirect).toBe('manual');
+    expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
+    expect(JSON.parse(init.body as string)).toEqual({
+      p_job_id: failure.jobId,
+      p_lease_id: failure.leaseId,
+    });
+  });
+
+  it.each(['failed', 'stale'] as const)('%s를 그대로 돌려준다', async (kind) => {
+    stubFetch(async () => Response.json({ kind }));
+
+    await expect(createRepository().failJob(failure)).resolves.toEqual({ kind });
+  });
+
+  it('알 수 없는 kind는 invalid response Error다', async () => {
+    stubFetch(async () => Response.json({ kind: 'completed' }));
+
+    const error = await captureError(createRepository().failJob(failure));
+
+    expect(error.message).toBe('fail_job_v1 invalid response');
+  });
+
+  it('HTTP 503은 저장소 일시 장애다', async () => {
+    stubFetch(async () => new Response(null, { status: 503 }));
+
+    const error = await captureError(createRepository().failJob(failure));
+
+    expect((error as JobStoreUnavailableError).reason).toBe('http_503');
+  });
+});
