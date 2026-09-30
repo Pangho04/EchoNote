@@ -177,7 +177,7 @@ describe('POST /v1/jobs', () => {
 
   it('repository Error는 500 internal을 반환하고 error 로그 1건만 남긴다', async () => {
     const { logsAt, server } = buildJobsServer(async () => {
-      throw new Error('create_job_v1 http_500');
+      throw new Error('create_job http_500');
     });
 
     const response = await postJob(server);
@@ -194,7 +194,7 @@ describe('POST /v1/jobs', () => {
         throw new JobStoreUnavailableError('network');
       },
       async () => {
-        throw new Error('create_job_v1 unexpected error');
+        throw new Error('create_job unexpected error');
       },
     ];
 

@@ -78,7 +78,7 @@ describe('createJobRepository', () => {
 
     const [url, init] = fetchMock.mock.calls[0]!;
 
-    expect(url).toBe('https://store.test/rest/v1/rpc/create_job_v1');
+    expect(url).toBe('https://store.test/rest/v1/rpc/create_job');
     expect(init.method).toBe('POST');
     expect(init.redirect).toBe('manual');
     expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
@@ -150,7 +150,7 @@ describe('createJobRepository', () => {
     const error = await captureError(createRepository().createJob(input));
 
     expect(error).not.toBeInstanceOf(JobStoreUnavailableError);
-    expect(error.message).toBe(`create_job_v1 http_${status}`);
+    expect(error.message).toBe(`create_job http_${status}`);
   });
 
   it.each([
@@ -166,7 +166,7 @@ describe('createJobRepository', () => {
     const error = await captureError(createRepository().createJob(input));
 
     expect(error).not.toBeInstanceOf(JobStoreUnavailableError);
-    expect(error.message).toBe('create_job_v1 invalid response');
+    expect(error.message).toBe('create_job invalid response');
     expect(error.cause).toBeUndefined();
   });
 
@@ -177,7 +177,7 @@ describe('createJobRepository', () => {
 
     const error = await captureError(createRepository().createJob(input));
 
-    expect(error.message).toBe('create_job_v1 unexpected error');
+    expect(error.message).toBe('create_job unexpected error');
     expect(error.stack).not.toContain('SECRETVALUE');
     expect(error.cause).toBeUndefined();
   });
@@ -302,7 +302,7 @@ describe('claimJob', () => {
 
     const [url, init] = fetchMock.mock.calls[0]!;
 
-    expect(url).toBe('https://store.test/rest/v1/rpc/claim_job_v1');
+    expect(url).toBe('https://store.test/rest/v1/rpc/claim_job');
     expect(init.method).toBe('POST');
     expect(init.redirect).toBe('manual');
     expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
@@ -333,7 +333,7 @@ describe('claimJob', () => {
     const error = await captureError(createRepository().claimJob());
 
     expect(error).not.toBeInstanceOf(JobStoreUnavailableError);
-    expect(error.message).toBe('claim_job_v1 invalid response');
+    expect(error.message).toBe('claim_job invalid response');
   });
 });
 
@@ -347,7 +347,7 @@ describe('renewJobLease', () => {
 
     const [url, init] = fetchMock.mock.calls[0]!;
 
-    expect(url).toBe('https://store.test/rest/v1/rpc/renew_job_lease_v1');
+    expect(url).toBe('https://store.test/rest/v1/rpc/renew_job_lease');
     expect(init.method).toBe('POST');
     expect(init.redirect).toBe('manual');
     expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
@@ -397,7 +397,7 @@ describe('failJob', () => {
 
     const [url, init] = fetchMock.mock.calls[0]!;
 
-    expect(url).toBe('https://store.test/rest/v1/rpc/fail_job_v2');
+    expect(url).toBe('https://store.test/rest/v1/rpc/fail_job');
     expect(init.method).toBe('POST');
     expect(init.redirect).toBe('manual');
     expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
@@ -419,7 +419,7 @@ describe('failJob', () => {
 
     const error = await captureError(createRepository().failJob(failure));
 
-    expect(error.message).toBe('fail_job_v2 invalid response');
+    expect(error.message).toBe('fail_job invalid response');
   });
 
   it('HTTP 503은 저장소 일시 장애다', async () => {
@@ -449,7 +449,7 @@ describe('completeJob', () => {
 
     const [url, init] = fetchMock.mock.calls[0]!;
 
-    expect(url).toBe('https://store.test/rest/v1/rpc/complete_job_v1');
+    expect(url).toBe('https://store.test/rest/v1/rpc/complete_job');
     expect(init.method).toBe('POST');
     expect(init.redirect).toBe('manual');
     expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
@@ -472,7 +472,7 @@ describe('completeJob', () => {
 
     const error = await captureError(createRepository().completeJob(completion));
 
-    expect(error.message).toBe('complete_job_v1 invalid response');
+    expect(error.message).toBe('complete_job invalid response');
   });
 
   it('HTTP 503은 저장소 일시 장애, HTTP 400은 상태 코드만 담은 Error다', async () => {
@@ -485,7 +485,7 @@ describe('completeJob', () => {
     const failed = await captureError(createRepository().completeJob(completion));
 
     expect((unavailable as JobStoreUnavailableError).reason).toBe('http_503');
-    expect(failed.message).toBe('complete_job_v1 http_400');
+    expect(failed.message).toBe('complete_job http_400');
   });
 });
 

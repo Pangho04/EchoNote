@@ -148,7 +148,7 @@ describe('POST /v1/worker/jobs/claim', () => {
         throw new JobStoreUnavailableError('network');
       },
       async () => {
-        throw new Error('claim_job_v1 unexpected error');
+        throw new Error('claim_job unexpected error');
       },
     ];
 
@@ -216,7 +216,7 @@ describe('POST /v1/worker/jobs/:jobId/lease', () => {
         throw new JobStoreUnavailableError('network');
       },
       async () => {
-        throw new Error('renew_job_lease_v1 unexpected error');
+        throw new Error('renew_job_lease unexpected error');
       },
     ];
 
@@ -300,7 +300,7 @@ describe('POST /v1/worker/jobs/:jobId/fail', () => {
     });
     const unexpected = buildWorkerServer({
       failJob: async () => {
-        throw new Error('fail_job_v2 unexpected error');
+        throw new Error('fail_job unexpected error');
       },
     });
 
@@ -322,7 +322,7 @@ describe('POST /v1/worker/jobs/:jobId/fail', () => {
         throw new JobStoreUnavailableError('network');
       },
       async () => {
-        throw new Error('fail_job_v2 unexpected error');
+        throw new Error('fail_job unexpected error');
       },
     ];
 
@@ -466,7 +466,7 @@ describe('POST /v1/worker/jobs/:jobId/complete', () => {
     });
     const unexpected = buildWorkerServer({
       completeJob: async () => {
-        throw new Error('complete_job_v1 unexpected error');
+        throw new Error('complete_job unexpected error');
       },
     });
 
@@ -488,7 +488,7 @@ describe('POST /v1/worker/jobs/:jobId/complete', () => {
         throw new JobStoreUnavailableError('network');
       },
       async () => {
-        throw new Error('complete_job_v1 unexpected error');
+        throw new Error('complete_job unexpected error');
       },
     ];
 

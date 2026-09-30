@@ -33,36 +33,36 @@ values
 
 -- 구조
 select is(
-  (select prosecdef from pg_proc where oid = 'public.claim_job_v1'::regproc),
+  (select prosecdef from pg_proc where oid = 'public.claim_job'::regproc),
   true,
   'claim_job_v1은 security definer다'
 );
 select ok(
-  (select proconfig from pg_proc where oid = 'public.claim_job_v1'::regproc) @> array['search_path=""'],
+  (select proconfig from pg_proc where oid = 'public.claim_job'::regproc) @> array['search_path=""'],
   'claim_job_v1은 빈 search_path로 실행된다'
 );
 select is(
-  (select proowner from pg_proc where oid = 'public.claim_job_v1'::regproc),
+  (select proowner from pg_proc where oid = 'public.claim_job'::regproc),
   (select relowner from pg_class where oid = 'public.jobs'::regclass),
-  'claim_job_v1 소유자는 jobs 소유자다'
+  'claim_job 소유자는 jobs 소유자다'
 );
 select is(
-  (select prosecdef from pg_proc where oid = 'public.renew_job_lease_v1'::regproc),
+  (select prosecdef from pg_proc where oid = 'public.renew_job_lease'::regproc),
   true,
   'renew_job_lease_v1은 security definer다'
 );
 select ok(
-  (select proconfig from pg_proc where oid = 'public.renew_job_lease_v1'::regproc) @> array['search_path=""'],
+  (select proconfig from pg_proc where oid = 'public.renew_job_lease'::regproc) @> array['search_path=""'],
   'renew_job_lease_v1은 빈 search_path로 실행된다'
 );
 select is(
-  (select proowner from pg_proc where oid = 'public.renew_job_lease_v1'::regproc),
+  (select proowner from pg_proc where oid = 'public.renew_job_lease'::regproc),
   (select relowner from pg_class where oid = 'public.jobs'::regclass),
-  'renew_job_lease_v1 소유자는 jobs 소유자다'
+  'renew_job_lease 소유자는 jobs 소유자다'
 );
 select is(
   (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'public' and p.proname in ('claim_job_v1', 'renew_job_lease_v1')),
+   where n.nspname = 'public' and p.proname in ('claim_job', 'renew_job_lease')),
   2::bigint,
   'lease 함수 overload는 각각 하나다'
 );
@@ -91,27 +91,27 @@ select throws_ok(
 
 -- 권한
 select ok(
-  not has_function_privilege('anon', 'public.claim_job_v1()', 'execute'),
+  not has_function_privilege('anon', 'public.claim_job()', 'execute'),
   'anon은 claim_job_v1을 실행할 수 없다'
 );
 select ok(
-  not has_function_privilege('authenticated', 'public.claim_job_v1()', 'execute'),
+  not has_function_privilege('authenticated', 'public.claim_job()', 'execute'),
   'authenticated는 claim_job_v1을 실행할 수 없다'
 );
 select ok(
-  has_function_privilege('service_role', 'public.claim_job_v1()', 'execute'),
+  has_function_privilege('service_role', 'public.claim_job()', 'execute'),
   'service_role은 claim_job_v1을 실행할 수 있다'
 );
 select ok(
-  not has_function_privilege('anon', 'public.renew_job_lease_v1(uuid,uuid)', 'execute'),
+  not has_function_privilege('anon', 'public.renew_job_lease(uuid,uuid)', 'execute'),
   'anon은 renew_job_lease_v1을 실행할 수 없다'
 );
 select ok(
-  not has_function_privilege('authenticated', 'public.renew_job_lease_v1(uuid,uuid)', 'execute'),
+  not has_function_privilege('authenticated', 'public.renew_job_lease(uuid,uuid)', 'execute'),
   'authenticated는 renew_job_lease_v1을 실행할 수 없다'
 );
 select ok(
-  has_function_privilege('service_role', 'public.renew_job_lease_v1(uuid,uuid)', 'execute'),
+  has_function_privilege('service_role', 'public.renew_job_lease(uuid,uuid)', 'execute'),
   'service_role은 renew_job_lease_v1을 실행할 수 있다'
 );
 select table_privs_are('public', 'jobs', 'service_role', array['SELECT', 'INSERT']);
@@ -122,10 +122,10 @@ grant insert, select on claims to service_role;
 
 set local role service_role;
 
-insert into claims select 1, public.claim_job_v1();
-insert into claims select 2, public.claim_job_v1();
-insert into claims select 3, public.claim_job_v1();
-insert into claims select 4, public.claim_job_v1();
+insert into claims select 1, public.claim_job();
+insert into claims select 2, public.claim_job();
+insert into claims select 3, public.claim_job();
+insert into claims select 4, public.claim_job();
 
 select is(
   (select array_agg(result -> 'job' ->> 'id' order by n) from claims where n <= 3),
@@ -189,7 +189,7 @@ select is(
 
 -- renew
 select is(
-  public.renew_job_lease_v1('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000001b1'),
+  public.renew_job_lease('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000001b1'),
   jsonb_build_object('kind', 'renewed', 'expires_at', now() + interval '5 minutes'),
   '기한 전 같은 lease_id는 DB 시각 + 5분으로 연장한다'
 );
@@ -199,22 +199,22 @@ select is(
   'renew는 저장한 기한을 바꾼다'
 );
 select is(
-  public.renew_job_lease_v1('00000000-0000-4000-8000-0000000000b1', gen_random_uuid()),
+  public.renew_job_lease('00000000-0000-4000-8000-0000000000b1', gen_random_uuid()),
   '{"kind": "stale"}'::jsonb,
   '다른 lease_id는 stale이다'
 );
 select is(
-  public.renew_job_lease_v1('00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000001e1'),
+  public.renew_job_lease('00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000001e1'),
   '{"kind": "stale"}'::jsonb,
   '다른 Worker가 되찾은 job의 옛 lease_id는 stale이다'
 );
 select is(
-  public.renew_job_lease_v1('00000000-0000-4000-8000-0000000000c1', gen_random_uuid()),
+  public.renew_job_lease('00000000-0000-4000-8000-0000000000c1', gen_random_uuid()),
   '{"kind": "stale"}'::jsonb,
   'processing이 아닌 job은 stale이다'
 );
 select is(
-  public.renew_job_lease_v1('00000000-0000-4000-8000-0000000000f9', gen_random_uuid()),
+  public.renew_job_lease('00000000-0000-4000-8000-0000000000f9', gen_random_uuid()),
   '{"kind": "stale"}'::jsonb,
   '없는 job은 stale이다'
 );
@@ -228,7 +228,7 @@ where id = '00000000-0000-4000-8000-0000000000b1';
 set local role service_role;
 
 select is(
-  public.renew_job_lease_v1('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000001b1'),
+  public.renew_job_lease('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000001b1'),
   '{"kind": "stale"}'::jsonb,
   '기한 지난 lease는 같은 lease_id라도 stale이다'
 );
@@ -238,7 +238,7 @@ select is(
   'stale renew는 기한을 바꾸지 않는다'
 );
 select is(
-  public.claim_job_v1() -> 'job' ->> 'id',
+  public.claim_job() -> 'job' ->> 'id',
   '00000000-0000-4000-8000-0000000000b1',
   '기한 지난 lease의 job은 다시 claim된다'
 );
@@ -248,11 +248,11 @@ set local role authenticated;
 
 select is(current_user::text, 'authenticated', 'authenticated로 실행 중이다');
 select throws_ok(
-  $$select public.claim_job_v1()$$,
+  $$select public.claim_job()$$,
   '42501', null, 'authenticated는 claim_job_v1을 호출할 수 없다'
 );
 select throws_ok(
-  $$select public.renew_job_lease_v1(gen_random_uuid(), gen_random_uuid())$$,
+  $$select public.renew_job_lease(gen_random_uuid(), gen_random_uuid())$$,
   '42501', null, 'authenticated는 renew_job_lease_v1을 호출할 수 없다'
 );
 

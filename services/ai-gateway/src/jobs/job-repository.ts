@@ -197,8 +197,8 @@ export const createJobRepository = ({
 
   return {
     async createJob(input) {
-      const response = await callStore('create_job_v1', async () =>
-        fetch(`${supabaseUrl}/rest/v1/rpc/create_job_v1`, {
+      const response = await callStore('create_job', async () =>
+        fetch(`${supabaseUrl}/rest/v1/rpc/create_job`, {
           body: JSON.stringify({
             p_owner_id: input.ownerId,
             p_idempotency_key: input.idempotencyKey,
@@ -215,13 +215,13 @@ export const createJobRepository = ({
         }),
       );
 
-      ensureOk('create_job_v1', response);
+      ensureOk('create_job', response);
 
       const parsed = createJobRowSchema.safeParse(
-        await callStore('create_job_v1', async () => response.json()),
+        await callStore('create_job', async () => response.json()),
       );
 
-      if (!parsed.success) throw new Error('create_job_v1 invalid response');
+      if (!parsed.success) throw new Error('create_job invalid response');
 
       switch (parsed.data.kind) {
         case 'created':
@@ -234,8 +234,8 @@ export const createJobRepository = ({
     },
 
     async completeUpload(input) {
-      const response = await callStore('complete_upload_v1', async () =>
-        fetch(`${supabaseUrl}/rest/v1/rpc/complete_upload_v1`, {
+      const response = await callStore('complete_upload', async () =>
+        fetch(`${supabaseUrl}/rest/v1/rpc/complete_upload`, {
           body: JSON.stringify({
             p_job_id: input.jobId,
             p_owner_id: input.ownerId,
@@ -250,13 +250,13 @@ export const createJobRepository = ({
         }),
       );
 
-      ensureOk('complete_upload_v1', response);
+      ensureOk('complete_upload', response);
 
       const parsed = completeUploadRowSchema.safeParse(
-        await callStore('complete_upload_v1', async () => response.json()),
+        await callStore('complete_upload', async () => response.json()),
       );
 
-      if (!parsed.success) throw new Error('complete_upload_v1 invalid response');
+      if (!parsed.success) throw new Error('complete_upload invalid response');
 
       switch (parsed.data.kind) {
         case 'queued':
@@ -299,8 +299,8 @@ export const createJobRepository = ({
     },
 
     async claimJob() {
-      const response = await callStore('claim_job_v1', async () =>
-        fetch(`${supabaseUrl}/rest/v1/rpc/claim_job_v1`, {
+      const response = await callStore('claim_job', async () =>
+        fetch(`${supabaseUrl}/rest/v1/rpc/claim_job`, {
           body: '{}',
           headers,
           method: 'POST',
@@ -309,13 +309,13 @@ export const createJobRepository = ({
         }),
       );
 
-      ensureOk('claim_job_v1', response);
+      ensureOk('claim_job', response);
 
       const parsed = claimJobRowSchema.safeParse(
-        await callStore('claim_job_v1', async () => response.json()),
+        await callStore('claim_job', async () => response.json()),
       );
 
-      if (!parsed.success) throw new Error('claim_job_v1 invalid response');
+      if (!parsed.success) throw new Error('claim_job invalid response');
 
       switch (parsed.data.kind) {
         case 'claimed':
@@ -334,8 +334,8 @@ export const createJobRepository = ({
     },
 
     async renewJobLease({ jobId, leaseId }) {
-      const response = await callStore('renew_job_lease_v1', async () =>
-        fetch(`${supabaseUrl}/rest/v1/rpc/renew_job_lease_v1`, {
+      const response = await callStore('renew_job_lease', async () =>
+        fetch(`${supabaseUrl}/rest/v1/rpc/renew_job_lease`, {
           body: JSON.stringify({ p_job_id: jobId, p_lease_id: leaseId }),
           headers,
           method: 'POST',
@@ -344,13 +344,13 @@ export const createJobRepository = ({
         }),
       );
 
-      ensureOk('renew_job_lease_v1', response);
+      ensureOk('renew_job_lease', response);
 
       const parsed = renewJobLeaseRowSchema.safeParse(
-        await callStore('renew_job_lease_v1', async () => response.json()),
+        await callStore('renew_job_lease', async () => response.json()),
       );
 
-      if (!parsed.success) throw new Error('renew_job_lease_v1 invalid response');
+      if (!parsed.success) throw new Error('renew_job_lease invalid response');
 
       switch (parsed.data.kind) {
         case 'renewed':
@@ -362,8 +362,8 @@ export const createJobRepository = ({
     },
 
     async failJob({ errorCode, jobId, leaseId }) {
-      const response = await callStore('fail_job_v2', async () =>
-        fetch(`${supabaseUrl}/rest/v1/rpc/fail_job_v2`, {
+      const response = await callStore('fail_job', async () =>
+        fetch(`${supabaseUrl}/rest/v1/rpc/fail_job`, {
           body: JSON.stringify({ p_job_id: jobId, p_lease_id: leaseId, p_error_code: errorCode }),
           headers,
           method: 'POST',
@@ -372,20 +372,20 @@ export const createJobRepository = ({
         }),
       );
 
-      ensureOk('fail_job_v2', response);
+      ensureOk('fail_job', response);
 
       const parsed = failJobRowSchema.safeParse(
-        await callStore('fail_job_v2', async () => response.json()),
+        await callStore('fail_job', async () => response.json()),
       );
 
-      if (!parsed.success) throw new Error('fail_job_v2 invalid response');
+      if (!parsed.success) throw new Error('fail_job invalid response');
 
       return { kind: parsed.data.kind };
     },
 
     async completeJob({ jobId, leaseId, transcript }) {
-      const response = await callStore('complete_job_v1', async () =>
-        fetch(`${supabaseUrl}/rest/v1/rpc/complete_job_v1`, {
+      const response = await callStore('complete_job', async () =>
+        fetch(`${supabaseUrl}/rest/v1/rpc/complete_job`, {
           body: JSON.stringify({
             p_job_id: jobId,
             p_lease_id: leaseId,
@@ -399,13 +399,13 @@ export const createJobRepository = ({
         }),
       );
 
-      ensureOk('complete_job_v1', response);
+      ensureOk('complete_job', response);
 
       const parsed = completeJobRowSchema.safeParse(
-        await callStore('complete_job_v1', async () => response.json()),
+        await callStore('complete_job', async () => response.json()),
       );
 
-      if (!parsed.success) throw new Error('complete_job_v1 invalid response');
+      if (!parsed.success) throw new Error('complete_job invalid response');
 
       return { kind: parsed.data.kind };
     },

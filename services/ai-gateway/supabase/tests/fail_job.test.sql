@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(23);
 
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-00000000000a', 'owner-a@example.test');
@@ -28,37 +28,37 @@ values
 
 -- 구조
 select is(
-  (select prosecdef from pg_proc where oid = 'public.fail_job_v2'::regproc),
+  (select prosecdef from pg_proc where oid = 'public.fail_job'::regproc),
   true,
   'fail_job_v2은 security definer다'
 );
 select ok(
-  (select proconfig from pg_proc where oid = 'public.fail_job_v2'::regproc) @> array['search_path=""'],
+  (select proconfig from pg_proc where oid = 'public.fail_job'::regproc) @> array['search_path=""'],
   'fail_job_v2은 빈 search_path로 실행된다'
 );
 select is(
-  (select proowner from pg_proc where oid = 'public.fail_job_v2'::regproc),
+  (select proowner from pg_proc where oid = 'public.fail_job'::regproc),
   (select relowner from pg_class where oid = 'public.jobs'::regclass),
-  'fail_job_v2 소유자는 jobs 소유자다'
+  'fail_job 소유자는 jobs 소유자다'
 );
 select is(
   (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'public' and p.proname in ('fail_job_v2', 'fail_job_v2')),
+   where n.nspname = 'public' and p.proname in ('fail_job', 'fail_job')),
   1::bigint,
-  'fail_job_v2은 없고 fail_job_v2 overload는 하나다'
+  'fail_job_v2은 없고 fail_job overload는 하나다'
 );
 
 -- 권한
 select ok(
-  not has_function_privilege('anon', 'public.fail_job_v2(uuid,uuid,text)', 'execute'),
+  not has_function_privilege('anon', 'public.fail_job(uuid,uuid,text)', 'execute'),
   'anon은 fail_job_v2을 실행할 수 없다'
 );
 select ok(
-  not has_function_privilege('authenticated', 'public.fail_job_v2(uuid,uuid,text)', 'execute'),
+  not has_function_privilege('authenticated', 'public.fail_job(uuid,uuid,text)', 'execute'),
   'authenticated는 fail_job_v2을 실행할 수 없다'
 );
 select ok(
-  has_function_privilege('service_role', 'public.fail_job_v2(uuid,uuid,text)', 'execute'),
+  has_function_privilege('service_role', 'public.fail_job(uuid,uuid,text)', 'execute'),
   'service_role은 fail_job_v2을 실행할 수 있다'
 );
 select table_privs_are('public', 'jobs', 'service_role', array['SELECT', 'INSERT']);
@@ -76,17 +76,12 @@ select lives_ok(
 );
 update public.jobs set status = 'queued', error_code = null
 where id = '00000000-0000-4000-8000-0000000000a1';
-select ok(
-  not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public' and p.proname = 'fail_job_v1'),
-  'fail_job_v1은 삭제됐다'
-);
 
 set local role service_role;
 
 -- 성공
 select is(
-  public.fail_job_v2('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000001b1', 'stt_failed'),
+  public.fail_job('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000001b1', 'stt_failed'),
   '{"kind": "failed"}'::jsonb,
   '기한 전 같은 lease_id는 failed다'
 );
@@ -97,36 +92,36 @@ select ok(
   'failed job은 lease 두 열을 비우고 이유를 남긴다'
 );
 select is(
-  public.fail_job_v2('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000001b1', 'stt_failed'),
+  public.fail_job('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-0000000001b1', 'stt_failed'),
   '{"kind": "stale"}'::jsonb,
   '이미 failed인 job에 같은 lease_id로 다시 보내면 stale이다'
 );
 
 -- 목록 밖 이유는 check 제약이 거부하고 job은 그대로다.
 select throws_ok(
-  $$select public.fail_job_v2('00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-0000000001b2', 'STT_EXIT')$$,
+  $$select public.fail_job('00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-0000000001b2', 'STT_EXIT')$$,
   '23514', null, '목록 밖 error_code는 거부한다'
 );
 
 -- stale
 select is(
-  public.fail_job_v2('00000000-0000-4000-8000-0000000000b2', gen_random_uuid(), 'stt_failed'),
+  public.fail_job('00000000-0000-4000-8000-0000000000b2', gen_random_uuid(), 'stt_failed'),
   '{"kind": "stale"}'::jsonb,
   '다른 lease_id는 stale이다'
 );
 select is(
-  public.fail_job_v2('00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000001e1', 'stt_failed'),
+  public.fail_job('00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000001e1', 'stt_failed'),
   '{"kind": "stale"}'::jsonb,
   '기한 지난 lease는 같은 lease_id라도 stale이다'
 );
 -- jobs_lease_only_while_processing 때문에 processing이 아닌 job은 lease가 없다.
 select is(
-  public.fail_job_v2('00000000-0000-4000-8000-0000000000a1', gen_random_uuid(), 'stt_failed'),
+  public.fail_job('00000000-0000-4000-8000-0000000000a1', gen_random_uuid(), 'stt_failed'),
   '{"kind": "stale"}'::jsonb,
   'lease가 없는 queued job은 stale이다'
 );
 select is(
-  public.fail_job_v2('00000000-0000-4000-8000-0000000000f9', gen_random_uuid(), 'stt_failed'),
+  public.fail_job('00000000-0000-4000-8000-0000000000f9', gen_random_uuid(), 'stt_failed'),
   '{"kind": "stale"}'::jsonb,
   '없는 job은 stale이다'
 );
@@ -139,8 +134,8 @@ select ok(
 
 -- failed job은 다시 claim되지 않는다. b2(기한 남음)도 대상이 아니다.
 select is(
-  array[public.claim_job_v1() -> 'job' ->> 'id', public.claim_job_v1() -> 'job' ->> 'id',
-    public.claim_job_v1() ->> 'kind'],
+  array[public.claim_job() -> 'job' ->> 'id', public.claim_job() -> 'job' ->> 'id',
+    public.claim_job() ->> 'kind'],
   array['00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000000a1', 'idle'],
   'failed job은 claim 대상이 아니다'
 );
@@ -150,7 +145,7 @@ set local role authenticated;
 
 select is(current_user::text, 'authenticated', 'authenticated로 실행 중이다');
 select throws_ok(
-  $$select public.fail_job_v2(gen_random_uuid(), gen_random_uuid(), 'stt_failed')$$,
+  $$select public.fail_job(gen_random_uuid(), gen_random_uuid(), 'stt_failed')$$,
   '42501', null, 'authenticated는 fail_job_v2을 호출할 수 없다'
 );
 
