@@ -43,10 +43,12 @@ const buildGrantServer = (
   const logLines: string[] = [];
   const jobRepository = {
     claimJob: vi.fn(),
+    completeJob: vi.fn(),
     completeUpload: vi.fn(),
     createJob: vi.fn(),
     failJob: vi.fn(),
     findOwnedJob: vi.fn(findOwnedJob),
+    findOwnedTranscript: vi.fn(),
     renewJobLease: vi.fn(),
   };
   const issueUploadGrant = vi.fn(issue);

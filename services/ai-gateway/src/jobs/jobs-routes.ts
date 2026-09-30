@@ -36,4 +36,23 @@ export const registerJobRoutes = (instance: FastifyInstance, jobRepository: JobR
         return reply.code(409).send({ error: 'idempotency_conflict' });
     }
   });
+
+  instance.get<{ Params: { jobId: string } }>('/jobs/:jobId/transcript', async (request, reply) => {
+    const ownerId = parseOwnerId(request);
+
+    if (ownerId === undefined) return sendUnauthorized(reply);
+
+    const jobId = z.uuid().safeParse(request.params.jobId);
+
+    if (!jobId.success) return reply.code(400).send({ error: 'invalid_request' });
+
+    // 다른 사용자의 job도 없는 job과 같은 404다.
+    const transcript = await jobRepository.findOwnedTranscript({ jobId: jobId.data, ownerId });
+
+    reply.header('Cache-Control', 'no-store');
+
+    if (transcript === null) return reply.code(404).send({ error: 'transcript_not_found' });
+
+    return reply.code(200).send({ jobId: jobId.data, ...transcript });
+  });
 };

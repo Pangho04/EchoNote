@@ -33,10 +33,12 @@ const buildCompletionServer = (completeUpload: JobRepository['completeUpload']) 
   const logLines: string[] = [];
   const jobRepository = {
     claimJob: vi.fn(),
+    completeJob: vi.fn(),
     completeUpload: vi.fn(completeUpload),
     createJob: vi.fn(),
     failJob: vi.fn(),
     findOwnedJob: vi.fn(),
+    findOwnedTranscript: vi.fn(),
     renewJobLease: vi.fn(),
   };
   const server = buildServer({

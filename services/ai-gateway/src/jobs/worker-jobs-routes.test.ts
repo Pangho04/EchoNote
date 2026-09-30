@@ -27,16 +27,19 @@ afterEach(async () => {
 
 const buildWorkerServer = ({
   claimJob = async () => ({ kind: 'idle' }),
+  completeJob = async () => ({ kind: 'stale' }),
   failJob = async () => ({ kind: 'stale' }),
   renewJobLease = async () => ({ kind: 'stale' }),
-}: Partial<Pick<JobRepository, 'claimJob' | 'failJob' | 'renewJobLease'>> = {}) => {
+}: Partial<Pick<JobRepository, 'claimJob' | 'completeJob' | 'failJob' | 'renewJobLease'>> = {}) => {
   const logLines: string[] = [];
   const jobRepository = {
     claimJob: vi.fn(claimJob),
+    completeJob: vi.fn(completeJob),
     completeUpload: vi.fn(),
     createJob: vi.fn(),
     failJob: vi.fn(failJob),
     findOwnedJob: vi.fn(),
+    findOwnedTranscript: vi.fn(),
     renewJobLease: vi.fn(renewJobLease),
   };
   const server = buildServer({
@@ -308,6 +311,193 @@ describe('POST /v1/worker/jobs/:jobId/fail', () => {
       expect(logLines.length).toBeGreaterThan(0);
       expect(logLines.join('')).not.toContain(WORKER_API_TOKEN);
       expect(logLines.join('')).not.toContain(LEASE_ID);
+    }
+  });
+});
+
+const SEGMENT_TEXT = 'segment-text-leak-probe';
+const transcript = {
+  durationMs: 2000,
+  segments: [{ endMs: 1000, startMs: 0, text: SEGMENT_TEXT }],
+};
+
+const postCompletion = (
+  server: ReturnType<typeof buildServer>,
+  {
+    jobId = JOB_ID,
+    payload = JSON.stringify({ leaseId: LEASE_ID, transcript }),
+    token = WORKER_API_TOKEN,
+  } = {},
+) =>
+  server.inject({
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    method: 'POST',
+    payload,
+    url: `/v1/worker/jobs/${jobId}/complete`,
+  });
+
+describe('POST /v1/worker/jobs/:jobId/complete', () => {
+  it('completed는 body 없는 204이고 jobId·leaseId·transcript를 repository에 넘긴다', async () => {
+    const { jobRepository, server } = buildWorkerServer({
+      completeJob: async () => ({ kind: 'completed' }),
+    });
+
+    const response = await postCompletion(server);
+
+    expect(response.statusCode).toBe(204);
+    expect(response.body).toBe('');
+    expect(jobRepository.completeJob).toHaveBeenCalledWith({
+      jobId: JOB_ID,
+      leaseId: LEASE_ID,
+      transcript,
+    });
+  });
+
+  it('stale은 409 lease_stale이다', async () => {
+    const { server } = buildWorkerServer();
+
+    const response = await postCompletion(server);
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ error: 'lease_stale' });
+  });
+
+  it.each([
+    ['uuid가 아닌 jobId', { jobId: 'job-1' }],
+    ['transcript 누락', { payload: JSON.stringify({ leaseId: LEASE_ID }) }],
+    [
+      'durationMs를 넘는 segment',
+      {
+        payload: JSON.stringify({
+          leaseId: LEASE_ID,
+          transcript: { ...transcript, durationMs: 500 },
+        }),
+      },
+    ],
+    [
+      '정의하지 않은 필드',
+      { payload: JSON.stringify({ leaseId: LEASE_ID, status: 'completed', transcript }) },
+    ],
+    ['malformed JSON', { payload: '{"leaseId":' }],
+  ] as const)(
+    '%s는 400 invalid_request이고 repository를 호출하지 않는다',
+    async (_label, input) => {
+      const { jobRepository, server } = buildWorkerServer();
+
+      const response = await postCompletion(server, input);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'invalid_request' });
+      expect(jobRepository.completeJob).not.toHaveBeenCalled();
+    },
+  );
+
+  it('segment 20,000개 요청은 기본 1 MiB를 넘어도 받는다', async () => {
+    const { jobRepository, server } = buildWorkerServer({
+      completeJob: async () => ({ kind: 'completed' }),
+    });
+    const segments = Array.from({ length: 20_000 }, (_, index) => ({
+      endMs: index + 1,
+      startMs: index,
+      text: 'x'.repeat(80),
+    }));
+    const payload = JSON.stringify({
+      leaseId: LEASE_ID,
+      transcript: { durationMs: 20_000, segments },
+    });
+
+    expect(payload.length).toBeGreaterThan(2 * 1024 * 1024);
+
+    const response = await postCompletion(server, { payload });
+
+    expect(response.statusCode).toBe(204);
+    expect(jobRepository.completeJob).toHaveBeenCalledOnce();
+  });
+
+  it('4 MiB를 넘는 body는 413이고 repository를 호출하지 않는다', async () => {
+    const { jobRepository, server } = buildWorkerServer();
+    const payload = JSON.stringify({ leaseId: LEASE_ID, padding: 'x'.repeat(4 * 1024 * 1024) });
+
+    const response = await postCompletion(server, { payload });
+
+    expect(response.statusCode).toBe(413);
+    expect(jobRepository.completeJob).not.toHaveBeenCalled();
+  });
+
+  it('Worker token이 틀리면 401이고 repository를 호출하지 않는다', async () => {
+    const { jobRepository, server } = buildWorkerServer();
+
+    const response = await postCompletion(server, {
+      token: Buffer.alloc(32, 8).toString('base64'),
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(jobRepository.completeJob).not.toHaveBeenCalled();
+  });
+
+  it('저장소 일시 장애는 503, 예상 밖 오류는 500이다', async () => {
+    const unavailable = buildWorkerServer({
+      completeJob: async () => {
+        throw new JobStoreUnavailableError('timeout');
+      },
+    });
+    const unexpected = buildWorkerServer({
+      completeJob: async () => {
+        throw new Error('complete_job_v1 unexpected error');
+      },
+    });
+
+    const [unavailableResponse, unexpectedResponse] = await Promise.all([
+      postCompletion(unavailable.server),
+      postCompletion(unexpected.server),
+    ]);
+
+    expect(unavailableResponse.statusCode).toBe(503);
+    expect(unavailableResponse.json()).toEqual({ error: 'job_store_unavailable' });
+    expect(unexpectedResponse.statusCode).toBe(500);
+  });
+
+  it('어떤 응답 경로의 로그에도 token·leaseId·전사 본문이 남지 않는다', async () => {
+    const outcomes: JobRepository['completeJob'][] = [
+      async () => ({ kind: 'completed' }),
+      async () => ({ kind: 'stale' }),
+      async () => {
+        throw new JobStoreUnavailableError('network');
+      },
+      async () => {
+        throw new Error('complete_job_v1 unexpected error');
+      },
+    ];
+
+    for (const completeJob of outcomes) {
+      const { logLines, server } = buildWorkerServer({ completeJob });
+
+      await postCompletion(server);
+
+      expect(logLines.length).toBeGreaterThan(0);
+      expect(logLines.join('')).not.toContain(WORKER_API_TOKEN);
+      expect(logLines.join('')).not.toContain(LEASE_ID);
+      expect(logLines.join('')).not.toContain(SEGMENT_TEXT);
+    }
+  });
+
+  it('거부된 요청(400·413)의 로그에도 token·leaseId·전사 본문이 남지 않는다', async () => {
+    const payloads = [
+      [`{"leaseId":"${LEASE_ID}","transcript":{"text":"${SEGMENT_TEXT}"`, 400],
+      [JSON.stringify({ leaseId: LEASE_ID, transcript: { ...transcript, durationMs: 500 } }), 400],
+      [JSON.stringify({ leaseId: LEASE_ID, padding: SEGMENT_TEXT.repeat(300_000) }), 413],
+    ] as const;
+
+    for (const [payload, status] of payloads) {
+      const { logLines, server } = buildWorkerServer();
+
+      const response = await postCompletion(server, { payload });
+
+      expect(response.statusCode).toBe(status);
+      expect(logLines.length).toBeGreaterThan(0);
+      expect(logLines.join('')).not.toContain(WORKER_API_TOKEN);
+      expect(logLines.join('')).not.toContain(LEASE_ID);
+      expect(logLines.join('')).not.toContain(SEGMENT_TEXT);
     }
   });
 });

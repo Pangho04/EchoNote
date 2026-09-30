@@ -403,3 +403,124 @@ describe('failJob', () => {
     expect((error as JobStoreUnavailableError).reason).toBe('http_503');
   });
 });
+
+describe('completeJob', () => {
+  const transcript = {
+    durationMs: 2_000,
+    segments: [{ endMs: 1_000, startMs: 0, text: '안녕하세요' }],
+  };
+  const completion = {
+    jobId: jobRow.id,
+    leaseId: '00000000-0000-4000-8000-0000000001f1',
+    transcript,
+  };
+
+  it('complete_job_v1에 snake_case 인자를 보내고 redirect를 따라가지 않는다', async () => {
+    const fetchMock = stubFetch(async () => Response.json({ kind: 'stale' }));
+
+    await createRepository().completeJob(completion);
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+
+    expect(url).toBe('https://store.test/rest/v1/rpc/complete_job_v1');
+    expect(init.method).toBe('POST');
+    expect(init.redirect).toBe('manual');
+    expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
+    expect(JSON.parse(init.body as string)).toEqual({
+      p_duration_ms: transcript.durationMs,
+      p_job_id: completion.jobId,
+      p_lease_id: completion.leaseId,
+      p_segments: transcript.segments,
+    });
+  });
+
+  it.each(['completed', 'stale'] as const)('%s를 그대로 돌려준다', async (kind) => {
+    stubFetch(async () => Response.json({ kind }));
+
+    await expect(createRepository().completeJob(completion)).resolves.toEqual({ kind });
+  });
+
+  it('알 수 없는 kind는 invalid response Error다', async () => {
+    stubFetch(async () => Response.json({ kind: 'failed' }));
+
+    const error = await captureError(createRepository().completeJob(completion));
+
+    expect(error.message).toBe('complete_job_v1 invalid response');
+  });
+
+  it('HTTP 503은 저장소 일시 장애, HTTP 400은 상태 코드만 담은 Error다', async () => {
+    stubFetch(async () => new Response(null, { status: 503 }));
+
+    const unavailable = await captureError(createRepository().completeJob(completion));
+
+    stubFetch(async () => new Response('{"message":"안녕하세요"}', { status: 400 }));
+
+    const failed = await captureError(createRepository().completeJob(completion));
+
+    expect((unavailable as JobStoreUnavailableError).reason).toBe('http_503');
+    expect(failed.message).toBe('complete_job_v1 http_400');
+  });
+});
+
+describe('findOwnedTranscript', () => {
+  const ownedInput = { jobId: jobRow.id, ownerId: input.ownerId };
+  const transcriptRow = {
+    duration_ms: 2_000,
+    segments: [{ endMs: 1_000, startMs: 0, text: '안녕하세요' }],
+  };
+
+  it('transcripts를 job_id·owner_id로 조회하고 apikey를 붙이며 redirect를 따라가지 않는다', async () => {
+    const fetchMock = stubFetch(async () => Response.json([]));
+
+    await createRepository().findOwnedTranscript(ownedInput);
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    const { pathname, searchParams } = new URL(url);
+
+    expect(pathname).toBe('/rest/v1/transcripts');
+    expect(Object.fromEntries(searchParams)).toEqual({
+      job_id: `eq.${jobRow.id}`,
+      owner_id: `eq.${input.ownerId}`,
+      select: 'duration_ms,segments',
+    });
+    expect(init.method).toBeUndefined();
+    expect(init.redirect).toBe('manual');
+    expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
+  });
+
+  it('row 1건은 camelCase 전사 결과로 바꾼다', async () => {
+    stubFetch(async () => Response.json([transcriptRow]));
+
+    await expect(createRepository().findOwnedTranscript(ownedInput)).resolves.toEqual({
+      durationMs: 2_000,
+      segments: transcriptRow.segments,
+    });
+  });
+
+  it('row가 없으면 null을 돌려준다', async () => {
+    stubFetch(async () => Response.json([]));
+
+    await expect(createRepository().findOwnedTranscript(ownedInput)).resolves.toBeNull();
+  });
+
+  it.each([
+    ['row 2건', () => Response.json([transcriptRow, transcriptRow])],
+    ['계약 위반 segment', () => Response.json([{ ...transcriptRow, segments: [{ text: '' }] }])],
+    ['깨진 JSON', () => new Response('{not json')],
+  ])('%s는 본문 없는 invalid response Error로 바꾼다', async (_label, createResponse) => {
+    stubFetch(async () => createResponse());
+
+    const error = await captureError(createRepository().findOwnedTranscript(ownedInput));
+
+    expect(error).not.toBeInstanceOf(JobStoreUnavailableError);
+    expect(error.message).toBe('select_transcripts invalid response');
+  });
+
+  it('HTTP 503은 저장소 일시 장애다', async () => {
+    stubFetch(async () => new Response(null, { status: 503 }));
+
+    const error = await captureError(createRepository().findOwnedTranscript(ownedInput));
+
+    expect((error as JobStoreUnavailableError).reason).toBe('http_503');
+  });
+});

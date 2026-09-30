@@ -2,6 +2,8 @@ import {
   createJobRequestSchema,
   type JobSnapshot,
   processingJobStatusSchema,
+  type TranscriptResult,
+  transcriptResultSchema,
   type UploadCompletionRequest,
 } from '@echonote/contracts';
 import { z } from 'zod';
@@ -41,6 +43,8 @@ export type RenewJobLeaseResult = { kind: 'renewed'; expiresAt: string } | { kin
 
 export type FailJobResult = { kind: 'failed' } | { kind: 'stale' };
 
+export type CompleteJobResult = { kind: 'completed' } | { kind: 'stale' };
+
 export type JobRepository = {
   createJob(input: CreateJobInput): Promise<CreateJobResult>;
   // 다른 owner의 job은 없는 job과 같이 not_found다.
@@ -52,6 +56,14 @@ export type JobRepository = {
   renewJobLease(input: { jobId: string; leaseId: string }): Promise<RenewJobLeaseResult>;
   // renewJobLease와 같은 조건의 lease만 failed로 확정한다. 나머지는 stale이다.
   failJob(input: { jobId: string; leaseId: string }): Promise<FailJobResult>;
+  // renewJobLease와 같은 조건의 lease만 전사 결과를 저장하며 completed로 확정한다. 나머지는 stale이다.
+  completeJob(input: {
+    jobId: string;
+    leaseId: string;
+    transcript: TranscriptResult;
+  }): Promise<CompleteJobResult>;
+  // 다른 owner의 전사와 아직 완료되지 않은 job은 없는 전사와 같이 null이다.
+  findOwnedTranscript(input: { ownerId: string; jobId: string }): Promise<TranscriptResult | null>;
 };
 
 // 저장소에 닿지 못했거나 저장소가 일시적으로 응답할 수 없을 때. 재시도할 수 있는 장애로 분류한다.
@@ -109,6 +121,16 @@ const failJobRowSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('failed') }),
   z.object({ kind: z.literal('stale') }),
 ]);
+
+const completeJobRowSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('completed') }),
+  z.object({ kind: z.literal('stale') }),
+]);
+
+// 열 형태만 먼저 확인하고 내용 규칙은 camelCase로 옮긴 뒤 계약으로 검사한다.
+const transcriptRowsSchema = z
+  .array(z.object({ duration_ms: z.unknown(), segments: z.unknown() }))
+  .max(1);
 
 const toJobSnapshot = (row: z.infer<typeof jobRowSchema>): JobSnapshot => ({
   id: row.id,
@@ -349,6 +371,70 @@ export const createJobRepository = ({
       if (!parsed.success) throw new Error('fail_job_v1 invalid response');
 
       return { kind: parsed.data.kind };
+    },
+
+    async completeJob({ jobId, leaseId, transcript }) {
+      const response = await callStore('complete_job_v1', async () =>
+        fetch(`${supabaseUrl}/rest/v1/rpc/complete_job_v1`, {
+          body: JSON.stringify({
+            p_job_id: jobId,
+            p_lease_id: leaseId,
+            p_duration_ms: transcript.durationMs,
+            p_segments: transcript.segments,
+          }),
+          headers,
+          method: 'POST',
+          redirect: 'manual',
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+
+      ensureOk('complete_job_v1', response);
+
+      const parsed = completeJobRowSchema.safeParse(
+        await callStore('complete_job_v1', async () => response.json()),
+      );
+
+      if (!parsed.success) throw new Error('complete_job_v1 invalid response');
+
+      return { kind: parsed.data.kind };
+    },
+
+    async findOwnedTranscript({ jobId, ownerId }) {
+      const query = new URLSearchParams({
+        job_id: `eq.${jobId}`,
+        owner_id: `eq.${ownerId}`,
+        select: 'duration_ms,segments',
+      });
+      const response = await callStore('select_transcripts', async () =>
+        fetch(`${supabaseUrl}/rest/v1/transcripts?${query}`, {
+          headers,
+          redirect: 'manual',
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+
+      ensureOk('select_transcripts', response);
+
+      // (job_id)가 primary key라 2건 이상은 저장소 응답 이상이다.
+      const rows = transcriptRowsSchema.safeParse(
+        await callStore('select_transcripts', async () => response.json()),
+      );
+
+      if (!rows.success) throw new Error('select_transcripts invalid response');
+
+      const [row] = rows.data;
+
+      if (row === undefined) return null;
+
+      const transcript = transcriptResultSchema.safeParse({
+        durationMs: row.duration_ms,
+        segments: row.segments,
+      });
+
+      if (!transcript.success) throw new Error('select_transcripts invalid response');
+
+      return transcript.data;
     },
   };
 };

@@ -1,4 +1,4 @@
-import { jobLeaseRequestSchema } from '@echonote/contracts';
+import { completeJobRequestSchema, jobLeaseRequestSchema } from '@echonote/contracts';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
@@ -61,6 +61,31 @@ export const registerWorkerJobRoutes = (
 
     switch (result.kind) {
       case 'failed':
+        return reply.code(204).send();
+
+      case 'stale':
+        return reply.code(409).send({ error: 'lease_stale' });
+    }
+  });
+
+  // 6시간 회의 전사가 들어가도록 기본 1 MiB보다 크게, Vercel 본문 상한(4.5 MB) 아래로 받는다.
+  // 계약 최대치(20,000개 × 2,000자)는 이보다 커서 넘으면 Fastify가 413을 보낸다.
+  instance.post('/jobs/:jobId/complete', { bodyLimit: 4 * 1024 * 1024 }, async (request, reply) => {
+    const params = jobParamsSchema.safeParse(request.params);
+    const completion = completeJobRequestSchema.safeParse(request.body);
+
+    if (!params.success || !completion.success) {
+      return reply.code(400).send({ error: 'invalid_request' });
+    }
+
+    const result = await jobRepository.completeJob({
+      jobId: params.data.jobId,
+      leaseId: completion.data.leaseId,
+      transcript: completion.data.transcript,
+    });
+
+    switch (result.kind) {
+      case 'completed':
         return reply.code(204).send();
 
       case 'stale':

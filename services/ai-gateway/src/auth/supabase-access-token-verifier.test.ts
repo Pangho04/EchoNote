@@ -216,10 +216,12 @@ describe('Gateway 인증 로그', () => {
       issueUploadGrant: vi.fn(),
       jobRepository: {
         claimJob: vi.fn(),
+        completeJob: vi.fn(),
         completeUpload: vi.fn(),
         createJob: vi.fn(),
         failJob: vi.fn(),
         findOwnedJob: vi.fn(),
+        findOwnedTranscript: vi.fn(),
         renewJobLease: vi.fn(),
       },
       logger: { level: 'info', stream: { write: (line: string) => logLines.push(line) } },

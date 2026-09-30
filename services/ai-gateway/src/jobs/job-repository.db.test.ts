@@ -81,7 +81,9 @@ beforeAll(() => {
   const found = readLocalSupabase();
 
   if (found === undefined) {
-    throw new Error('local supabase unavailable (run pnpm supabase:start && pnpm supabase:reset)');
+    throw new Error(
+      'local supabase unavailable (from repo root: pnpm supabase:start && pnpm exec supabase migration up --local --workdir services/ai-gateway)',
+    );
   }
 
   local = found;
@@ -263,9 +265,10 @@ describe('claimJob·renewJobLease·failJob (local Supabase)', () => {
     expect(new Set(claimedIds).size).toBe(claimedIds.length);
     expect(claimedIds).toEqual(expect.arrayContaining(jobs.map((job) => job.id)));
 
-    const [first] = claimed;
+    const firstJobId = jobs[0]!.id;
+    const first = claimed.find((result) => result.job.id === firstJobId);
 
-    if (first === undefined) throw new Error('no job was claimed');
+    if (first === undefined) throw new Error('created job was not claimed');
 
     const renewed = await repository.renewJobLease({
       jobId: first.job.id,
@@ -288,5 +291,76 @@ describe('claimJob·renewJobLease·failJob (local Supabase)', () => {
     // failed가 되면 lease가 사라져 같은 lease로도 연장·재확정할 수 없다.
     await expect(repository.renewJobLease(lease)).resolves.toEqual({ kind: 'stale' });
     await expect(repository.failJob(lease)).resolves.toEqual({ kind: 'stale' });
+  });
+});
+
+describe('completeJob·findOwnedTranscript (local Supabase)', () => {
+  it('lease로 약 3.5 MiB 전사 결과를 저장하고 owner에게만 돌려준다', async () => {
+    const repository = createJobRepository({
+      secretKey: local.secretKey,
+      supabaseUrl: local.apiUrl,
+      timeoutMs: 5000,
+    });
+    const ownerId = await createUser();
+    const otherOwnerId = await createUser();
+    const created = await repository.createJob(createInput(ownerId, randomUUID()));
+
+    if (created.kind !== 'created') throw new Error('job was not created');
+
+    const { job } = created;
+
+    while ((await repository.claimJob()).kind === 'claimed');
+
+    await repository.completeUpload({
+      jobId: job.id,
+      mimeType: job.mimeType,
+      ownerId,
+      sha256: job.sha256,
+      sizeBytes: job.sizeBytes,
+    });
+
+    // 비운 뒤 lease가 막 끝난 이전 실행의 job이 먼저 claim될 수 있다.
+    let leaseId: string | undefined;
+
+    for (let attempt = 0; attempt < 10 && leaseId === undefined; attempt += 1) {
+      const result = await repository.claimJob();
+
+      if (result.kind === 'idle') break;
+
+      if (result.job.id === job.id) leaseId = result.lease.leaseId;
+    }
+
+    if (leaseId === undefined) throw new Error('created job was not claimed');
+
+    const transcript = {
+      durationMs: 20_000,
+      segments: Array.from({ length: 20_000 }, (_, index) => ({
+        endMs: index + 1,
+        startMs: index,
+        text: `${index} ${'가'.repeat(45)}😀`,
+      })),
+    };
+
+    expect(Buffer.byteLength(JSON.stringify(transcript))).toBeGreaterThan(3.4 * 1024 * 1024);
+    await expect(repository.findOwnedTranscript({ jobId: job.id, ownerId })).resolves.toBeNull();
+    await expect(
+      repository.completeJob({ jobId: job.id, leaseId: randomUUID(), transcript }),
+    ).resolves.toEqual({ kind: 'stale' });
+    await expect(repository.completeJob({ jobId: job.id, leaseId, transcript })).resolves.toEqual({
+      kind: 'completed',
+    });
+    await expect(repository.findOwnedTranscript({ jobId: job.id, ownerId })).resolves.toEqual(
+      transcript,
+    );
+    await expect(
+      repository.findOwnedTranscript({ jobId: job.id, ownerId: otherOwnerId }),
+    ).resolves.toBeNull();
+    // completed가 되면 lease가 사라져 같은 lease로도 다시 확정·실패할 수 없다.
+    await expect(repository.completeJob({ jobId: job.id, leaseId, transcript })).resolves.toEqual({
+      kind: 'stale',
+    });
+    await expect(repository.failJob({ jobId: job.id, leaseId })).resolves.toEqual({
+      kind: 'stale',
+    });
   });
 });
