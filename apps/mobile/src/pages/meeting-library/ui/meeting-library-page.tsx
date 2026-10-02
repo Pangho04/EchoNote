@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,7 +11,7 @@ import { AppText } from '@/shared/ui/app-text';
 import { useDialog } from '@/shared/ui/dialog';
 import { NavigationHeader } from '@/shared/ui/navigation-header';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
-import { MeetingList, MeetingYearFilter, MeetingYearMenu } from '@/widgets/meeting-list';
+import { MeetingList, MeetingYearFilter } from '@/widgets/meeting-list';
 
 import { useMeetingLibraryViewModel } from '../model/use-meeting-library-view-model';
 import { MeetingEditToolbar } from './meeting-edit-toolbar';
@@ -37,10 +37,10 @@ export function MeetingLibraryPage() {
     toggleEditing,
     toggleSelection,
     deleteMeetings,
+    signOut,
   } = useMeetingLibraryViewModel(recordingPermissionService, () => Crypto.randomUUID());
 
   const { openDialog, closeDialog } = useDialog();
-  const [isYearMenuOpen, setIsYearMenuOpen] = useState(false);
 
   const styles = useStyles();
 
@@ -125,6 +125,22 @@ export function MeetingLibraryPage() {
     });
   }
 
+  function openSignOutDialog() {
+    openDialog({
+      title: UI_STRINGS.auth.signOutTitle,
+      actions: [
+        { label: UI_STRINGS.common.cancel },
+        {
+          label: UI_STRINGS.auth.signOut,
+          emphasis: 'destructive',
+          onPress: () => {
+            void signOut();
+          },
+        },
+      ],
+    });
+  }
+
   function openDeleteDialog(meetingIds: string[]) {
     openDialog({
       title: UI_STRINGS.meetingLibrary.deleteTitle,
@@ -149,30 +165,16 @@ export function MeetingLibraryPage() {
   }
 
   return (
-    <SafeAreaView
-      edges={['top']}
-      // 메뉴 바깥을 누르면 닫는다. 필터 안의 터치는 필터가 여기까지 올려 보내지 않는다.
-      onTouchStart={isYearMenuOpen ? () => setIsYearMenuOpen(false) : undefined}
-      style={styles.safeArea}
-    >
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
       <NavigationHeader
         title={UI_STRINGS.meetingLibrary.heading}
         titleVariant="display"
-        trailingAction={
-          items.length > 0 || isEditing
-            ? {
-                label: isEditing ? UI_STRINGS.common.cancel : UI_STRINGS.meetingLibrary.edit,
-                accessibilityLabel: isEditing
-                  ? UI_STRINGS.meetingLibrary.cancelEditLabel
-                  : UI_STRINGS.meetingLibrary.editLabel,
-                onPress: () => {
-                  setIsYearMenuOpen(false);
-                  toggleEditing();
-                },
-                disabled: isDeleting,
-              }
-            : undefined
-        }
+        trailingAction={{
+          label: UI_STRINGS.auth.signOut,
+          accessibilityLabel: UI_STRINGS.auth.signOut,
+          onPress: openSignOutDialog,
+          disabled: isDeleting,
+        }}
       />
 
       <View style={styles.content}>
@@ -185,24 +187,38 @@ export function MeetingLibraryPage() {
             onMeetingDelete={isDeleting ? undefined : (meetingId) => openDeleteDialog([meetingId])}
             onToggleSelection={isDeleting ? undefined : toggleSelection}
             headingAccessory={
-              <MeetingYearFilter
-                disabled={isEditing || isDeleting}
-                isOpen={isYearMenuOpen}
-                onToggle={() => setIsYearMenuOpen((open) => !open)}
-                selectedYear={selectedYear}
-              />
-            }
-            headingOverlay={
-              isYearMenuOpen ? (
-                <MeetingYearMenu
-                  onSelectYear={(year) => {
-                    setIsYearMenuOpen(false);
-                    selectYear(year);
-                  }}
+              <View style={styles.headingAccessory}>
+                <MeetingYearFilter
+                  disabled={isEditing || isDeleting}
+                  onSelectYear={selectYear}
                   selectedYear={selectedYear}
                   years={yearOptions}
                 />
-              ) : null
+
+                {(items.length > 0 || isEditing) && (
+                  <Pressable
+                    accessibilityLabel={
+                      isEditing
+                        ? UI_STRINGS.meetingLibrary.cancelSelectLabel
+                        : UI_STRINGS.meetingLibrary.selectLabel
+                    }
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: isDeleting }}
+                    disabled={isDeleting}
+                    hitSlop={5}
+                    onPress={toggleEditing}
+                    style={styles.selectButton}
+                  >
+                    <AppText
+                      color={isDeleting ? 'textTertiary' : 'accent'}
+                      style={styles.selectButtonLabel}
+                      variant="body"
+                    >
+                      {isEditing ? UI_STRINGS.common.cancel : UI_STRINGS.meetingLibrary.select}
+                    </AppText>
+                  </Pressable>
+                )}
+              </View>
             }
             selectedIds={isEditing ? selectedIds : undefined}
             toolbar={
@@ -216,21 +232,6 @@ export function MeetingLibraryPage() {
             }
           />
         </View>
-
-        {/* 개발 빌드에서만 보이는 임시 진입점이다. 로그인 화면이 생기면 ROUTES.dev와 함께 지운다. */}
-        {__DEV__ && !isEditing && (
-          <Pressable
-            accessibilityLabel={UI_STRINGS.meetingLibrary.openUiLabLabel}
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={() => router.push(ROUTES.dev.uiLab)}
-            style={styles.uiLabButtonPosition}
-          >
-            <AppText color="accent" variant="body">
-              {UI_STRINGS.meetingLibrary.openUiLab}
-            </AppText>
-          </Pressable>
-        )}
 
         {!isEditing && (
           <View style={styles.recordingButtonPosition}>
@@ -261,10 +262,19 @@ const useStyles = createThemedStyles((theme) =>
       position: 'absolute',
       right: 18,
     },
-    uiLabButtonPosition: {
-      bottom: theme.spacing[6],
-      left: 18,
-      position: 'absolute',
+    headingAccessory: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: theme.spacing[1],
+    },
+    selectButton: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 44,
+      minWidth: 44,
+    },
+    selectButtonLabel: {
+      fontWeight: theme.typography.fontWeight.bold,
     },
   }),
 );

@@ -2,7 +2,7 @@
 
 선택자는 `src/shared/config/ui-strings.ts`의 문구와 `accessibilityLabel`을 그대로 쓴다. 문구를 바꾸면 이 flow도 같이 고친다.
 
-실측으로 6/6 통과한다 — Android 실기기(SM-F731N / Android 16), iPhone 12 mini 실기기(iOS 27.0, maestro-runner). iOS 시뮬레이터(iPhone 17 Pro / iOS 26.5)는 시작 규칙과 재생 중 seek 검증을 넣기 전 판에서 6/6을 확인했다.
+실측으로 8/8 통과한다 — Android 실기기(SM-F731N / Android 16), iPhone 12 mini 실기기(iOS 27.0, maestro-runner). iOS 시뮬레이터(iPhone 17 Pro / iOS 26.5)는 시작 규칙과 재생 중 seek 검증을 넣기 전 판에서 6/6을 확인했다.
 
 **iOS 실기기는 공식 Maestro가 지원하지 않는다.** 공식 문서의 Known limitations에 "Physical Devices … not supported yet"으로 적혀 있다. 실기기는 오픈소스 대체 러너 [maestro-runner](https://github.com/devicelab-dev/maestro-runner)(Apache-2.0, DeviceLab)로 같은 flow를 돌린다. 아래 「iPhone 실기기」 절을 본다.
 
@@ -22,7 +22,7 @@ adb shell pm grant dev.pangho.echonote android.permission.RECORD_AUDIO
 
 iOS는 개발자 프로파일을 기기에서 신뢰한 뒤(설정 → 일반 → VPN 및 기기 관리) 한 번 직접 실행해 마이크 권한을 허용해 둔다.
 
-양쪽 모두 개발 메뉴의 `Tools button`을 끈다. 떠 있는 톱니바퀴 버튼이 헤더의 `취소`·`‹ 회의` 위에 오면 Maestro가 그 버튼을 눌러 flow가 실패한다. 끈 뒤에는 기기를 흔들어 개발 메뉴를 연다.
+양쪽 모두 개발 메뉴의 `Tools button`을 끈다. 떠 있는 톱니바퀴 버튼이 헤더의 `취소`·`‹ 회의`·`로그아웃` 위에 오면 Maestro가 그 버튼을 눌러 flow가 실패한다. 끈 뒤에는 기기를 흔들어 개발 메뉴를 연다.
 
 ## 실행
 
@@ -44,8 +44,10 @@ Metro가 떠 있어야 한다. 없으면 `pnpm -F mobile start`를 먼저 실행
 | `04-detail-missing.yaml`      | deep link로 없는 ID → 오류 팝업                                                            | 없음        |
 | `06-gate-a-full.yaml`         | 녹음 → 일시정지·재개 → 30초 → 저장 토스트 → 재시작 → 상세 → seek·재생 → 뒤로 → 밀어서 삭제 | 마이크 권한 |
 | `07-recording-cancel.yaml`    | 녹음 중 취소 → 계속 녹음 → 버리기 → 목록                                                   | 마이크 권한 |
-| `09-meeting-bulk-delete.yaml` | 편집 → 두 행 선택 → 삭제 → 확인 → 편집 해제                                                | 마이크 권한 |
-| `10-meeting-year-filter.yaml` | 연도 메뉴 바깥 탭으로 닫기 → 작년 선택 시 올해 회의 빠짐 → 올해로 복귀                     | 마이크 권한 |
+| `09-meeting-bulk-delete.yaml` | 선택 → 두 행 선택 → 삭제 → 확인 → 편집 해제                                                | 마이크 권한 |
+| `10-meeting-year-filter.yaml` | 작년 선택 시 올해 회의 빠짐 → 올해로 복귀                                                  | 마이크 권한 |
+| `11-sign-out-sign-in.yaml`    | 로그아웃 → 로그아웃 상태 링크 차단 → 틀린 비밀번호 오류 → 로그인                           | 계정        |
+| `12-unknown-path.yaml`        | 없는 경로 링크 → 목록 (앱 실행 중, 목록이 안 쌓이는지는 jest가 확인)                       | 계정        |
 
 **Maestro는 폴더 안 flow를 파일 이름 순으로 실행하지 않는다.** 실측에서도 파일 이름과 다른 순서로 돌았다. 그래서 회의 데이터가 필요한 flow는 `subflows/create-recording.yaml`을 `runFlow`로 불러 스스로 준비한다. 그 subflow는 회의가 이미 보이면 아무것도 하지 않는다. 제목은 호출한 flow의 `TITLE`을 쓰며, subflow에 `env` 기본값을 두면 호출부 값을 덮어쓰므로 두지 않는다.
 
@@ -55,17 +57,27 @@ Metro가 떠 있어야 한다. 없으면 `pnpm -F mobile start`를 먼저 실행
 
 **모든 flow는 `subflows/start-at-list.yaml`로 시작한다.** 앱을 끄고 다시 띄워 목록 화면(`새 회의 녹음` 버튼)이 보일 때까지 30초까지 기다린다. 앞 flow가 어느 화면에서 끝났는지에 기대지 않으려고 끝날 때 정리하지 않고 시작할 때 맞춘다. 새 flow도 첫 단계로 이 subflow를 부른다. dev client 번들 로드 때문에 타임아웃을 10초로 줄이면 `04`가 간헐적으로 실패한다.
 
+**계정은 실행할 때 넘긴다.** `start-at-list`는 로그인 화면이 뜨면 `subflows/sign-in.yaml`로 로그인한다. 계정은 저장소 밖 `~/.echonote-e2e.env`(`E2E_EMAIL`·`E2E_PASSWORD` 두 줄, `chmod 600`)에 두고 `-e`로 넘긴다. 러너가 입력값을 로그에 찍을 수 있으니 출력을 공유하기 전에 확인한다.
+
+```bash
+set -a; . ~/.echonote-e2e.env; set +a
+maestro test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" e2e/maestro
+```
+
 ## 플랫폼 차이로 flow에 넣은 장치
 
-| 장치                                                     | 이유                                                                                                                                                                        |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 제목 선택자를 `.*${TITLE}.*` 로 감쌈                     | iOS는 목록 셀 자식을 하나의 접근성 요소로 합친다(`"9월, 17, E2E 녹음, 녹음 대기"`). Maestro는 전체 일치 정규식이라 부분 문자열이 매칭되지 않는다                            |
-| `hideKeyboard`를 Android에서만 실행                      | iOS 시뮬레이터는 Mac 하드웨어 키보드를 쓰므로 내릴 소프트 키보드가 없고, 호출하면 실패한다                                                                                  |
-| 모든 flow 시작에 `dismiss-link-prompt`                   | iOS는 커스텀 스킴 링크에 시스템 확인 창(`열기`)을 띄운다. 앞선 flow가 남기면 화면 전체를 덮어 이후 flow가 모두 실패한다                                                     |
-| 삭제 flow 제목에 `삭제`·`확인`·`편집`·`취소`를 넣지 않음 | maestro-runner의 텍스트 선택자가 부분 일치라 팝업 버튼 대신 제목 행을 누른다. 헤더 버튼은 접근성 라벨(`편집 시작`·`선택한 회의 삭제`)로 누른다                              |
-| 스와이프 삭제 버튼을 `meeting-row-delete` id로 누름      | Android 요소 목록에는 닫힌 행 뒤에 숨긴 삭제 버튼도 잡혀, `삭제` 텍스트로 누르면 다른 행을 누른다. id는 열린 행의 버튼에만 붙는다                                           |
-| 대기 30~40초                                             | dev client 번들 로드와 시뮬레이터 녹음 시작이 실기기보다 느리다                                                                                                             |
-| 재생 중 탭에 `waitToSettleTimeoutMs: 500`                | 재생 위치 표시가 계속 바뀌어 탭이 화면 안정을 기다리느라 한 번에 10초 넘게 늦어진다. 위치는 `copyTextFrom`으로 두 번 읽고 그사이 흐른 시간을 빼서 seek 폭을 ±2초로 판정한다 |
+| 장치                                                     | 이유                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 제목 선택자를 `.*${TITLE}.*` 로 감쌈                     | iOS는 목록 셀 자식을 하나의 접근성 요소로 합친다(`"9월, 17, E2E 녹음, 녹음 대기"`). Maestro는 전체 일치 정규식이라 부분 문자열이 매칭되지 않는다                                                                                                     |
+| `hideKeyboard`를 Android에서만 실행                      | iOS 시뮬레이터는 Mac 하드웨어 키보드를 쓰므로 내릴 소프트 키보드가 없고, 호출하면 실패한다                                                                                                                                                           |
+| 모든 flow 시작에 `dismiss-link-prompt`                   | iOS는 커스텀 스킴 링크에 시스템 확인 창(`열기`)을 띄운다. 앞선 flow가 남기면 화면 전체를 덮어 이후 flow가 모두 실패한다                                                                                                                              |
+| 로그인은 버튼 대신 `pressKey: Enter`로 제출              | iPhone 12 mini에서 `로그인` 버튼 좌표가 키보드 위 암호 자동 완성 막대와 겹쳐 그쪽을 누른다                                                                                                                                                           |
+| 로그인 화면 판별을 `.*이용 문의.*`로                     | iOS는 문의 링크를 화면 문장이 아니라 접근성 라벨(`이용 문의 메일 쓰기, …`)로 노출한다                                                                                                                                                                |
+| iOS 실행에 `--typing-frequency 10`                       | 기본 초당 30타로는 실기기에서 `inputText`가 글자를 빠뜨린다(`Gate A` → `Gte A`). 10에서도 가끔 빠뜨려 `create-recording`은 제목이 안 보이면 한 번 다시 쓴다                                                                                          |
+| 삭제 flow 제목에 `삭제`·`확인`·`선택`·`취소`를 넣지 않음 | maestro-runner의 텍스트 선택자가 부분 일치라 팝업 버튼 대신 제목 행을 누른다. 선택·삭제 버튼은 접근성 라벨(`선택 시작`·`선택한 회의 삭제`)로 누른다                                                                                                  |
+| 스와이프 삭제 버튼을 `meeting-row-delete` id로 누름      | Android 요소 목록에는 닫힌 행 뒤에 숨긴 삭제 버튼도 잡혀, `삭제` 텍스트로 누르면 다른 행을 누른다. id는 열린 행의 버튼에만 붙는다                                                                                                                    |
+| 대기 30~40초                                             | dev client 번들 로드와 시뮬레이터 녹음 시작이 실기기보다 느리다                                                                                                                                                                                      |
+| 재생 중 탭에 `waitToSettleTimeoutMs: 500`                | 재생 위치 표시가 계속 바뀌어 탭이 화면 안정을 기다리느라 한 번에 10초 넘게 늦어진다. 위치는 `copyTextFrom`으로 두 번 읽고 그사이 흐른 시간을 빼서 seek 폭을 ±4초로 판정한다. iPhone에서 `copyTextFrom` 한 번이 2초 넘게 걸려 읽기 시점 오차가 커진다 |
 
 ## 실행 전 확인
 
@@ -86,7 +98,8 @@ xcrun devicectl device process launch --terminate-existing --device <udid> \
   --payload-url "exp+echonote://expo-development-client/?url=http%3A%2F%2F<MAC_IP>%3A8081" dev.pangho.echonote
 
 maestro-runner --platform ios --device <udid> --team-id <TEAM_ID> \
-  --wda-bundle-id <고유 번들 ID> --output /tmp/maestro-runner test e2e/maestro
+  --wda-bundle-id <고유 번들 ID> --output /tmp/maestro-runner \
+  test --typing-frequency 10 --env-file ~/.echonote-e2e.env e2e/maestro
 ```
 
 | 막히는 곳                                                                                   | 조치                                                                                                                                                                                        |
@@ -100,7 +113,7 @@ maestro-runner --platform ios --device <udid> --team-id <TEAM_ID> \
 
 ## 기기 상태가 필요한 시나리오 (`../scenarios`)
 
-권한과 DB 상태는 flow 안에서 바꿀 수 없어 `e2e/device-state.sh`로 준비한 뒤 단건 실행한다. suite 폴더 밖에 두어 순서 무작위 실행에 섞이지 않게 했다.
+권한과 DB 상태는 flow 안에서 바꿀 수 없어 `e2e/device-state.sh`로 준비한 뒤 단건 실행한다. suite 폴더 밖에 두어 순서 무작위 실행에 섞이지 않게 했다. 이 시나리오들은 `start-at-list`를 쓰지 않아 로그인을 자동으로 하지 않는다. suite를 한 번 돌려 로그인된 상태에서 실행한다.
 
 ```bash
 # 권한 차단 안내

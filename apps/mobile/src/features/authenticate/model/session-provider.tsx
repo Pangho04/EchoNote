@@ -14,6 +14,17 @@ interface SessionContextValue {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
+// signedOut이 연달아 오면 이전 객체를 유지해 만료 팝업 등 상태 변화 반응이 다시 돌지 않게 한다.
+// 복원 중 만료는 로그인한 적이 없으므로 복원 실패로 바꾼다.
+function applyNotification(previous: SessionView, next: SessionState): SessionView {
+  if (previous.kind === 'signedOut' && next.kind === 'signedOut') return previous;
+
+  if (previous.kind === 'restoring' && next.kind === 'signedOut' && next.cause === 'expired')
+    return { kind: 'signedOut', cause: 'restore' };
+
+  return next;
+}
+
 export interface SessionProviderProps {
   session: SupabaseSession;
   children: ReactNode;
@@ -24,19 +35,36 @@ export function SessionProvider({ session, children }: SessionProviderProps) {
 
   /**
    * @when 앱 시작 시 session을 받으면
-   * @expect 저장된 session 복원 결과와 이후 로그인·로그아웃·만료를 상태로 반영
+   * @expect 구독 + 복원. 복원 결과는 아직 restoring일 때만 반영해 먼저 온 로그인·로그아웃·만료 알림을 보존한다
    * @clear auth 이벤트 구독 해제
    */
   useEffect(() => {
-    return session.subscribe(setState);
+    const unsubscribe = session.subscribe((next) =>
+      setState((previous) => applyNotification(previous, next)),
+    );
+
+    void session
+      .restore()
+      .then((restored) =>
+        setState((previous) => (previous.kind === 'restoring' ? restored : previous)),
+      );
+
+    return unsubscribe;
   }, [session]);
 
   /**
-   * @when 앱이 foreground에 있는 동안
-   * @expect token 자동 갱신을 실행하고, background로 가면 멈춰 불필요한 요청을 막는다
-   * @clear 이벤트 구독 해제와 auto refresh 중지
+   * @when state.kind가 바뀔 때마다
+   * @expect signedIn이 아니면 자동 갱신을 즉시 끈다. 로그아웃이 지운 저장값을 갱신이 다시 쓰지 않게 한다.
+   *   signedIn이면 foreground일 때 켜고 background로 가면 끈다
+   * @clear (signedIn일 때만) AppState 구독 해제와 자동 갱신 중지
    */
   useEffect(() => {
+    if (state.kind !== 'signedIn') {
+      session.stopAutoRefresh();
+
+      return;
+    }
+
     if (AppState.currentState === 'active') session.startAutoRefresh();
 
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -48,7 +76,7 @@ export function SessionProvider({ session, children }: SessionProviderProps) {
       subscription.remove();
       session.stopAutoRefresh();
     };
-  }, [session]);
+  }, [session, state.kind]);
 
   const value = useMemo<SessionContextValue>(
     () => ({ state, signIn: session.signIn, signOut: session.signOut }),

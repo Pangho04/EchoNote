@@ -6,8 +6,17 @@ import type { SessionState } from './session';
 import { SessionProvider, useSession } from './session-provider';
 
 function buildFakeSession() {
+  let resolveRestore: (state: SessionState) => void = () => {};
+
   return {
     subscribe: jest.fn((_listener: (state: SessionState) => void) => jest.fn()),
+    restore: jest.fn(
+      () =>
+        new Promise<SessionState>((resolve) => {
+          resolveRestore = resolve;
+        }),
+    ),
+    resolveRestore: (state: SessionState) => resolveRestore(state),
     signIn: jest.fn(async () => {}),
     signOut: jest.fn(async () => {}),
     startAutoRefresh: jest.fn(),
@@ -23,12 +32,64 @@ describe('SessionProvider', () => {
     Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
   });
 
-  it('초기 상태는 restoring이고 mount 시 foreground면 startAutoRefresh를 한 번 부른다', async () => {
+  it('restoring 중엔 자동 갱신을 켜지 않고 signedIn이면 켜고 signedOut이면 끈 뒤 foreground 감시도 해제한다', async () => {
     const session = buildFakeSession();
+    const removeMock = jest.fn();
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockReturnValue({ remove: removeMock } as never);
     const { result } = await renderHook(() => useSession(), { wrapper: wrapperFor(session) });
+    const listener = session.subscribe.mock.calls[0]![0];
 
     expect(result.current.state).toEqual({ kind: 'restoring' });
+    expect(session.startAutoRefresh).not.toHaveBeenCalled();
+    expect(addEventListenerSpy).not.toHaveBeenCalled();
+
+    await act(async () => {
+      listener({ kind: 'signedIn', userId: 'user-1' });
+    });
+
     expect(session.startAutoRefresh).toHaveBeenCalledTimes(1);
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      listener({ kind: 'signedOut', cause: 'user' });
+    });
+
+    // 마운트 시 restoring 분기에서 1회, signedOut 전환 시 signedIn effect의 cleanup과
+    // signedOut 분기에서 각 1회씩, 총 3회 stopAutoRefresh가 불린다.
+    expect(session.stopAutoRefresh).toHaveBeenCalledTimes(3);
+    expect(removeMock).toHaveBeenCalledTimes(1);
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(1);
+    expect(session.startAutoRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('signedOut 상태가 되면 stopAutoRefresh를 부르고 startAutoRefresh는 부르지 않는다', async () => {
+    const session = buildFakeSession();
+
+    await renderHook(() => useSession(), { wrapper: wrapperFor(session) });
+    session.stopAutoRefresh.mockClear();
+    await act(async () => {
+      session.resolveRestore({ kind: 'signedOut', cause: 'restore' });
+    });
+
+    expect(session.stopAutoRefresh).toHaveBeenCalledTimes(1);
+    expect(session.startAutoRefresh).not.toHaveBeenCalled();
+  });
+
+  it('signedOut 중에는 AppState를 구독하지 않고 startAutoRefresh를 부르지 않는다', async () => {
+    const session = buildFakeSession();
+    const addEventListenerSpy = jest.spyOn(AppState, 'addEventListener');
+
+    const { result } = await renderHook(() => useSession(), { wrapper: wrapperFor(session) });
+
+    await act(async () => {
+      session.resolveRestore({ kind: 'signedOut', cause: 'restore' });
+    });
+
+    expect(result.current.state).toEqual({ kind: 'signedOut', cause: 'restore' });
+    expect(addEventListenerSpy).not.toHaveBeenCalled();
+    expect(session.startAutoRefresh).not.toHaveBeenCalled();
   });
 
   it('subscribe listener가 부르면 state가 갱신된다', async () => {
@@ -48,6 +109,9 @@ describe('SessionProvider', () => {
     const addEventListenerSpy = jest.spyOn(AppState, 'addEventListener');
 
     await renderHook(() => useSession(), { wrapper: wrapperFor(session) });
+    await act(async () => {
+      session.resolveRestore({ kind: 'signedIn', userId: 'user-1' });
+    });
 
     const handler = addEventListenerSpy.mock.calls[0]![1];
 
@@ -55,7 +119,8 @@ describe('SessionProvider', () => {
       handler('background');
     });
 
-    expect(session.stopAutoRefresh).toHaveBeenCalledTimes(1);
+    // restoring 분기에서 마운트 시 1회, background 전환 시 1회, 총 2회다.
+    expect(session.stopAutoRefresh).toHaveBeenCalledTimes(2);
 
     await act(async () => {
       handler('active');
@@ -77,12 +142,83 @@ describe('SessionProvider', () => {
     const { unmount } = await renderHook(() => useSession(), { wrapper: wrapperFor(session) });
 
     await act(async () => {
+      session.resolveRestore({ kind: 'signedIn', userId: 'user-1' });
+    });
+    session.stopAutoRefresh.mockClear();
+    await act(async () => {
       unmount();
     });
 
     expect(unsubscribe).toHaveBeenCalledTimes(1);
     expect(removeMock).toHaveBeenCalledTimes(1);
-    expect(session.stopAutoRefresh).toHaveBeenCalled();
+    expect(session.stopAutoRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('restoring 중 restore 결과를 반영한다', async () => {
+    const signedIn = buildFakeSession();
+    const signedOut = buildFakeSession();
+    const first = await renderHook(() => useSession(), { wrapper: wrapperFor(signedIn) });
+    const second = await renderHook(() => useSession(), { wrapper: wrapperFor(signedOut) });
+
+    await act(async () => {
+      signedIn.resolveRestore({ kind: 'signedIn', userId: 'user-1' });
+      signedOut.resolveRestore({ kind: 'signedOut', cause: 'restore' });
+    });
+
+    expect(first.result.current.state).toEqual({ kind: 'signedIn', userId: 'user-1' });
+    expect(second.result.current.state).toEqual({ kind: 'signedOut', cause: 'restore' });
+  });
+
+  it('restore보다 먼저 온 SIGNED_IN을 유지하고 늦은 restore 결과는 무시한다', async () => {
+    const session = buildFakeSession();
+    const { result } = await renderHook(() => useSession(), { wrapper: wrapperFor(session) });
+    const listener = session.subscribe.mock.calls[0]![0];
+
+    await act(async () => {
+      listener({ kind: 'signedIn', userId: 'user-1' });
+    });
+    await act(async () => {
+      session.resolveRestore({ kind: 'signedOut', cause: 'restore' });
+    });
+
+    expect(result.current.state).toEqual({ kind: 'signedIn', userId: 'user-1' });
+  });
+
+  it('restoring 중 만료 알림은 cause restore로 반영하고 늦은 restore 결과는 무시한다', async () => {
+    const session = buildFakeSession();
+    const { result } = await renderHook(() => useSession(), { wrapper: wrapperFor(session) });
+    const listener = session.subscribe.mock.calls[0]![0];
+
+    await act(async () => {
+      listener({ kind: 'signedOut', cause: 'expired' });
+    });
+
+    expect(result.current.state).toEqual({ kind: 'signedOut', cause: 'restore' });
+
+    await act(async () => {
+      session.resolveRestore({ kind: 'signedIn', userId: 'user-1' });
+    });
+
+    expect(result.current.state).toEqual({ kind: 'signedOut', cause: 'restore' });
+  });
+
+  it('signedOut 중 signedOut 알림이 오면 같은 상태 객체를 유지한다', async () => {
+    const session = buildFakeSession();
+    const { result } = await renderHook(() => useSession(), { wrapper: wrapperFor(session) });
+    const listener = session.subscribe.mock.calls[0]![0];
+
+    await act(async () => {
+      listener({ kind: 'signedOut', cause: 'user' });
+    });
+
+    const previous = result.current.state;
+
+    await act(async () => {
+      listener({ kind: 'signedOut', cause: 'expired' });
+    });
+
+    expect(result.current.state).toBe(previous);
+    expect(result.current.state).toEqual({ kind: 'signedOut', cause: 'user' });
   });
 
   it('SessionProvider 밖에서 useSession을 부르면 오류를 던진다', async () => {

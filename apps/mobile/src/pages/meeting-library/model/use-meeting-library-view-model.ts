@@ -8,6 +8,7 @@ import {
   toMeetingListItemVM,
 } from '@/entities/meeting';
 import { createSQLiteRecordingPersistence, deleteRecordingFile } from '@/entities/recording';
+import { useSession } from '@/features/authenticate';
 import { deleteMeetings as deleteMeetingsWithFiles } from '@/features/delete-meeting';
 import { makeListMeetings } from '@/features/list-meetings';
 import type { RecordingIdFactory, RecordingPermissionService } from '@/features/record-meeting';
@@ -48,6 +49,7 @@ export interface MeetingLibraryViewModel {
   toggleSelection(meetingId: string): void;
   // 성공하면 편집을 끝내고 목록을 다시 읽는다. 실패는 false로 알린다.
   deleteMeetings(meetingIds: string[]): Promise<boolean>;
+  signOut(): Promise<void>;
 }
 
 export function useMeetingLibraryViewModel(
@@ -55,6 +57,7 @@ export function useMeetingLibraryViewModel(
   createRecordingId: RecordingIdFactory,
 ): MeetingLibraryViewModel {
   const database = useSQLiteContext();
+  const { signOut } = useSession();
 
   const [items, setItems] = useState<MeetingListVMItem[]>([]);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -206,5 +209,6 @@ export function useMeetingLibraryViewModel(
     toggleEditing,
     toggleSelection,
     deleteMeetings,
+    signOut,
   };
 }

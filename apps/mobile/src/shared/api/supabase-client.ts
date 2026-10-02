@@ -11,8 +11,16 @@ export interface AuthStorage {
   removeItem(key: string): Promise<void>;
 }
 
+export const AUTH_STORAGE_KEY = 'echonote-auth';
+
 export function createMobileSupabaseClient(storage: AuthStorage) {
   return createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-    auth: { storage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
+    auth: {
+      storage,
+      storageKey: AUTH_STORAGE_KEY,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
   });
 }

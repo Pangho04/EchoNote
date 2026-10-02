@@ -12,7 +12,4 @@ export const ROUTES = {
   recording: {
     session: (meetingId: string) => `/recording?meetingId=${meetingId}` as const,
   },
-  dev: {
-    uiLab: '/ui-lab',
-  },
 } as const;

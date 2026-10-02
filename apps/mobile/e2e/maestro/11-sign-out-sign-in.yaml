@@ -1,0 +1,44 @@
+appId: dev.pangho.echonote
+name: 로그아웃 뒤 다시 로그인
+---
+- runFlow: ../subflows/start-at-list.yaml
+
+# 헤더 버튼과 확인 팝업 버튼이 같은 문구라 팝업 쪽은 제목 아래로 좁힌다.
+- tapOn: '로그아웃'
+- extendedWaitUntil:
+    visible: '로그아웃할까요?'
+    timeout: 5000
+- tapOn:
+    text: '^로그아웃$'
+    below: '로그아웃할까요?'
+- extendedWaitUntil:
+    visible: '.*이용 문의.*'
+    timeout: 15000
+- assertNotVisible: '새 회의 녹음'
+
+# 로그아웃 상태에선 회의 링크를 열어도 로그인 화면에 머문다.
+- openLink: echonote://meetings/no-such-meeting-id
+- runFlow: ../subflows/dismiss-link-prompt.yaml
+- extendedWaitUntil:
+    visible: '.*이용 문의.*'
+    timeout: 10000
+- assertNotVisible: '회의를 열 수 없습니다'
+
+# 틀린 비밀번호는 오류 문구만 보이고 화면이 그대로다.
+- tapOn: '이메일'
+- eraseText: 80
+- inputText: ${E2E_EMAIL}
+- tapOn: '비밀번호'
+- eraseText: 80
+- inputText: 'e2e-wrong-password'
+# 버튼을 누르지 않고 키보드 Return으로 제출한다. 작은 iPhone에서는 버튼 좌표가 키보드 위
+# 암호 자동 완성 막대와 겹친다.
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: '로그인에 실패했습니다.'
+    timeout: 15000
+
+- runFlow: ../subflows/sign-in.yaml
+- extendedWaitUntil:
+    visible: '새 회의 녹음'
+    timeout: 30000

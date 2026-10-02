@@ -1,0 +1,12 @@
+appId: dev.pangho.echonote
+name: 없는 경로 링크는 목록으로
+---
+- runFlow: ../subflows/start-at-list.yaml
+
+- openLink: echonote://no-such-path
+- runFlow: ../subflows/dismiss-link-prompt.yaml
+- extendedWaitUntil:
+    visible: '새 회의 녹음'
+    timeout: 10000
+# 앱이 꺼진 상태의 링크 시작은 dev client가 개발 서버 선택 화면을 먼저 띄워 링크를 잃으므로
+# 여기서 다루지 않는다. 그 경로는 src/root-navigator.ui.test.tsx가 검증한다.

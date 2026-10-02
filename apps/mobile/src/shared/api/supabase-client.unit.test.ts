@@ -42,7 +42,13 @@ describe('createMobileSupabaseClient', () => {
 
     expect(order).toEqual(['polyfill', 'createClient']);
     expect(createClient).toHaveBeenCalledWith(FAKE_URL, FAKE_KEY, {
-      auth: { storage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
+      auth: {
+        storage,
+        storageKey: 'echonote-auth',
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+      },
     });
   });
 

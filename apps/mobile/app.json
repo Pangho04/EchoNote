@@ -15,7 +15,12 @@
       "package": "dev.pangho.echonote"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "sitemap": false
+        }
+      ],
       [
         "expo-audio",
         {
