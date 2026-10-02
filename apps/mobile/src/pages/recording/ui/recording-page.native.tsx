@@ -1,7 +1,6 @@
-import { useNavigation, useRouter } from 'expo-router';
-import { usePreventRemove } from 'expo-router/react-navigation';
+import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { type ReactElement, useEffect, useMemo } from 'react';
+import { type ReactElement, useEffect, useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,21 +13,22 @@ import { useRecordingSession } from '@/features/record-meeting/model/use-recordi
 import { ROUTES } from '@/shared/config/routes';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { AppText } from '@/shared/ui/app-text';
-import { useDialog } from '@/shared/ui/dialog';
 import { NavigationHeader } from '@/shared/ui/navigation-header';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 import { useToast } from '@/shared/ui/toast';
 
 import { createRecordingSessionDependencies } from '../model/create-recording-session-dependencies.native';
+import { useRecordingExit } from '../model/use-recording-exit';
 import { RecordingPageView } from './recording-page-view';
 
 export interface RecordingPageProps {
   meetingId: string;
 }
 
-// draft가 없으면 안정 오류 화면을 보여준다.
+// draft가 없으면 안정 오류 화면을 보여준다. 녹음 중 params가 바뀌어도 처음 받은 회의를 유지한다.
 export function RecordingPage({ meetingId }: RecordingPageProps): ReactElement {
-  const draft = getRecordingDraft(meetingId);
+  const [initialMeetingId] = useState(meetingId);
+  const draft = getRecordingDraft(initialMeetingId);
 
   if (!draft) {
     return <MissingDraftView />;
@@ -62,10 +62,7 @@ function MissingDraftView(): ReactElement {
 // 실제 recorder·저장 서비스를 조합하는 inner screen이다.
 function RecordingSessionScreen({ draft }: { draft: RecordingDraft }): ReactElement {
   const database = useSQLiteContext();
-  const router = useRouter();
-  const navigation = useNavigation();
   const { showToast } = useToast();
-  const { openDialog } = useDialog();
   const recordingService = useNativeRecordingService();
   const dependencies = useMemo(() => createRecordingSessionDependencies(database), [database]);
   const viewModel = useRecordingSession({
@@ -75,56 +72,21 @@ function RecordingSessionScreen({ draft }: { draft: RecordingDraft }): ReactElem
     dependencies,
   });
   const { savedRecording, canDiscard, isSaving, discard } = viewModel;
-
-  // 취소 버튼·iOS 스와이프·Android 뒤로가기가 모두 여기서 멈춘다. 확인 뒤 같은 action을
-  // 다시 보내면 이 hook은 그 action을 다시 막지 않는다.
-  usePreventRemove(canDiscard || isSaving, ({ data }) => {
-    if (isSaving) return;
-
-    const discardAndLeave = async () => {
-      try {
-        await discard();
-        navigation.dispatch(data.action);
-      } catch {
-        openDialog({
-          message: UI_STRINGS.recording.discardFailed,
-          actions: [{ label: UI_STRINGS.common.confirm, emphasis: 'primary' }],
-        });
-      }
-    };
-
-    openDialog({
-      title: UI_STRINGS.recording.discardTitle,
-      message: UI_STRINGS.recording.discardMessage,
-      actions: [
-        { label: UI_STRINGS.recording.keepRecording },
-        {
-          label: UI_STRINGS.recording.discard,
-          emphasis: 'destructive',
-          onPress: () => void discardAndLeave(),
-        },
-      ],
-    });
-  });
+  const { finish, cancel } = useRecordingExit({ canDiscard, isSaving, discard });
 
   /**
    * @when 녹음 원본 저장이 완료되어 savedRecording이 생겼을 때
-   * @expect 저장 완료를 토스트로 알리고 회의 목록 화면으로 되돌아간다.
+   * @expect 저장 완료를 토스트로 알리고 녹음 화면을 떠난다(로그인 상태면 회의 목록, 아니면 로그인 화면).
    * @clear -
    */
   useEffect(() => {
     if (!savedRecording) return;
 
     showToast(UI_STRINGS.recording.saved);
-    router.dismissTo(ROUTES.meeting.list);
-  }, [router, savedRecording, showToast]);
+    finish();
+  }, [finish, savedRecording, showToast]);
 
-  return (
-    <RecordingPageView
-      viewModel={viewModel}
-      onCancel={() => router.dismissTo(ROUTES.meeting.list)}
-    />
-  );
+  return <RecordingPageView viewModel={viewModel} onCancel={cancel} />;
 }
 
 const useStyles = createThemedStyles((theme) =>

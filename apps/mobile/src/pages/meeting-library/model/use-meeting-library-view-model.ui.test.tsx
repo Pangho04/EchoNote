@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { createSQLiteMeetingRepository, toMeetingListItemVM } from '@/entities/meeting';
+import { useSession } from '@/features/authenticate';
 import { makeListMeetings } from '@/features/list-meetings';
 import type { RecordingPermissionService } from '@/features/record-meeting';
 import { startRecording } from '@/features/record-meeting';
@@ -12,6 +13,9 @@ import { useMeetingLibraryViewModel } from './use-meeting-library-view-model';
 
 jest.mock('expo-sqlite', () => ({
   useSQLiteContext: jest.fn(),
+}));
+jest.mock('@/features/authenticate', () => ({
+  useSession: jest.fn(),
 }));
 jest.mock('@/entities/meeting', () => ({
   createSQLiteMeetingRepository: jest.fn(),
@@ -25,6 +29,7 @@ jest.mock('@/features/record-meeting', () => ({
 }));
 
 const mockedUseSQLiteContext = jest.mocked(useSQLiteContext);
+const mockedUseSession = jest.mocked(useSession);
 const mockedCreateRepository = jest.mocked(createSQLiteMeetingRepository);
 const mockedToMeetingListItemVM = jest.mocked(toMeetingListItemVM);
 const mockedMakeListMeetings = jest.mocked(makeListMeetings);
@@ -58,6 +63,11 @@ function setupMeetings(meeting: Meeting | null) {
 describe('useMeetingLibraryViewModel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedUseSession.mockReturnValue({
+      state: { kind: 'signedIn' },
+      signIn: jest.fn(),
+      signOut: jest.fn(),
+    } as unknown as ReturnType<typeof useSession>);
   });
 
   it('granted 결과를 그대로 반환한다', async () => {

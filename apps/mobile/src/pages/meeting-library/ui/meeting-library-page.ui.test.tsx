@@ -4,17 +4,23 @@ import type React from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { type Meeting, MeetingStatus } from '@/entities/meeting';
+import { useSession } from '@/features/authenticate';
 import { deleteMeetings } from '@/features/delete-meeting';
 import { makeListMeetings } from '@/features/list-meetings';
+import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { DialogProvider } from '@/shared/ui/dialog';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
 import { MeetingLibraryPage } from './meeting-library-page';
 
 const mockedPush = jest.fn();
+const mockedSignOut = jest.fn();
 
 jest.mock('expo-sqlite', () => ({
   useSQLiteContext: jest.fn(),
+}));
+jest.mock('@/features/authenticate', () => ({
+  useSession: jest.fn(),
 }));
 jest.mock('@/features/list-meetings', () => ({
   makeListMeetings: jest.fn(),
@@ -47,6 +53,7 @@ jest.mock('expo-router', () => {
 });
 
 const mockedUseSQLiteContext = jest.mocked(useSQLiteContext);
+const mockedUseSession = jest.mocked(useSession);
 const mockedMakeListMeetings = jest.mocked(makeListMeetings);
 const mockedDeleteMeetings = jest.mocked(deleteMeetings);
 
@@ -77,9 +84,60 @@ describe('MeetingLibraryPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedUseSQLiteContext.mockReturnValue({} as ReturnType<typeof useSQLiteContext>);
+    mockedUseSession.mockReturnValue({
+      state: { kind: 'signedIn' },
+      signIn: jest.fn(),
+      signOut: mockedSignOut,
+    } as unknown as ReturnType<typeof useSession>);
     mockedMakeListMeetings.mockReturnValue(
       jest.fn(async () => ({ meetings: [], nextCursor: null, timeZone: 'Asia/Seoul' })),
     );
+  });
+
+  it('목록이 비어도 로그아웃 버튼을 보여준다', async () => {
+    const { getByLabelText } = await renderPage();
+
+    expect(getByLabelText(UI_STRINGS.auth.signOut)).toBeTruthy();
+  });
+
+  it('로그아웃 버튼을 누르면 확인 팝업을 띄우고 [로그아웃]만 signOut을 호출한다', async () => {
+    const { getByLabelText, getByText, getAllByText } = await renderPage();
+
+    await fireEvent.press(getByLabelText(UI_STRINGS.auth.signOut));
+
+    expect(getByText(UI_STRINGS.auth.signOutTitle)).toBeTruthy();
+
+    await fireEvent.press(getByText(UI_STRINGS.common.cancel));
+
+    expect(mockedSignOut).not.toHaveBeenCalled();
+
+    await fireEvent.press(getByLabelText(UI_STRINGS.auth.signOut));
+    // 트리거 버튼과 팝업 action 버튼이 같은 문구라서 팝업 쪽인 마지막 요소를 누른다.
+    await fireEvent.press(getAllByText(UI_STRINGS.auth.signOut).at(-1)!);
+
+    expect(mockedSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('삭제 중에는 로그아웃 버튼을 비활성한다', async () => {
+    mockedMakeListMeetings.mockReturnValue(
+      jest.fn(async () => ({
+        meetings: [meeting('m1', '제품 회의')],
+        nextCursor: null,
+        timeZone: 'Asia/Seoul',
+      })),
+    );
+    mockedDeleteMeetings.mockReturnValue(new Promise(() => {}));
+
+    const { getByLabelText, getByText } = await renderPage();
+
+    await waitFor(() => expect(getByText('제품 회의')).toBeTruthy());
+
+    await fireEvent.press(getByLabelText('선택 시작'));
+    await fireEvent.press(getByText('제품 회의'));
+    await fireEvent.press(getByLabelText('선택한 회의 삭제'));
+    await fireEvent.press(getByText(UI_STRINGS.common.confirm));
+
+    await waitFor(() => expect(getByLabelText(UI_STRINGS.auth.signOut)).toBeDisabled());
   });
 
   it('녹음 버튼을 누르면 제목 모달을 연다', async () => {
@@ -178,7 +236,7 @@ describe('MeetingLibraryPage', () => {
 
       await waitFor(() => expect(getByText('제품 회의')).toBeTruthy());
 
-      await fireEvent.press(getByLabelText('편집 시작'));
+      await fireEvent.press(getByLabelText('선택 시작'));
 
       expect(queryByLabelText('새 회의 녹음')).toBeNull();
       expect(getByLabelText('선택한 회의 삭제')).toBeDisabled();
@@ -194,24 +252,24 @@ describe('MeetingLibraryPage', () => {
 
       await fireEvent.press(getByText('확인'));
 
-      await waitFor(() => expect(getByLabelText('편집 시작')).toBeTruthy());
+      await waitFor(() => expect(getByLabelText('선택 시작')).toBeTruthy());
 
       expect(mockedDeleteMeetings).toHaveBeenCalledWith(expect.anything(), ['m1']);
       expect(listMeetings).toHaveBeenCalledTimes(2);
       expect(getByLabelText('새 회의 녹음')).toBeTruthy();
     });
 
-    it('확인 팝업에서 취소하면 지우지 않고 선택을 유지한다', async () => {
+    it('확인 팝업에서 취소하면 지우지 않고 편집을 유지한다', async () => {
       setupMeetings([meeting('m1', '제품 회의')]);
 
       const { getByLabelText, getByText, getAllByText } = await renderPage();
 
       await waitFor(() => expect(getByText('제품 회의')).toBeTruthy());
 
-      await fireEvent.press(getByLabelText('편집 시작'));
+      await fireEvent.press(getByLabelText('선택 시작'));
       await fireEvent.press(getByText('제품 회의'));
       await fireEvent.press(getByLabelText('선택한 회의 삭제'));
-      // 헤더의 편집 끝내기 버튼도 `취소`라서 팝업 버튼은 마지막 것이다.
+      // 「최근 기록」 줄의 선택 끝내기 버튼도 `취소`라서 팝업 버튼은 마지막 것이다.
       await fireEvent.press(getAllByText('취소').at(-1)!);
 
       expect(mockedDeleteMeetings).not.toHaveBeenCalled();
@@ -226,24 +284,24 @@ describe('MeetingLibraryPage', () => {
 
       await waitFor(() => expect(getByText('제품 회의')).toBeTruthy());
 
-      await fireEvent.press(getByLabelText('편집 시작'));
+      await fireEvent.press(getByLabelText('선택 시작'));
       await fireEvent.press(getByText('제품 회의'));
       await fireEvent.press(getByLabelText('선택한 회의 삭제'));
       await fireEvent.press(getByText('확인'));
 
       await waitFor(() => expect(getByText('회의를 삭제하지 못했습니다.')).toBeTruthy());
 
-      expect(getByLabelText('편집 끝내기')).toBeTruthy();
+      expect(getByLabelText('선택 끝내기')).toBeTruthy();
     });
 
-    it('목록이 비었으면 편집 버튼을 보이지 않는다', async () => {
+    it('목록이 비었으면 선택 버튼을 보이지 않는다', async () => {
       const listMeetings = setupMeetings([]);
 
       const { queryByLabelText } = await renderPage();
 
       await waitFor(() => expect(listMeetings).toHaveBeenCalled());
 
-      expect(queryByLabelText('편집 시작')).toBeNull();
+      expect(queryByLabelText('선택 시작')).toBeNull();
     });
   });
 
@@ -339,21 +397,7 @@ describe('MeetingLibraryPage', () => {
       expect(options.at(-1)).toHaveTextContent('1970년');
     });
 
-    it('메뉴 바깥을 누르면 닫는다', async () => {
-      setupList();
-
-      const { getByLabelText, getByText, queryAllByRole } = await renderPage();
-
-      await fireEvent.press(getByLabelText(`조회 연도 변경, 현재 ${currentYear}년`));
-
-      expect(queryAllByRole('menuitem')).not.toHaveLength(0);
-
-      await fireEvent(getByText('최근 기록'), 'touchStart');
-
-      expect(queryAllByRole('menuitem')).toHaveLength(0);
-    });
-
-    it('편집을 시작하면 메뉴를 닫고 편집 중에는 비활성이다', async () => {
+    it('편집을 시작하면 연도 필터를 비활성한다', async () => {
       setupList();
 
       const { getByLabelText, getByText, queryAllByRole } = await renderPage();
@@ -361,7 +405,7 @@ describe('MeetingLibraryPage', () => {
       await waitFor(() => expect(getByText('제품 회의')).toBeTruthy());
 
       await fireEvent.press(getByLabelText(`조회 연도 변경, 현재 ${currentYear}년`));
-      await fireEvent.press(getByLabelText('편집 시작'));
+      await fireEvent.press(getByLabelText('선택 시작'));
 
       expect(queryAllByRole('menuitem')).toHaveLength(0);
       expect(getByLabelText(`조회 연도 변경, 현재 ${currentYear}년`)).toBeDisabled();

@@ -12,5 +12,14 @@ name: 목록 화면에서 시작
 # 녹음 버튼은 목록 화면에만 있다. `회의`는 상세 화면의 `회의 기록`에도 부분 일치하는 러너가 있어
 # 시작 화면 판별에 쓰지 않는다. dev client는 번들을 받아 첫 화면을 그릴 때까지 시간이 걸린다.
 - extendedWaitUntil:
+    visible: '새 회의 녹음|.*이용 문의.*'
+    timeout: 30000
+
+# 세션이 없으면 로그인 화면이 뜬다. 로그인 뒤 목록이 그려질 때까지 기다린다.
+- runFlow:
+    when:
+      visible: '.*이용 문의.*'
+    file: sign-in.yaml
+- extendedWaitUntil:
     visible: '새 회의 녹음'
     timeout: 30000

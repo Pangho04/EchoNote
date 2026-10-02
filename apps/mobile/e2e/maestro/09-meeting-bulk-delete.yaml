@@ -4,7 +4,7 @@ env:
   FIRST: 'E2E 묶음 첫째'
   SECOND: 'E2E 묶음 둘째'
 ---
-# 헤더 버튼은 화면 문구(`편집`·`취소`)가 아니라 접근성 라벨로 누른다. 문구는 다른 버튼과 겹친다.
+# 선택·삭제 버튼은 화면 문구(`선택`·`취소`)가 아니라 접근성 라벨로 누른다. 문구는 다른 버튼과 겹친다.
 - runFlow: ../subflows/start-at-list.yaml
 - runFlow:
     file: ../subflows/create-recording.yaml
@@ -15,7 +15,7 @@ env:
     env:
       TITLE: ${SECOND}
 
-- tapOn: '편집 시작'
+- tapOn: '선택 시작'
 # 선택 개수 문구는 버튼의 접근성 라벨에 가려 선택자로 잡히지 않는다. 개수 표시는 jest가 덮는다.
 - extendedWaitUntil:
     visible: '선택한 회의 삭제'

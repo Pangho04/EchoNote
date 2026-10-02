@@ -10,6 +10,13 @@ name: 회의 하나 만들기
       - tapOn: '새 회의 녹음'
       - tapOn: '기본 이름으로 저장'
       - inputText: ${TITLE}
+      # iPhone 실기기는 낮은 타자 속도에서도 앞쪽 글자를 가끔 빠뜨린다(`E2E` → `EE`). 한 번 다시 쓴다.
+      - runFlow:
+          when:
+            notVisible: .*${TITLE}.*
+          commands:
+            - eraseText: 80
+            - inputText: ${TITLE}
       - runFlow:
           when:
             platform: Android

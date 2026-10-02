@@ -128,3 +128,17 @@ node --env-file=services/inference-worker/.env.local -e "fetch(new URL('/v1/work
 **원인** — 모바일은 원격 Supabase로 로그인하는데 Gateway가 로컬 Supabase 기준으로 JWT를 검증한다. `pnpm dev:gateway:test`로 띄우면 `.env.test.local`의 로컬 `SUPABASE_URL`이 `.env.local` 값을 덮는다.
 
 **대응** — 모바일과 연동할 때는 `pnpm dev:gateway`로 띄운다. `.env.local`의 `SUPABASE_URL`이 모바일 `EXPO_PUBLIC_SUPABASE_URL`과 같은 프로젝트인지 확인한다.
+
+## Android 개발 빌드가 `Can't find ViewManager 'ViewManagerAdapter_ExpoUI_HStackView'`로 열리지 않음
+
+**증상** — `dropdown-menu.android.tsx` 같은 플랫폼 파일을 Metro(번들 서버)가 켜진 상태에서 새로 만든 뒤 앱이 이 오류로 멈춘다. `HStackView`는 iOS SwiftUI 부품이라, Android가 iOS용 `dropdown-menu.tsx`를 받고 있었다는 뜻이다.
+
+**원인(추정)** — Metro가 새 플랫폼 파일 생성 전에 결정한 모듈 경로를 그대로 유지한다. `--clear`로 다시 띄우면 해소된다.
+
+**대응** — `pnpm -F mobile start --clear`. 플랫폼 파일(`.android`·`.ios`·`.native`·`.web`)을 새로 추가하면 Metro 캐시를 비우고 다시 띄운다.
+
+## iPhone 실기기 maestro-runner가 `Failed to create session ... connection reset by peer`
+
+**증상** — 로그에 WDA(WebDriverAgent) started successfully 직후 곧바로 연결이 끊기고, `DVTSecureSocketProxy ... Have you mounted the Developer Image?`가 같이 찍힌다.
+
+**대응** — iPhone 잠금을 풀고 다시 실행하면 통과한다. 실행 중에는 잠금 해제 상태를 유지한다.

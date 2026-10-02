@@ -1,0 +1,24 @@
+appId: dev.pangho.echonote
+name: 로그인
+---
+# 계정은 저장소 밖 파일에서 실행 시 `-e E2E_EMAIL=… -e E2E_PASSWORD=…`로 받는다.
+# 앞 단계가 입력해 둔 값이 있을 수 있어 지우고 쓴다.
+- tapOn: '이메일'
+- eraseText: 80
+- inputText: ${E2E_EMAIL}
+- tapOn: '비밀번호'
+- eraseText: 80
+- inputText: ${E2E_PASSWORD}
+# 버튼을 누르지 않고 키보드 Return으로 제출한다. 작은 iPhone에서는 버튼 좌표가 키보드 위
+# 암호 자동 완성 막대와 겹친다.
+- pressKey: Enter
+
+# 기기의 비밀번호 관리자(삼성 패스 등)가 저장 여부를 묻는 창을 띄우면 목록을 덮는다.
+- extendedWaitUntil:
+    visible: '새 회의 녹음|.*로그인 정보를.*저장할까요.*'
+    timeout: 30000
+- runFlow:
+    when:
+      visible: '.*로그인 정보를.*저장할까요.*'
+    commands:
+      - tapOn: '취소'
