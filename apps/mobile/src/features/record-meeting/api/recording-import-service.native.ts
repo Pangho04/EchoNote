@@ -41,7 +41,14 @@ export function createNativeRecordingImportService(): RecordingImportService {
 
       if (copy.exists) copy.delete();
 
-      await new File(sourceUri).copy(copy);
+      try {
+        await new File(sourceUri).copy(copy);
+      } catch (error) {
+        // 중간에 끊긴 사본은 호출자가 경로를 모르므로 여기서 지운다.
+        if (copy.exists) copy.delete();
+
+        throw error;
+      }
 
       return { uri: copy.uri, size: copy.size };
     },

@@ -123,13 +123,23 @@ describe('importRecording', () => {
     expect(deletedUris(deps)).toEqual([copyUri]);
   });
 
-  it('T-I6 복사가 실패하면 failed로 끝나고 아무것도 지우지 않는다', async () => {
+  it('T-I6 복사가 실패하면 failed로 끝나고 사용자 원본은 지우지 않는다', async () => {
     const deps = makeDeps({
       importer: makeImporter({ copyToCache: vi.fn(async () => Promise.reject(new Error('copy'))) }),
     });
 
     await expect(importRecording(deps, input)).resolves.toEqual({ kind: 'failed' });
     expect(deletedUris(deps)).toEqual([]);
+  });
+
+  it('T-I6 복사가 실패해도 iOS picker의 앱 안 임시 사본은 지운다', async () => {
+    const deps = makeDeps({
+      isPickedSourceAppCopy: true,
+      importer: makeImporter({ copyToCache: vi.fn(async () => Promise.reject(new Error('copy'))) }),
+    });
+
+    await expect(importRecording(deps, input)).resolves.toEqual({ kind: 'failed' });
+    expect(deletedUris(deps)).toEqual([sourceUri]);
   });
 
   it('T-I6 DB 저장이 실패하면 failed로 사본과 이번에 만든 final을 지운다', async () => {

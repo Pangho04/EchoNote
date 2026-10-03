@@ -71,9 +71,9 @@ export async function importRecording(
     });
   } catch {
     return { kind: 'failed' };
+  } finally {
+    if (deps.isPickedSourceAppCopy) await deleteQuietly(deps.files, input.source.uri);
   }
-
-  if (deps.isPickedSourceAppCopy) await deleteQuietly(deps.files, input.source.uri);
 
   const failWith = async (kind: ImportFailure['kind']): Promise<ImportFailure> => {
     await deleteQuietly(deps.files, copy.uri);
