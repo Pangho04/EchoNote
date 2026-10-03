@@ -3,6 +3,8 @@ import { isAbsolute } from 'node:path';
 const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(['127.0.0.1', 'localhost']);
 const MIN_SECRET_BYTES = 32;
 const DEFAULT_WORKER_PORT = 4318;
+// GPU 한 장을 나눠 쓰므로 3개를 넘기지 않는다.
+const MAX_CONCURRENCY = 3;
 // Windows에서는 드라이브 경로만 받는다. UNC 공유 경로는 docker bind 대상으로 쓰지 않는다.
 const WINDOWS_DRIVE_PATH = /^[A-Za-z]:[\\/]/;
 
@@ -56,6 +58,21 @@ const loadWorkerPort = () => {
   return port;
 };
 
+// 동시에 처리할 job 수. GPU 메모리가 모자라면 PC의 env에서 낮춘다.
+const loadConcurrency = () => {
+  const raw = process.env.WORKER_CONCURRENCY;
+
+  if (raw === undefined) return MAX_CONCURRENCY;
+
+  const concurrency = Number(raw);
+
+  if (!/^\d+$/.test(raw) || concurrency < 1 || concurrency > MAX_CONCURRENCY) {
+    throw new Error(`WORKER_CONCURRENCY must be an integer from 1 to ${MAX_CONCURRENCY}`);
+  }
+
+  return concurrency;
+};
+
 const isPlatformAbsolute = (path: string) =>
   process.platform === 'win32' ? WINDOWS_DRIVE_PATH.test(path) : isAbsolute(path);
 
@@ -95,6 +112,7 @@ export const loadEnvironment = () => {
   }
 
   return {
+    concurrency: loadConcurrency(),
     dataDir,
     dockerPath: loadDockerPath(),
     gatewayOrigin: loadGatewayOrigin(),

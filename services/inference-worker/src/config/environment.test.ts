@@ -16,6 +16,7 @@ beforeEach(() => {
   vi.stubEnv('WORKER_DATA_DIR', DATA_DIR);
   vi.stubEnv('DOCKER_PATH', DOCKER_PATH);
   vi.stubEnv('ECHONOTE_WORKER_PORT', undefined);
+  vi.stubEnv('WORKER_CONCURRENCY', undefined);
 });
 
 afterEach(() => {
@@ -38,8 +39,9 @@ const captureError = () => {
 };
 
 describe('loadEnvironment', () => {
-  it('데이터 경로·docker 경로·Gateway origin·기본 포트 4318·secret byte·Worker token을 반환한다', () => {
+  it('데이터 경로·docker 경로·Gateway origin·기본 포트 4318·동시 처리 3·secret byte·Worker token을 반환한다', () => {
     expect(loadEnvironment()).toEqual({
+      concurrency: 3,
       dataDir: DATA_DIR,
       dockerPath: DOCKER_PATH,
       gatewayOrigin: GATEWAY_ORIGIN,
@@ -194,6 +196,21 @@ describe('loadEnvironment', () => {
       expect(captureError().message).toBe(
         'ECHONOTE_WORKER_PORT must be an integer from 1 to 65535',
       );
+    },
+  );
+
+  it('WORKER_CONCURRENCY를 정수로 읽는다', () => {
+    vi.stubEnv('WORKER_CONCURRENCY', '1');
+
+    expect(loadEnvironment().concurrency).toBe(1);
+  });
+
+  it.each(['0', '4', '-1', '1.5', 'three', ' 2', ''])(
+    'WORKER_CONCURRENCY %j는 throw한다',
+    (value) => {
+      vi.stubEnv('WORKER_CONCURRENCY', value);
+
+      expect(captureError().message).toBe('WORKER_CONCURRENCY must be an integer from 1 to 3');
     },
   );
 });
