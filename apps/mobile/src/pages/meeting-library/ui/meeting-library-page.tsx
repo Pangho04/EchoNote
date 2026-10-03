@@ -1,9 +1,10 @@
 import * as Crypto from 'expo-crypto';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { createNativeRecordingImportService } from '@/features/record-meeting/api/recording-import-service.native';
 import { recordingPermissionService } from '@/features/record-meeting/api/recording-permission-service.native';
 import { ROUTES } from '@/shared/config/routes';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
@@ -14,12 +15,15 @@ import { createThemedStyles } from '@/shared/ui/theme-provider';
 import { MeetingList, MeetingYearFilter } from '@/widgets/meeting-list';
 
 import { useMeetingLibraryViewModel } from '../model/use-meeting-library-view-model';
+import { CreateMeetingFab } from './create-meeting-fab';
 import { MeetingEditToolbar } from './meeting-edit-toolbar';
-import { RecordingButton } from './recording-button';
 import { RecordingTitleForm } from './recording-title-form';
+
+const recordingImportService = createNativeRecordingImportService();
 
 export function MeetingLibraryPage() {
   const router = useRouter();
+  const [isFocused, setIsFocused] = useState(false);
   const {
     items,
     isEmpty,
@@ -38,7 +42,16 @@ export function MeetingLibraryPage() {
     toggleSelection,
     deleteMeetings,
     signOut,
-  } = useMeetingLibraryViewModel(recordingPermissionService, () => Crypto.randomUUID());
+    isImporting,
+    pickAndImport,
+    importFailure,
+    dismissImportFailure,
+  } = useMeetingLibraryViewModel(
+    recordingPermissionService,
+    () => Crypto.randomUUID(),
+    recordingImportService,
+    isFocused,
+  );
 
   const { openDialog, closeDialog } = useDialog();
 
@@ -53,6 +66,19 @@ export function MeetingLibraryPage() {
     useCallback(() => {
       void refresh();
     }, [refresh]),
+  );
+
+  /**
+   * @when 목록 화면이 포커스를 얻거나 잃을 때
+   * @expect 가져오기 실패 알림을 포커스 중에만 띄우도록 포커스 여부를 기록한다.
+   * @clear 포커스를 잃으면 false로 되돌린다.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+
+      return () => setIsFocused(false);
+    }, []),
   );
 
   /**
@@ -100,6 +126,56 @@ export function MeetingLibraryPage() {
     });
   }, [clearErrorMessage, errorMessage, openDialog, refresh]);
 
+  const importFailureId = importFailure?.meetingId;
+  const importFailureMessage = importFailure?.message;
+
+  /**
+   * @when 포커스 중인 목록에 알리지 않은 가져오기 실패가 있을 때
+   * @expect 회의 제목과 사유를 팝업으로 알리고, 닫으면 다음 실패로 넘어간다.
+   * @clear -
+   */
+  useEffect(() => {
+    if (importFailureId === undefined) return;
+
+    openDialog({
+      title: UI_STRINGS.meetingLibrary.uploadFailedTitle,
+      message: importFailureMessage,
+      actions: [
+        {
+          label: UI_STRINGS.common.confirm,
+          onPress: () => dismissImportFailure(importFailureId),
+        },
+      ],
+      onDismiss: () => dismissImportFailure(importFailureId),
+    });
+  }, [dismissImportFailure, importFailureId, importFailureMessage, openDialog]);
+
+  function openUploadFailedDialog(message: string) {
+    openDialog({
+      title: UI_STRINGS.meetingLibrary.uploadFailedTitle,
+      message,
+      actions: [{ label: UI_STRINGS.common.confirm }],
+    });
+  }
+
+  async function uploadRecording() {
+    const result = await pickAndImport();
+
+    switch (result.kind) {
+      case 'started':
+        router.push(ROUTES.meeting.afterRecording(result.meetingId));
+        return;
+      case 'canceled':
+        return;
+      case 'tooLarge':
+        openUploadFailedDialog(UI_STRINGS.meetingLibrary.uploadTooLarge);
+        return;
+      case 'failed':
+        openUploadFailedDialog(UI_STRINGS.meetingLibrary.uploadFailed);
+        return;
+    }
+  }
+
   function openRecordingTitleDialog() {
     openDialog({
       title: UI_STRINGS.meetingLibrary.newRecording,
@@ -116,7 +192,7 @@ export function MeetingLibraryPage() {
           }}
           onOpenSettings={() => {
             // 설정에서 권한을 바꾸고 돌아와도 이 팝업에는 권한을 다시 확인할 버튼이 없다.
-            // 팝업을 닫아 녹음 버튼부터 다시 시작하게 한다.
+            // 팝업을 닫아 + 메뉴의 녹음하기부터 다시 시작하게 한다.
             closeDialog();
             void recordingPermissionService.openSettings();
           }}
@@ -232,13 +308,15 @@ export function MeetingLibraryPage() {
             }
           />
         </View>
-
-        {!isEditing && (
-          <View style={styles.recordingButtonPosition}>
-            <RecordingButton openTitleDialog={openRecordingTitleDialog} />
-          </View>
-        )}
       </View>
+
+      {!isEditing && (
+        <CreateMeetingFab
+          disabled={isImporting}
+          onRecord={openRecordingTitleDialog}
+          onUpload={() => void uploadRecording()}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -256,11 +334,6 @@ const useStyles = createThemedStyles((theme) =>
     meetingListArea: {
       flex: 1,
       marginBottom: 100,
-    },
-    recordingButtonPosition: {
-      bottom: theme.spacing[6],
-      position: 'absolute',
-      right: 18,
     },
     headingAccessory: {
       alignItems: 'center',

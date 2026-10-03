@@ -6,3 +6,5 @@ export * from './model/save-recording';
 export * from './model/recording-draft';
 export * from './model/use-recording-session';
 export * from './model/start-recording';
+export * from './model/import-recording';
+export * from './model/pending-imports';

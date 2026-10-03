@@ -1,12 +1,15 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import type React from 'react';
+import { BackHandler } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { type Meeting, MeetingStatus } from '@/entities/meeting';
 import { useSession } from '@/features/authenticate';
 import { deleteMeetings } from '@/features/delete-meeting';
 import { makeListMeetings } from '@/features/list-meetings';
+import { importRecording, pendingImports } from '@/features/record-meeting';
+import { ROUTES } from '@/shared/config/routes';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { DialogProvider } from '@/shared/ui/dialog';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
@@ -25,9 +28,33 @@ jest.mock('@/features/authenticate', () => ({
 jest.mock('@/features/list-meetings', () => ({
   makeListMeetings: jest.fn(),
 }));
-jest.mock('@/features/record-meeting', () => ({
-  startRecording: jest.fn(),
-  recordingPermissionService: { get: jest.fn(), request: jest.fn(), openSettings: jest.fn() },
+jest.mock('@/features/record-meeting', () => {
+  const actual = jest.requireActual('@/features/record-meeting');
+
+  return {
+    startRecording: jest.fn(),
+    recordingPermissionService: { get: jest.fn(), request: jest.fn(), openSettings: jest.fn() },
+    importRecording: jest.fn(),
+    isAllowedRecordingMimeType: jest.fn(() => true),
+    pendingImports: actual.pendingImports,
+  };
+});
+jest.mock('@/features/record-meeting/api/recording-import-service.native', () => {
+  const pickRecording = jest.fn();
+
+  return {
+    __mockedPickRecording: pickRecording,
+    createNativeRecordingImportService: () => ({
+      pickRecording,
+      copyToCache: jest.fn(),
+      readHeaderBytes: jest.fn(),
+      readDurationMs: jest.fn(),
+    }),
+  };
+});
+jest.mock('@/features/record-meeting/api/recording-file-service.native', () => ({
+  createNativeRecordingFileService: jest.fn(),
+  createFinalRecordingUri: jest.fn(),
 }));
 jest.mock('@/features/delete-meeting', () => ({
   deleteMeetings: jest.fn(),
@@ -41,13 +68,65 @@ jest.mock('@/features/record-meeting/api/recording-permission-service.native', (
   recordingPermissionService: { get: jest.fn(), request: jest.fn(), openSettings: jest.fn() },
 }));
 jest.mock('expo-router', () => {
-  const { useEffect } = jest.requireActual('react') as typeof React;
+  const { useEffect, useRef } = jest.requireActual('react') as typeof React;
+
+  let isRouteFocused = false;
+  let nextRegistrationId = 0;
+  const registrations = new Map<
+    number,
+    { callback: () => void | (() => void); cleanup: (() => void) | undefined }
+  >();
+
+  // 화면 포커스를 React lifecycle이 아니라 테스트가 __focusRouter·__blurRouter로 직접 몬다.
+  function useFocusEffect(callback: () => void | (() => void)) {
+    const idRef = useRef<number | null>(null);
+
+    if (idRef.current === null) {
+      idRef.current = nextRegistrationId++;
+      registrations.set(idRef.current, { callback, cleanup: undefined });
+    }
+
+    const id = idRef.current;
+
+    useEffect(() => {
+      const registration = registrations.get(id);
+
+      if (!registration) return;
+
+      registration.callback = callback;
+
+      if (isRouteFocused) {
+        registration.cleanup?.();
+        const result = callback();
+        registration.cleanup = typeof result === 'function' ? result : undefined;
+      }
+    }, [callback]);
+  }
 
   return {
     useRouter: () => ({ push: mockedPush, back: jest.fn() }),
-    // 화면 포커스를 mount 시 1회 실행으로 대신한다.
-    useFocusEffect: (callback: () => void) => {
-      useEffect(callback, [callback]);
+    useFocusEffect,
+    __focusRouter() {
+      isRouteFocused = true;
+
+      for (const registration of registrations.values()) {
+        const result = registration.callback();
+
+        registration.cleanup = typeof result === 'function' ? result : undefined;
+      }
+    },
+    __blurRouter() {
+      isRouteFocused = false;
+
+      for (const registration of registrations.values()) {
+        registration.cleanup?.();
+        registration.cleanup = undefined;
+      }
+    },
+    __resetRouterFocus() {
+      isRouteFocused = false;
+      registrations.clear();
+      nextRegistrationId = 0;
     },
   };
 });
@@ -56,9 +135,20 @@ const mockedUseSQLiteContext = jest.mocked(useSQLiteContext);
 const mockedUseSession = jest.mocked(useSession);
 const mockedMakeListMeetings = jest.mocked(makeListMeetings);
 const mockedDeleteMeetings = jest.mocked(deleteMeetings);
+const mockedImportRecording = jest.mocked(importRecording);
+const { __focusRouter, __blurRouter, __resetRouterFocus } = jest.requireMock('expo-router') as {
+  __focusRouter(): void;
+  __blurRouter(): void;
+  __resetRouterFocus(): void;
+};
+const { __mockedPickRecording: mockedPickRecording } = jest.requireMock(
+  '@/features/record-meeting/api/recording-import-service.native',
+) as {
+  __mockedPickRecording: jest.Mock;
+};
 
-function renderPage() {
-  return render(
+async function renderPage() {
+  const utils = await render(
     <GestureHandlerRootView>
       <ThemeProvider mode="light">
         <DialogProvider>
@@ -67,6 +157,10 @@ function renderPage() {
       </ThemeProvider>
     </GestureHandlerRootView>,
   );
+
+  __focusRouter();
+
+  return utils;
 }
 
 function meeting(id: string, title: string): Meeting {
@@ -83,6 +177,7 @@ function meeting(id: string, title: string): Meeting {
 describe('MeetingLibraryPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    __resetRouterFocus();
     mockedUseSQLiteContext.mockReturnValue({} as ReturnType<typeof useSQLiteContext>);
     mockedUseSession.mockReturnValue({
       state: { kind: 'signedIn' },
@@ -92,6 +187,18 @@ describe('MeetingLibraryPage', () => {
     mockedMakeListMeetings.mockReturnValue(
       jest.fn(async () => ({ meetings: [], nextCursor: null, timeZone: 'Asia/Seoul' })),
     );
+    // 기본은 성공으로 두고, 실패 경로를 보는 테스트만 따로 바꾼다.
+    mockedImportRecording.mockResolvedValue({
+      kind: 'saved',
+      recording: {
+        meetingId: 'mocked-uuid',
+        uri: 'file:///mocked.m4a',
+        mimeType: 'audio/mp4',
+        sha256: 'hash',
+        durationMs: 1000,
+        byteSize: 100,
+      },
+    });
   });
 
   it('목록이 비어도 로그아웃 버튼을 보여준다', async () => {
@@ -140,12 +247,13 @@ describe('MeetingLibraryPage', () => {
     await waitFor(() => expect(getByLabelText(UI_STRINGS.auth.signOut)).toBeDisabled());
   });
 
-  it('녹음 버튼을 누르면 제목 모달을 연다', async () => {
+  it('녹음하기를 누르면 제목 모달을 연다', async () => {
     const { getByLabelText, queryByText } = await renderPage();
 
     expect(queryByText('녹음 시작')).toBeNull();
 
-    await fireEvent.press(getByLabelText('새 회의 녹음'));
+    await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen));
+    await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.menuRecord));
 
     expect(queryByText('녹음 시작')).toBeTruthy();
   });
@@ -158,7 +266,8 @@ describe('MeetingLibraryPage', () => {
 
     const { getByLabelText, getByPlaceholderText, getByText } = await renderPage();
 
-    await fireEvent.press(getByLabelText('새 회의 녹음'));
+    await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen));
+    await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.menuRecord));
     await fireEvent.changeText(getByPlaceholderText('기본 이름으로 저장'), '제목');
     await fireEvent.press(getByText('녹음 시작'));
 
@@ -204,7 +313,8 @@ describe('MeetingLibraryPage', () => {
 
     const { getByLabelText, getByText, queryByText } = await renderPage();
 
-    await fireEvent.press(getByLabelText('새 회의 녹음'));
+    await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen));
+    await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.menuRecord));
     await fireEvent.press(getByText('녹음 시작'));
 
     await waitFor(() => expect(getByText('설정 열기')).toBeTruthy());
@@ -213,6 +323,285 @@ describe('MeetingLibraryPage', () => {
 
     expect(recordingPermissionService.openSettings).toHaveBeenCalledTimes(1);
     expect(queryByText('설정 열기')).toBeNull();
+  });
+
+  describe('생성 메뉴', () => {
+    it('T-F2: 메뉴가 열린 동안만 하드웨어 뒤로 가기를 가로채 메뉴를 닫는다', async () => {
+      const addEventListenerSpy = jest.spyOn(BackHandler, 'addEventListener');
+
+      const { getByLabelText, queryByLabelText } = await renderPage();
+
+      expect(
+        addEventListenerSpy.mock.calls.some(([eventName]) => eventName === 'hardwareBackPress'),
+      ).toBe(false);
+
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen));
+
+      expect(queryByLabelText(UI_STRINGS.meetingLibrary.menuRecord)).toBeTruthy();
+
+      const handler = addEventListenerSpy.mock.calls
+        .filter(([eventName]) => eventName === 'hardwareBackPress')
+        .at(-1)?.[1] as (() => boolean) | undefined;
+
+      expect(handler).toBeDefined();
+
+      let handled: boolean | undefined;
+
+      await act(async () => {
+        handled = handler!();
+      });
+
+      expect(handled).toBe(true);
+      expect(queryByLabelText(UI_STRINGS.meetingLibrary.menuRecord)).toBeNull();
+    });
+
+    it('T-F4: 메뉴가 열린 상태에서 덮개를 탭하면 메뉴만 닫힌다', async () => {
+      const { getByLabelText, queryByLabelText, container } = await renderPage();
+
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen));
+
+      expect(queryByLabelText(UI_STRINGS.meetingLibrary.menuRecord)).toBeTruthy();
+
+      const [overlay] = container.queryAll(
+        (node) => node.props.accessibilityElementsHidden === true,
+      );
+
+      expect(overlay).toBeDefined();
+
+      await fireEvent.press(overlay!);
+
+      expect(queryByLabelText(UI_STRINGS.meetingLibrary.menuRecord)).toBeNull();
+      expect(getByLabelText(UI_STRINGS.auth.signOut)).toBeTruthy();
+    });
+
+    it('T-F5: 녹음하기를 누르면 메뉴를 닫고 제목 팝업을 연다', async () => {
+      const { getByLabelText, getByText, queryByLabelText } = await renderPage();
+
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen));
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.menuRecord));
+
+      expect(queryByLabelText(UI_STRINGS.meetingLibrary.menuRecord)).toBeNull();
+      expect(getByText(UI_STRINGS.meetingLibrary.newRecording)).toBeTruthy();
+    });
+
+    it('T-F6: 업로드를 누르면 메뉴를 닫고 pickRecording을 호출하며 가져오는 동안 FAB를 막는다', async () => {
+      let resolvePick: (value: { uri: string; size: number } | null) => void = () => {};
+      mockedPickRecording.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolvePick = resolve;
+          }),
+      );
+
+      const { getByLabelText, queryByLabelText } = await renderPage();
+
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen));
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.menuUpload));
+
+      expect(queryByLabelText(UI_STRINGS.meetingLibrary.menuRecord)).toBeNull();
+      expect(mockedPickRecording).toHaveBeenCalledTimes(1);
+      expect(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen)).toBeDisabled();
+
+      await act(async () => {
+        resolvePick(null);
+      });
+    });
+
+    it('T-F7: 가져오는 동안 메뉴 열기를 다시 누를 수 없다', async () => {
+      let resolvePick: (value: { uri: string; size: number } | null) => void = () => {};
+      mockedPickRecording.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolvePick = resolve;
+          }),
+      );
+
+      const { getByLabelText, queryByLabelText } = await renderPage();
+
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen));
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.menuUpload));
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen));
+
+      expect(queryByLabelText(UI_STRINGS.meetingLibrary.menuRecord)).toBeNull();
+
+      await act(async () => {
+        resolvePick(null);
+      });
+    });
+
+    it('T-F8: pickRecording이 reject되면 실패를 알리고 FAB를 다시 쓸 수 있게 한다', async () => {
+      mockedPickRecording.mockRejectedValue(new Error('picker crashed'));
+
+      const { getByLabelText, getByText } = await renderPage();
+
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen));
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.menuUpload));
+
+      await waitFor(() =>
+        expect(getByText(UI_STRINGS.meetingLibrary.uploadFailedTitle)).toBeTruthy(),
+      );
+      expect(getByText(UI_STRINGS.meetingLibrary.uploadFailed)).toBeTruthy();
+
+      await waitFor(() =>
+        expect(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen)).not.toBeDisabled(),
+      );
+    });
+
+    it('T-I1: 선택을 취소하면 알림도 이동도 없다', async () => {
+      mockedPickRecording.mockResolvedValue(null);
+
+      const { getByLabelText, queryByText } = await renderPage();
+
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen));
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.menuUpload));
+
+      await waitFor(() =>
+        expect(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen)).not.toBeDisabled(),
+      );
+
+      expect(mockedPush).not.toHaveBeenCalled();
+      expect(queryByText(UI_STRINGS.meetingLibrary.uploadFailedTitle)).toBeNull();
+    });
+
+    it('T-I2: 512MB를 넘는 파일을 고르면 크기 초과를 알린다', async () => {
+      mockedPickRecording.mockResolvedValue({
+        uri: 'file:///big.m4a',
+        size: 512 * 1024 * 1024 + 1,
+      });
+
+      const { getByLabelText, getByText } = await renderPage();
+
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen));
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.menuUpload));
+
+      await waitFor(() =>
+        expect(getByText(UI_STRINGS.meetingLibrary.uploadFailedTitle)).toBeTruthy(),
+      );
+      expect(getByText(UI_STRINGS.meetingLibrary.uploadTooLarge)).toBeTruthy();
+      expect(mockedPush).not.toHaveBeenCalled();
+    });
+
+    it('T-I7a: 크기가 괜찮으면 가져오기를 시작하고 상세로 이동한다', async () => {
+      mockedPickRecording.mockResolvedValue({ uri: 'file:///a.m4a', size: 100 });
+
+      const { getByLabelText } = await renderPage();
+
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen));
+      await fireEvent.press(getByLabelText(UI_STRINGS.meetingLibrary.menuUpload));
+
+      await waitFor(() =>
+        expect(mockedPush).toHaveBeenCalledWith(ROUTES.meeting.afterRecording('mocked-uuid')),
+      );
+
+      pendingImports.consume('mocked-uuid');
+    });
+
+    it('T-I9: 포커스 중인 가져오기 실패를 차례로 알리고 확인할 때마다 치운다', async () => {
+      const { getByText, queryByText } = await renderPage();
+
+      await act(async () => {
+        pendingImports.start('fail-1', {
+          title: '회의A',
+          createdAt: '2026-10-03T00:00:00.000Z',
+          importRecording: async () => ({ kind: 'tooLarge' }),
+        });
+        pendingImports.start('fail-2', {
+          title: '회의B',
+          createdAt: '2026-10-03T00:00:00.000Z',
+          importRecording: async () => ({ kind: 'unsupported' }),
+        });
+      });
+
+      await waitFor(() =>
+        expect(getByText(UI_STRINGS.meetingLibrary.uploadFailedTitle)).toBeTruthy(),
+      );
+      expect(getByText(`회의A\n${UI_STRINGS.meetingLibrary.uploadTooLarge}`)).toBeTruthy();
+
+      await fireEvent.press(getByText(UI_STRINGS.common.confirm));
+
+      await waitFor(() =>
+        expect(getByText(`회의B\n${UI_STRINGS.meetingLibrary.uploadUnsupported}`)).toBeTruthy(),
+      );
+
+      await fireEvent.press(getByText(UI_STRINGS.common.confirm));
+
+      await waitFor(() =>
+        expect(queryByText(UI_STRINGS.meetingLibrary.uploadFailedTitle)).toBeNull(),
+      );
+      expect(pendingImports.failures()).toHaveLength(0);
+    });
+
+    it('T-I9: 확인 대신 바깥 탭·뒤로 가기로 닫아도 실패를 치운다', async () => {
+      const { container, getByText, queryByText } = await renderPage();
+
+      await act(async () => {
+        pendingImports.start('fail-dismiss', {
+          title: '회의C',
+          createdAt: '2026-10-03T00:00:00.000Z',
+          importRecording: async () => ({ kind: 'tooLarge' }),
+        });
+      });
+
+      await waitFor(() =>
+        expect(getByText(UI_STRINGS.meetingLibrary.uploadFailedTitle)).toBeTruthy(),
+      );
+
+      await act(async () => {
+        // 팝업 Modal의 onRequestClose가 바깥 탭·Android 뒤로 가기와 같은 dismiss 경로다.
+        const [modal] = container.queryAll(
+          (node) => typeof node.props.onRequestClose === 'function',
+        );
+
+        modal?.props.onRequestClose();
+      });
+
+      await waitFor(() =>
+        expect(queryByText(UI_STRINGS.meetingLibrary.uploadFailedTitle)).toBeNull(),
+      );
+      expect(pendingImports.failures()).toHaveLength(0);
+    });
+
+    it('T-I10: 포커스를 잃은 동안은 실패를 알리지 않고 복귀하면 알린다', async () => {
+      const listMeetings = jest.fn(async () => ({
+        meetings: [],
+        nextCursor: null,
+        timeZone: 'Asia/Seoul',
+      }));
+
+      mockedMakeListMeetings.mockReturnValue(listMeetings);
+
+      const { getByText, queryByText } = await renderPage();
+
+      await waitFor(() => expect(listMeetings).toHaveBeenCalledTimes(1));
+
+      await act(async () => {
+        __blurRouter();
+      });
+
+      await act(async () => {
+        pendingImports.start('fail-3', {
+          title: '회의C',
+          createdAt: '2026-10-03T00:00:00.000Z',
+          importRecording: async () => ({ kind: 'failed' }),
+        });
+        // 등록한 가져오기가 settle될 시간을 준다.
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(queryByText(UI_STRINGS.meetingLibrary.uploadFailedTitle)).toBeNull();
+      expect(listMeetings).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        __focusRouter();
+      });
+
+      await waitFor(() =>
+        expect(getByText(UI_STRINGS.meetingLibrary.uploadFailedTitle)).toBeTruthy(),
+      );
+
+      pendingImports.consume('fail-3');
+    });
   });
 
   describe('편집 모드', () => {
@@ -238,7 +627,7 @@ describe('MeetingLibraryPage', () => {
 
       await fireEvent.press(getByLabelText('선택 시작'));
 
-      expect(queryByLabelText('새 회의 녹음')).toBeNull();
+      expect(queryByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen)).toBeNull();
       expect(getByLabelText('선택한 회의 삭제')).toBeDisabled();
 
       await fireEvent.press(getByText('제품 회의'));
@@ -256,7 +645,7 @@ describe('MeetingLibraryPage', () => {
 
       expect(mockedDeleteMeetings).toHaveBeenCalledWith(expect.anything(), ['m1']);
       expect(listMeetings).toHaveBeenCalledTimes(2);
-      expect(getByLabelText('새 회의 녹음')).toBeTruthy();
+      expect(getByLabelText(UI_STRINGS.meetingLibrary.createMenuOpen)).toBeTruthy();
     });
 
     it('확인 팝업에서 취소하면 지우지 않고 편집을 유지한다', async () => {

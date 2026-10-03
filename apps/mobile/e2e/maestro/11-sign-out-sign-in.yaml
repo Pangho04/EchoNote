@@ -14,7 +14,7 @@ name: 로그아웃 뒤 다시 로그인
 - extendedWaitUntil:
     visible: '.*이용 문의.*'
     timeout: 15000
-- assertNotVisible: '새 회의 녹음'
+- assertNotVisible: '메뉴 열기'
 
 # 로그아웃 상태에선 회의 링크를 열어도 로그인 화면에 머문다.
 - openLink: echonote://meetings/no-such-meeting-id
@@ -40,5 +40,5 @@ name: 로그아웃 뒤 다시 로그인
 
 - runFlow: ../subflows/sign-in.yaml
 - extendedWaitUntil:
-    visible: '새 회의 녹음'
+    visible: '메뉴 열기'
     timeout: 30000

@@ -3,8 +3,9 @@ name: 제목 입력 팝업
 ---
 - runFlow: ../subflows/start-at-list.yaml
 
-# 녹음 버튼은 accessibilityLabel로 찾는다. 아이콘뿐이라 보이는 문구가 없다.
-- tapOn: '새 회의 녹음'
+# 새 회의 버튼은 accessibilityLabel로 찾는다. 아이콘뿐이라 보이는 문구가 없다.
+- tapOn: '메뉴 열기'
+- tapOn: '녹음하기'
 
 - assertVisible: '새 회의 녹음'
 - assertVisible: '기본 이름으로 저장'

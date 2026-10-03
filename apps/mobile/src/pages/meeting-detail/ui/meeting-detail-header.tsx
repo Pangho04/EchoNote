@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { RenameMeetingEditor } from '@/features/rename-meeting';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
@@ -8,12 +9,17 @@ export interface MeetingDetailHeaderProps {
   dateLabel: string;
   title: string;
   metaLabel: string;
+  // 없으면 연필을 비활성한다(녹음 파일을 가져오는 중).
+  rename?: (title: string) => Promise<void>;
 }
+
+async function renameUnavailable(): Promise<void> {}
 
 export function MeetingDetailHeader({
   dateLabel,
   title,
   metaLabel,
+  rename,
 }: MeetingDetailHeaderProps): ReactElement {
   const styles = useStyles();
 
@@ -23,9 +29,11 @@ export function MeetingDetailHeader({
         {dateLabel}
       </AppText>
 
-      <AppText accessibilityRole="header" style={styles.title} variant="title">
-        {title}
-      </AppText>
+      <RenameMeetingEditor
+        disabled={rename === undefined}
+        onSave={rename ?? renameUnavailable}
+        title={title}
+      />
 
       <AppText color="textSecondary" style={styles.meta} variant="caption">
         {metaLabel}
@@ -34,7 +42,7 @@ export function MeetingDetailHeader({
   );
 }
 
-// title의 29/32와 meta의 marginTop 10은 목업이 지정한 값이며 대응하는 theme 토큰이 없다.
+// meta의 marginTop 10은 목업이 지정한 값이며 대응하는 theme 토큰이 없다.
 const useStyles = createThemedStyles((theme) =>
   StyleSheet.create({
     container: {
@@ -46,11 +54,6 @@ const useStyles = createThemedStyles((theme) =>
     kicker: {
       fontWeight: theme.typography.fontWeight.bold,
       marginBottom: theme.spacing[2],
-    },
-    title: {
-      fontSize: 29,
-      fontWeight: theme.typography.fontWeight.semibold,
-      lineHeight: 32,
     },
     meta: {
       marginTop: 10,

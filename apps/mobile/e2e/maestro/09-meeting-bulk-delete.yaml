@@ -31,7 +31,7 @@ env:
 
 # 삭제가 끝나면 편집이 풀려 녹음 버튼이 돌아온다.
 - extendedWaitUntil:
-    visible: '새 회의 녹음'
+    visible: '메뉴 열기'
     timeout: 10000
 
 - runFlow:

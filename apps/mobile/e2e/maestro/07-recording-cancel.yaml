@@ -6,7 +6,9 @@ env:
 # 마이크 권한은 미리 허용된 상태를 전제한다. README의 권한 준비를 먼저 실행한다.
 - runFlow: ../subflows/start-at-list.yaml
 
-- tapOn: '새 회의 녹음'
+- tapOn: '메뉴 열기'
+
+- tapOn: '녹음하기'
 - tapOn: '기본 이름으로 저장'
 - inputText: ${TITLE}
 - runFlow:
@@ -36,7 +38,7 @@ env:
 - tapOn: '녹음 버리기'
 
 - extendedWaitUntil:
-    visible: '새 회의 녹음'
+    visible: '메뉴 열기'
     timeout: 10000
 
 # maestro-runner의 notVisible은 오판한 전례가 있어 공식 Maestro를 쓰는 Android에서만 확인한다.

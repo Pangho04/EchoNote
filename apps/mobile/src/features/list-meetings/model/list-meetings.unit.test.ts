@@ -51,6 +51,9 @@ describe('makeListMeetings', () => {
       getByMeetingId: async () => {
         throw new Error('이 테스트에서는 getByMeetingId를 호출하지 않습니다.');
       },
+      rename: async () => {
+        throw new Error('이 테스트에서는 rename을 호출하지 않습니다.');
+      },
       list,
     };
     const resolvedOptionsSpy = vi

@@ -30,7 +30,9 @@ describe('MeetingRepository type contract', () => {
     }>();
   });
 
-  it('1A repository가 저장·범위 목록 조회·단건 조회만 공개한다', () => {
-    expectTypeOf<keyof MeetingRepository>().toEqualTypeOf<'create' | 'list' | 'getByMeetingId'>();
+  it('1A repository가 저장·범위 목록 조회·단건 조회·이름 변경만 공개한다', () => {
+    expectTypeOf<keyof MeetingRepository>().toEqualTypeOf<
+      'create' | 'list' | 'getByMeetingId' | 'rename'
+    >();
   });
 });

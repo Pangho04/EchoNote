@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { describe, expect, it, vi } from 'vitest';
 
 import { MeetingStatus } from '../model/meeting';
+import { MeetingNotFoundError } from '../model/meeting-repository';
 import { createSQLiteMeetingRepository } from './sqlite-meeting-repository';
 
 type DatabaseDouble = Pick<SQLiteDatabase, 'getAllAsync' | 'getFirstAsync' | 'runAsync'>;
@@ -245,5 +246,39 @@ describe('createSQLiteMeetingRepository', () => {
     const repository = createSQLiteMeetingRepository(asSQLiteDatabase(database));
 
     await expect(repository.getByMeetingId('meeting-1')).rejects.toThrow(RangeError);
+  });
+
+  it('rename은 title·updated_at_ms를 bind해 UPDATE한다', async () => {
+    const database = makeDatabaseDouble();
+    const updatedAt = '2026-08-08T00:11:00.000Z';
+
+    vi.mocked(database.runAsync).mockResolvedValue({ changes: 1, lastInsertRowId: 0 });
+
+    const repository = createSQLiteMeetingRepository(asSQLiteDatabase(database));
+
+    await repository.rename({ meetingId: 'meeting-1', title: '새 제목', updatedAt });
+
+    expect(database.runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE meetings SET title = ?, updated_at_ms = ? WHERE id = ?'),
+      '새 제목',
+      Date.parse(updatedAt),
+      'meeting-1',
+    );
+  });
+
+  it('rename은 영향 행이 0건이면 MeetingNotFoundError를 던진다', async () => {
+    const database = makeDatabaseDouble();
+
+    vi.mocked(database.runAsync).mockResolvedValue({ changes: 0, lastInsertRowId: 0 });
+
+    const repository = createSQLiteMeetingRepository(asSQLiteDatabase(database));
+
+    await expect(
+      repository.rename({
+        meetingId: 'meeting-missing',
+        title: '새 제목',
+        updatedAt: '2026-08-08T00:11:00.000Z',
+      }),
+    ).rejects.toThrow(MeetingNotFoundError);
   });
 });
