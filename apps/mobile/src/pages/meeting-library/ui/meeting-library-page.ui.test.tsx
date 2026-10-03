@@ -531,6 +531,36 @@ describe('MeetingLibraryPage', () => {
       expect(pendingImports.failures()).toHaveLength(0);
     });
 
+    it('T-I9: 확인 대신 바깥 탭·뒤로 가기로 닫아도 실패를 치운다', async () => {
+      const { container, getByText, queryByText } = await renderPage();
+
+      await act(async () => {
+        pendingImports.start('fail-dismiss', {
+          title: '회의C',
+          createdAt: '2026-10-03T00:00:00.000Z',
+          importRecording: async () => ({ kind: 'tooLarge' }),
+        });
+      });
+
+      await waitFor(() =>
+        expect(getByText(UI_STRINGS.meetingLibrary.uploadFailedTitle)).toBeTruthy(),
+      );
+
+      await act(async () => {
+        // 팝업 Modal의 onRequestClose가 바깥 탭·Android 뒤로 가기와 같은 dismiss 경로다.
+        const [modal] = container.queryAll(
+          (node) => typeof node.props.onRequestClose === 'function',
+        );
+
+        modal?.props.onRequestClose();
+      });
+
+      await waitFor(() =>
+        expect(queryByText(UI_STRINGS.meetingLibrary.uploadFailedTitle)).toBeNull(),
+      );
+      expect(pendingImports.failures()).toHaveLength(0);
+    });
+
     it('T-I10: 포커스를 잃은 동안은 실패를 알리지 않고 복귀하면 알린다', async () => {
       const listMeetings = jest.fn(async () => ({
         meetings: [],

@@ -253,7 +253,31 @@ describe('useMeetingLibraryViewModel', () => {
       expect(mockedImportRecording).not.toHaveBeenCalled();
     });
 
-    it('picker가 reject되면 failed를 반환하고 isImporting을 되돌린다', async () => {
+    it('크기를 모르는 파일(size 0)은 통과시켜 가져오기를 시작한다', async () => {
+      setupMeetings(null);
+
+      const importService = createImportService();
+      importService.pickRecording.mockResolvedValue({ uri: 'file:///unknown.m4a', size: 0 });
+      mockedImportRecording.mockResolvedValue({
+        kind: 'saved',
+        recording: {} as unknown as Recording,
+      });
+
+      const { result } = await renderHook(() =>
+        useMeetingLibraryViewModel(permissionService, () => 'size-zero', importService, true),
+      );
+
+      let outcome: Awaited<ReturnType<typeof result.current.pickAndImport>> | undefined;
+
+      await act(async () => {
+        outcome = await result.current.pickAndImport();
+      });
+
+      expect(outcome).toEqual({ kind: 'started', meetingId: 'size-zero' });
+    });
+
+    // 실제 picker는 자체 오류를 취소로 바꿔 돌려주므로 이 경로는 시작 단계의 앱 쪽 예외다.
+    it('시작 단계에서 예외가 나면 failed를 반환하고 isImporting을 되돌린다', async () => {
       setupMeetings(null);
 
       const importService = createImportService();
@@ -314,17 +338,18 @@ describe('useMeetingLibraryViewModel', () => {
         useMeetingLibraryViewModel(permissionService, () => 'm1', importService, true),
       );
 
+      // 같은 프레임의 연타는 다시 렌더되기 전이라 같은 함수를 두 번 부른다.
+      const pickAndImport = result.current.pickAndImport;
       let firstCall: Promise<Awaited<ReturnType<typeof result.current.pickAndImport>>>;
 
       await act(async () => {
-        firstCall = result.current.pickAndImport();
+        firstCall = pickAndImport();
       });
 
-      await waitFor(() => expect(result.current.isImporting).toBe(true));
-
-      const secondOutcome = await act(async () => result.current.pickAndImport());
+      const secondOutcome = await act(async () => pickAndImport());
 
       expect(secondOutcome).toEqual({ kind: 'canceled' });
+      expect(importService.pickRecording).toHaveBeenCalledTimes(1);
 
       await act(async () => {
         resolvePick(null);

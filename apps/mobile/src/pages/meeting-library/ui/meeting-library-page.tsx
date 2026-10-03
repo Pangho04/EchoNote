@@ -192,7 +192,7 @@ export function MeetingLibraryPage() {
           }}
           onOpenSettings={() => {
             // 설정에서 권한을 바꾸고 돌아와도 이 팝업에는 권한을 다시 확인할 버튼이 없다.
-            // 팝업을 닫아 녹음 버튼부터 다시 시작하게 한다.
+            // 팝업을 닫아 + 메뉴의 녹음하기부터 다시 시작하게 한다.
             closeDialog();
             void recordingPermissionService.openSettings();
           }}

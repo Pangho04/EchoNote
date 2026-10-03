@@ -276,6 +276,12 @@ describe('MeetingDetailPage', () => {
     expect(mockedReplace).toHaveBeenCalledWith('/');
     expect(mockedReplace).toHaveBeenCalledTimes(1);
 
+    // 같은 상태의 새 객체를 넘겨 effect를 다시 돌려도 ref가 두 번째 이동을 막는다.
+    mockedUseMeetingDetailViewModel.mockReturnValue({
+      viewModel: { kind: 'import-failed' },
+      recording: null,
+      rename: mockedRename,
+    });
     await rerender(pageElement());
 
     expect(mockedReplace).toHaveBeenCalledTimes(1);
