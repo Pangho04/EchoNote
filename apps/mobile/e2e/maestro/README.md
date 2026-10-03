@@ -48,6 +48,8 @@ Metro가 떠 있어야 한다. 없으면 `pnpm -F mobile start`를 먼저 실행
 | `10-meeting-year-filter.yaml` | 작년 선택 시 올해 회의 빠짐 → 올해로 복귀                                                  | 마이크 권한 |
 | `11-sign-out-sign-in.yaml`    | 로그아웃 → 로그아웃 상태 링크 차단 → 틀린 비밀번호 오류 → 로그인                           | 계정        |
 | `12-unknown-path.yaml`        | 없는 경로 링크 → 목록 (앱 실행 중, 목록이 안 쌓이는지는 jest가 확인)                       | 계정        |
+| `14-meeting-rename.yaml`      | 상세 → 연필 → 이름 저장 → 목록에 바뀐 이름                                                 | 마이크 권한 |
+| `15-upload-recording.yaml`    | 메뉴 → 업로드 → `e2e-upload.m4a` 선택 → 상세에 녹음 길이                                   | 업로드 파일 |
 
 **Maestro는 폴더 안 flow를 파일 이름 순으로 실행하지 않는다.** 실측에서도 파일 이름과 다른 순서로 돌았다. 그래서 회의 데이터가 필요한 flow는 `subflows/create-recording.yaml`을 `runFlow`로 불러 스스로 준비한다. 그 subflow는 회의가 이미 보이면 아무것도 하지 않는다. 제목은 호출한 flow의 `TITLE`을 쓰며, subflow에 `env` 기본값을 두면 호출부 값을 덮어쓰므로 두지 않는다.
 
@@ -55,7 +57,7 @@ Metro가 떠 있어야 한다. 없으면 `pnpm -F mobile start`를 먼저 실행
 
 모든 flow가 `clearState: false`다. `true`로 두면 SQLite가 지워져 `06`의 재시작 뒤 재조회 검증이 성립하지 않는다. 기기 데이터를 비우려면 앱을 지우고 다시 설치한다.
 
-**모든 flow는 `subflows/start-at-list.yaml`로 시작한다.** 앱을 끄고 다시 띄워 목록 화면(`새 회의 녹음` 버튼)이 보일 때까지 30초까지 기다린다. 앞 flow가 어느 화면에서 끝났는지에 기대지 않으려고 끝날 때 정리하지 않고 시작할 때 맞춘다. 새 flow도 첫 단계로 이 subflow를 부른다. dev client 번들 로드 때문에 타임아웃을 10초로 줄이면 `04`가 간헐적으로 실패한다.
+**모든 flow는 `subflows/start-at-list.yaml`로 시작한다.** 앱을 끄고 다시 띄워 목록 화면(`메뉴 열기` 버튼)이 보일 때까지 30초까지 기다린다. 앞 flow가 어느 화면에서 끝났는지에 기대지 않으려고 끝날 때 정리하지 않고 시작할 때 맞춘다. 새 flow도 첫 단계로 이 subflow를 부른다. dev client 번들 로드 때문에 타임아웃을 10초로 줄이면 `04`가 간헐적으로 실패한다.
 
 **계정은 실행할 때 넘긴다.** `start-at-list`는 로그인 화면이 뜨면 `subflows/sign-in.yaml`로 로그인한다. 계정은 저장소 밖 `~/.echonote-e2e.env`(`E2E_EMAIL`·`E2E_PASSWORD` 두 줄, `chmod 600`)에 두고 `-e`로 넘긴다. 러너가 입력값을 로그에 찍을 수 있으니 출력을 공유하기 전에 확인한다.
 
@@ -63,6 +65,21 @@ Metro가 떠 있어야 한다. 없으면 `pnpm -F mobile start`를 먼저 실행
 set -a; . ~/.echonote-e2e.env; set +a
 maestro test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" e2e/maestro
 ```
+
+**녹음을 만든 뒤에는 상세 화면이 뜬다.** 저장하면 상세로 바뀌고 자동 변환 요청이 시작된다. `create-recording`은 목록으로 돌아와 끝난다. 상세에 머물러야 하는 시나리오는 녹음 단계를 직접 적는다.
+
+## 업로드 파일 준비
+
+`15`는 기기에 `e2e-upload.m4a`가 있어야 한다. 앱이 저장한 테스트 녹음 하나를 꺼내 넣는다. 저장소에는 넣지 않는다.
+
+```bash
+# Android: 앱 녹음 하나를 꺼내 다운로드 폴더에 둔다
+adb exec-out run-as dev.pangho.echonote ls files/recordings
+adb exec-out run-as dev.pangho.echonote cat files/recordings/<id>.m4a > /tmp/e2e-upload.m4a
+adb push /tmp/e2e-upload.m4a /sdcard/Download/e2e-upload.m4a
+```
+
+iPhone은 파일 앱의 「나의 iPhone」에 같은 이름으로 둔다. 개발 도구로 그 폴더에 직접 복사할 수 없어(`devicectl copy`가 컨테이너를 찾지 못함) AirDrop 등으로 넣는다. 파일 선택 창은 Android `루트 표시 → 다운로드`, iOS `둘러보기 → 나의 iPhone` 순으로 연다.
 
 ## 플랫폼 차이로 flow에 넣은 장치
 
@@ -109,7 +126,7 @@ maestro-runner --platform ios --device <udid> --team-id <TEAM_ID> \
 | 기기를 바꾼 뒤 WDA 재설치만 반복되고 테스트가 시작되지 않음                                 | WDA 빌드 캐시(`~/.maestro-runner/cache/wda-builds/`)가 기기와 무관한 키를 써서 옛 프로파일로 서명된 WDA를 재사용한다. 해당 캐시 디렉터리를 지우면 새 기기가 포함된 프로파일로 다시 빌드한다 |
 | 리포트가 작업 디렉터리 `reports/`에 쌓임                                                    | `--output`으로 저장소 밖을 지정한다                                                                                                                                                         |
 
-**공식 Maestro와 동작이 다른 점** — `launchApp`이 떠 있는 앱을 다시 시작하지 않아 앞 flow의 화면에서 출발한다. 텍스트 선택자가 부분 일치라서 `'회의'`가 `회의 기록`에도 맞는다. 시작 subflow가 `stopApp`을 먼저 하고 목록에만 있는 `새 회의 녹음`을 기다리는 이유다. 바뀐 문구에 `notVisible`을 걸면 사라진 뒤에도 보인다고 판정한다. 그래서 「위치가 바뀌었다」는 사라짐 대신 다음 위치 후보가 보이는지(`visible` 정규식)로 기다린다. 없는 요소를 `optional`로 기다려 시간을 보내면 리포트가 실패 건수에 세므로, 화면 변화가 없는 대기는 `evalScript` 안에서 보낸다.
+**공식 Maestro와 동작이 다른 점** — `launchApp`이 떠 있는 앱을 다시 시작하지 않아 앞 flow의 화면에서 출발한다. 텍스트 선택자가 부분 일치라서 `'회의'`가 `회의 기록`에도 맞는다. 시작 subflow가 `stopApp`을 먼저 하고 목록에만 있는 `메뉴 열기`를 기다리는 이유다. 바뀐 문구에 `notVisible`을 걸면 사라진 뒤에도 보인다고 판정한다. 그래서 「위치가 바뀌었다」는 사라짐 대신 다음 위치 후보가 보이는지(`visible` 정규식)로 기다린다. 없는 요소를 `optional`로 기다려 시간을 보내면 리포트가 실패 건수에 세므로, 화면 변화가 없는 대기는 `evalScript` 안에서 보낸다.
 
 ## 기기 상태가 필요한 시나리오 (`../scenarios`)
 
@@ -128,6 +145,8 @@ maestro --device <simulator-udid> test e2e/scenarios/list-load-failed.yaml
 ```
 
 두 시나리오 모두 Android 실기기·iOS 시뮬레이터에서 통과를 확인했다.
+
+**데스크탑 꺼짐(`transcription-desktop-offline.yaml`)** 은 Windows Worker가 꺼진 상태를 전제한다. 켜져 있으면 변환이 끝나 실패하므로 suite에서 빼고, Worker를 끈 뒤 단건으로 실행한다.
 
 **`launchApp`을 쓰지 않는 이유** — Maestro는 앱을 실행할 때 권한을 자동으로 허용한다. 권한 시나리오에서 `launchApp`을 쓰면 차단 상태가 풀려버려 `stopApp` + 개발 서버 URL `openLink`로 띄운다. 개발 PC가 바뀌면 `-e DEV_CLIENT_URL=...`로 덮어쓴다.
 

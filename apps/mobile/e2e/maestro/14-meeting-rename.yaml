@@ -1,0 +1,46 @@
+appId: dev.pangho.echonote
+name: 회의 상세에서 이름 바꾸기
+env:
+  TITLE: 'E2E 이름 전'
+---
+# 바꾼 이름은 실행마다 달라야 앞선 실행이 남긴 회의로 통과하지 않는다.
+- runFlow: ../subflows/start-at-list.yaml
+- runFlow:
+    file: ../subflows/create-recording.yaml
+    env:
+      TITLE: ${TITLE}
+- evalScript: ${output.renamed = 'E2E 이름 ' + (Date.now() % 100000)}
+
+- tapOn: .*${TITLE}.*
+- extendedWaitUntil:
+    visible: '회의 제목 수정'
+    timeout: 10000
+- tapOn: '회의 제목 수정'
+- tapOn: '회의 제목 변경'
+- eraseText: 80
+- inputText: ${output.renamed}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- tapOn: '저장'
+- extendedWaitUntil:
+    visible: '회의 제목 수정'
+    timeout: 10000
+- assertVisible: .*${output.renamed}.*
+
+# 목록은 돌아올 때 다시 읽으므로 SQLite에 저장된 이름이 보여야 한다.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: '회의 목록으로 이동'
+- extendedWaitUntil:
+    visible: .*${output.renamed}.*
+    timeout: 10000
