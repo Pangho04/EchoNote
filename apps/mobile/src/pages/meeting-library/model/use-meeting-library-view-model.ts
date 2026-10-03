@@ -1,18 +1,35 @@
+import { MAX_UPLOAD_BYTES } from '@echonote/contracts';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 
 import {
   createSQLiteMeetingRepository,
   type MeetingListCursor,
   type MeetingListVMItem,
+  nomalizeMeetingTitle,
   toMeetingListItemVM,
 } from '@/entities/meeting';
 import { createSQLiteRecordingPersistence, deleteRecordingFile } from '@/entities/recording';
 import { useSession } from '@/features/authenticate';
 import { deleteMeetings as deleteMeetingsWithFiles } from '@/features/delete-meeting';
 import { makeListMeetings } from '@/features/list-meetings';
-import type { RecordingIdFactory, RecordingPermissionService } from '@/features/record-meeting';
-import { startRecording } from '@/features/record-meeting';
+import type {
+  ImportFailure,
+  RecordingIdFactory,
+  RecordingImportService,
+  RecordingPermissionService,
+} from '@/features/record-meeting';
+import {
+  importRecording,
+  isAllowedRecordingMimeType,
+  pendingImports,
+  startRecording,
+} from '@/features/record-meeting';
+import {
+  createFinalRecordingUri,
+  createNativeRecordingFileService,
+} from '@/features/record-meeting/api/recording-file-service.native';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 
 const PAGE_LIMIT = 20;
@@ -26,6 +43,28 @@ const YEAR_OPTIONS = Array.from(
 // 열린 회의 시작 결과를 page가 consume할 수 있게 반환한다. navigate는 page 책임이다.
 export type ConfirmRecordingResult =
   { kind: 'granted'; meetingId: string } | { kind: 'denied' } | { kind: 'blocked' };
+
+// 시작했으면 page가 상세로 이동한다. 나머지는 팝업 여부만 정한다.
+export type PickAndImportResult =
+  | { kind: 'started'; meetingId: string }
+  | { kind: 'canceled' }
+  | { kind: 'tooLarge' }
+  | { kind: 'failed' };
+
+export type ImportFailureNotice = { meetingId: string; message: string };
+
+function toImportFailureReason(failure: ImportFailure): string {
+  switch (failure.kind) {
+    case 'tooLarge':
+      return UI_STRINGS.meetingLibrary.uploadTooLarge;
+    case 'unsupported':
+      return UI_STRINGS.meetingLibrary.uploadUnsupported;
+    case 'unreadable':
+      return UI_STRINGS.meetingLibrary.uploadUnreadable;
+    case 'failed':
+      return UI_STRINGS.meetingLibrary.uploadFailed;
+  }
+}
 
 export interface MeetingLibraryViewModel {
   items: MeetingListVMItem[];
@@ -50,11 +89,19 @@ export interface MeetingLibraryViewModel {
   // 성공하면 편집을 끝내고 목록을 다시 읽는다. 실패는 false로 알린다.
   deleteMeetings(meetingIds: string[]): Promise<boolean>;
   signOut(): Promise<void>;
+  // 파일 선택부터 가져오기 시작까지 true다. 이 동안 다시 호출해도 무시한다.
+  isImporting: boolean;
+  pickAndImport(): Promise<PickAndImportResult>;
+  // 포커스 중일 때만 가장 먼저 실패한 가져오기 하나를 내놓는다.
+  importFailure: ImportFailureNotice | null;
+  dismissImportFailure(meetingId: string): void;
 }
 
 export function useMeetingLibraryViewModel(
   permissionService: RecordingPermissionService,
   createRecordingId: RecordingIdFactory,
+  importService: RecordingImportService,
+  isFocused: boolean,
 ): MeetingLibraryViewModel {
   const database = useSQLiteContext();
   const { signOut } = useSession();
@@ -66,10 +113,15 @@ export function useMeetingLibraryViewModel(
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+  const [isImporting, setIsImporting] = useState(false);
+  // pendingImports는 화면 밖 상태라 바뀔 때 다시 렌더해 읽는다.
+  const [, setImportVersion] = useState(0);
   // 조회 함수가 연도마다 새로 만들어지면 focus effect가 다시 돌므로 조회는 ref로 읽는다.
   const queryYear = useRef(selectedYear);
   const nextCursor = useRef<MeetingListCursor | null>(null);
   const isLoadingMore = useRef(false);
+  // 같은 프레임 연타는 state 반영 전이라 ref로 막는다.
+  const isImportingRef = useRef(false);
   // refresh가 시작되면 늘린다. 그 전에 출발한 loadMore 결과는 버린다.
   const listGeneration = useRef(0);
 
@@ -135,6 +187,80 @@ export function useMeetingLibraryViewModel(
     },
     [refresh],
   );
+
+  /**
+   * @when 목록이 포커스를 가진 동안
+   * @expect 가져오기가 끝날 때마다 목록을 다시 읽고 실패 알림을 다시 계산한다.
+   * @clear 포커스를 잃으면 구독을 해제한다. 복귀 때는 화면의 focus refresh가 맡는다.
+   */
+  useEffect(() => {
+    if (!isFocused) return;
+
+    return pendingImports.subscribe(() => {
+      setImportVersion((version) => version + 1);
+      void refresh();
+    });
+  }, [isFocused, refresh]);
+
+  // 렌더마다 다시 읽는다. 결과 객체는 매번 새로 만들어지므로 받는 쪽은 meetingId로 비교한다.
+  const failure = isFocused ? pendingImports.failures()[0] : undefined;
+  const importFailure: ImportFailureNotice | null =
+    failure === undefined
+      ? null
+      : {
+          meetingId: failure.meetingId,
+          message: `${failure.title}\n${toImportFailureReason(failure.result)}`,
+        };
+
+  const dismissImportFailure = useCallback((meetingId: string) => {
+    pendingImports.consume(meetingId);
+    setImportVersion((version) => version + 1);
+  }, []);
+
+  const pickAndImport = useCallback(async (): Promise<PickAndImportResult> => {
+    if (isImportingRef.current) return { kind: 'canceled' };
+
+    isImportingRef.current = true;
+    setIsImporting(true);
+
+    try {
+      const source = await importService.pickRecording();
+
+      if (source === null) return { kind: 'canceled' };
+
+      // size 0은 크기를 모르는 경우라 통과시키고 가져오기의 사본 검사가 막는다.
+      if (source.size > MAX_UPLOAD_BYTES) return { kind: 'tooLarge' };
+
+      const meetingId = createRecordingId();
+      const createdAt = new Date().toISOString();
+      const title = nomalizeMeetingTitle(
+        '',
+        createdAt,
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+      );
+      const deps = {
+        persistence: createSQLiteRecordingPersistence(database),
+        files: createNativeRecordingFileService(),
+        createFinalUri: createFinalRecordingUri,
+        isAllowedMimeType: isAllowedRecordingMimeType,
+        importer: importService,
+        isPickedSourceAppCopy: Platform.OS === 'ios',
+      };
+
+      pendingImports.start(meetingId, {
+        title,
+        createdAt,
+        importRecording: () => importRecording(deps, { meetingId, title, createdAt, source }),
+      });
+
+      return { kind: 'started', meetingId };
+    } catch {
+      return { kind: 'failed' };
+    } finally {
+      isImportingRef.current = false;
+      setIsImporting(false);
+    }
+  }, [createRecordingId, database, importService]);
 
   const clearErrorMessage = useCallback(() => {
     setErrorMessage(null);
@@ -210,5 +336,9 @@ export function useMeetingLibraryViewModel(
     toggleSelection,
     deleteMeetings,
     signOut,
+    isImporting,
+    pickAndImport,
+    importFailure,
+    dismissImportFailure,
   };
 }

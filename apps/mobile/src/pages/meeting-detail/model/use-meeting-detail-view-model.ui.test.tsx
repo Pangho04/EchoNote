@@ -1,13 +1,33 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import type { Meeting } from '@/entities/meeting';
-import { MeetingStatus } from '@/entities/meeting';
+import { MeetingNotFoundError, MeetingStatus } from '@/entities/meeting';
 import type { Recording } from '@/entities/recording';
 import type { MeetingDetailResult } from '@/features/get-meeting-detail';
+import type { ImportResult, PendingImport } from '@/features/record-meeting';
 
-import { useMeetingDetailViewModel } from './use-meeting-detail-view-model';
+import {
+  useMeetingDetailViewModel,
+  type UseMeetingDetailViewModelInput,
+} from './use-meeting-detail-view-model';
 
 const TIME_ZONE = 'Asia/Seoul';
+
+// 테스트마다 쓰는 입력이 다르므로 기본값에 override만 덮어 호출한다.
+function buildInput(
+  overrides: Partial<UseMeetingDetailViewModelInput> = {},
+): UseMeetingDetailViewModelInput {
+  return {
+    meetingId: 'meeting-1',
+    timeZone: TIME_ZONE,
+    loadMeetingDetail: jest.fn(() => new Promise<MeetingDetailResult>(() => {})),
+    getPendingImport: jest.fn(() => undefined),
+    consumePendingImport: jest.fn(),
+    loadMeeting: jest.fn(),
+    renameMeeting: jest.fn(),
+    ...overrides,
+  };
+}
 
 const baseMeeting: Meeting = {
   id: 'meeting-1',
@@ -52,12 +72,13 @@ function createDeferred<T>() {
 describe('useMeetingDetailViewModel', () => {
   it('첫 렌더는 loading이고 loadMeetingDetail가 meetingId로 1회 호출된다', async () => {
     const loadMeetingDetail = jest.fn(() => new Promise<MeetingDetailResult>(() => {}));
+    // buildInput을 render 콜백 안에서 부르면 매 렌더마다 jest.fn() 기본값이 새로 생겨
+    // useEffect 의존성이 계속 바뀌어 무한 재렌더링에 빠진다. render 밖에서 한 번만 만든다.
+    const input = buildInput({ loadMeetingDetail });
 
-    const { result, unmount } = await renderHook(() =>
-      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
-    );
+    const { result, unmount } = await renderHook(() => useMeetingDetailViewModel(input));
 
-    expect(result.current).toEqual({ viewModel: { kind: 'loading' }, recording: null });
+    expect(result.current).toMatchObject({ viewModel: { kind: 'loading' }, recording: null });
     expect(loadMeetingDetail).toHaveBeenCalledTimes(1);
     expect(loadMeetingDetail).toHaveBeenCalledWith('meeting-1');
 
@@ -67,13 +88,13 @@ describe('useMeetingDetailViewModel', () => {
   it('ready 결과가 오면 표시값은 viewModel에, 녹음 Domain은 recording에 담긴다', async () => {
     const loadMeetingDetail = jest.fn(async () => buildReadyResult());
 
-    const { result } = await renderHook(() =>
-      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
-    );
+    const input = buildInput({ loadMeetingDetail });
+
+    const { result } = await renderHook(() => useMeetingDetailViewModel(input));
 
     await waitFor(() => expect(result.current.viewModel.kind).toBe('ready'));
 
-    expect(result.current).toEqual({
+    expect(result.current).toMatchObject({
       viewModel: {
         kind: 'ready',
         title: '제품 회의',
@@ -89,9 +110,9 @@ describe('useMeetingDetailViewModel', () => {
       async () => ({ kind: 'not-found' }) satisfies MeetingDetailResult,
     );
 
-    const { result } = await renderHook(() =>
-      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
-    );
+    const input = buildInput({ loadMeetingDetail });
+
+    const { result } = await renderHook(() => useMeetingDetailViewModel(input));
 
     await waitFor(() =>
       expect(result.current.viewModel).toEqual({
@@ -106,9 +127,9 @@ describe('useMeetingDetailViewModel', () => {
       async () => ({ kind: 'recording-missing' }) satisfies MeetingDetailResult,
     );
 
-    const { result } = await renderHook(() =>
-      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
-    );
+    const input = buildInput({ loadMeetingDetail });
+
+    const { result } = await renderHook(() => useMeetingDetailViewModel(input));
 
     await waitFor(() =>
       expect(result.current.viewModel).toEqual({
@@ -123,9 +144,9 @@ describe('useMeetingDetailViewModel', () => {
       async () => ({ kind: 'error', message: 'DB가 깨졌습니다' }) satisfies MeetingDetailResult,
     );
 
-    const { result } = await renderHook(() =>
-      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
-    );
+    const input = buildInput({ loadMeetingDetail });
+
+    const { result } = await renderHook(() => useMeetingDetailViewModel(input));
 
     await waitFor(() =>
       expect(result.current.viewModel).toEqual({
@@ -143,9 +164,10 @@ describe('useMeetingDetailViewModel', () => {
       .mockImplementationOnce(() => staleRequest.promise)
       .mockImplementationOnce(() => freshRequest.promise);
 
+    const input = buildInput({ loadMeetingDetail });
+
     const { result, rerender, unmount } = await renderHook(
-      ({ meetingId }: { meetingId: string }) =>
-        useMeetingDetailViewModel({ meetingId, timeZone: TIME_ZONE, loadMeetingDetail }),
+      ({ meetingId }: { meetingId: string }) => useMeetingDetailViewModel({ ...input, meetingId }),
       { initialProps: { meetingId: 'meeting-1' } },
     );
 
@@ -176,9 +198,10 @@ describe('useMeetingDetailViewModel', () => {
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise);
 
+    const input = buildInput({ loadMeetingDetail });
+
     const { result, rerender, unmount } = await renderHook(
-      ({ meetingId }: { meetingId: string }) =>
-        useMeetingDetailViewModel({ meetingId, timeZone: TIME_ZONE, loadMeetingDetail }),
+      ({ meetingId }: { meetingId: string }) => useMeetingDetailViewModel({ ...input, meetingId }),
       { initialProps: { meetingId: 'meeting-1' } },
     );
 
@@ -207,9 +230,9 @@ describe('useMeetingDetailViewModel', () => {
   ])('durationMs가 %d이면 durationLabel은 "%s"이다', async (durationMs, expectedDurationLabel) => {
     const loadMeetingDetail = jest.fn(async () => buildReadyResult({}, { durationMs }));
 
-    const { result } = await renderHook(() =>
-      useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
-    );
+    const input = buildInput({ loadMeetingDetail });
+
+    const { result } = await renderHook(() => useMeetingDetailViewModel(input));
 
     await waitFor(() => expect(result.current.viewModel.kind).toBe('ready'));
 
@@ -232,16 +255,12 @@ describe('useMeetingDetailViewModel', () => {
       infiniteDuration,
       rejectingLoad,
     ]) {
-      const { result, unmount } = await renderHook(() =>
-        useMeetingDetailViewModel({
-          meetingId: 'meeting-1',
-          timeZone: TIME_ZONE,
-          loadMeetingDetail,
-        }),
-      );
+      const input = buildInput({ loadMeetingDetail });
+
+      const { result, unmount } = await renderHook(() => useMeetingDetailViewModel(input));
 
       await waitFor(() =>
-        expect(result.current).toEqual({
+        expect(result.current).toMatchObject({
           viewModel: { kind: 'error', message: '회의를 불러오지 못했습니다.' },
           recording: null,
         }),
@@ -249,5 +268,180 @@ describe('useMeetingDetailViewModel', () => {
 
       await unmount();
     }
+  });
+
+  it('T-D1: getPendingImport가 undefined면 기존처럼 loading 뒤 load한다', async () => {
+    const loadMeetingDetail = jest.fn(async () => buildReadyResult());
+    const getPendingImport = jest.fn(() => undefined);
+
+    const input = buildInput({ getPendingImport, loadMeetingDetail });
+
+    const { result } = await renderHook(() => useMeetingDetailViewModel(input));
+
+    await waitFor(() => expect(result.current.viewModel.kind).toBe('ready'));
+
+    expect(loadMeetingDetail).toHaveBeenCalledWith('meeting-1');
+  });
+
+  it('T-D2: 가져오기가 끝나지 않았으면 첫 렌더부터 importing을 보여주고 load하지 않는다', async () => {
+    const loadMeetingDetail = jest.fn(async () => buildReadyResult());
+    const getPendingImport = jest.fn(() => ({
+      title: '가져온 회의',
+      createdAt: '2026-10-03T00:00:00.000Z',
+      result: new Promise<ImportResult>(() => {}),
+    }));
+
+    const input = buildInput({ getPendingImport, loadMeetingDetail });
+
+    const { result } = await renderHook(() => useMeetingDetailViewModel(input));
+
+    expect(result.current.viewModel).toEqual({
+      kind: 'importing',
+      title: '가져온 회의',
+      dateLabel: expect.any(String),
+    });
+    expect(loadMeetingDetail).not.toHaveBeenCalled();
+  });
+
+  it('T-D3: 가져오기가 saved로 끝나면 loading을 거치지 않고 importing에서 ready로 바뀌고 consume된다', async () => {
+    const importResult = createDeferred<ImportResult>();
+    const loadMeetingDetail = jest.fn(async () => buildReadyResult({ title: '가져온 회의' }));
+    const getPendingImport = jest.fn(() => ({
+      title: '가져온 회의',
+      createdAt: '2026-10-03T00:00:00.000Z',
+      result: importResult.promise,
+    }));
+    const consumePendingImport = jest.fn();
+    const renderedKinds: string[] = [];
+
+    const input = buildInput({ consumePendingImport, getPendingImport, loadMeetingDetail });
+
+    const { result } = await renderHook(() => {
+      const output = useMeetingDetailViewModel(input);
+
+      renderedKinds.push(output.viewModel.kind);
+
+      return output;
+    });
+
+    expect(result.current.viewModel.kind).toBe('importing');
+
+    await act(async () => {
+      importResult.resolve({ kind: 'saved', recording: baseRecording });
+    });
+
+    await waitFor(() => expect(result.current.viewModel.kind).toBe('ready'));
+
+    expect(renderedKinds).not.toContain('loading');
+    expect(loadMeetingDetail).toHaveBeenCalledWith('meeting-1');
+    expect(consumePendingImport).toHaveBeenCalledWith('meeting-1');
+    expect(consumePendingImport).toHaveBeenCalledTimes(1);
+  });
+
+  it('T-D4: 가져오기가 지원하지 않는 형식으로 끝나면 import-failed가 되고 load·consume하지 않으며 유지된다', async () => {
+    const importResult = createDeferred<ImportResult>();
+    const loadMeetingDetail = jest.fn(async () => buildReadyResult());
+    const consumePendingImport = jest.fn();
+    const getPendingImport = jest.fn<PendingImport | undefined, [string]>(() => ({
+      title: '가져온 회의',
+      createdAt: '2026-10-03T00:00:00.000Z',
+      result: importResult.promise,
+    }));
+
+    const input = buildInput({ consumePendingImport, getPendingImport, loadMeetingDetail });
+
+    const { result, rerender } = await renderHook(
+      (_props: Record<string, never>) => useMeetingDetailViewModel(input),
+      { initialProps: {} },
+    );
+
+    await act(async () => {
+      importResult.resolve({ kind: 'unsupported' });
+    });
+
+    await waitFor(() => expect(result.current.viewModel.kind).toBe('import-failed'));
+
+    expect(loadMeetingDetail).not.toHaveBeenCalled();
+    expect(consumePendingImport).not.toHaveBeenCalled();
+
+    // 목록이 이미 consume해 다음부터는 undefined를 주더라도 import-failed를 유지한다.
+    getPendingImport.mockReturnValue(undefined);
+
+    await rerender({});
+
+    expect(result.current.viewModel.kind).toBe('import-failed');
+    expect(loadMeetingDetail).not.toHaveBeenCalled();
+  });
+
+  it('T-R3: ready 상태에서 rename하면 renameMeeting·loadMeeting을 호출하고 title만 바뀌며 recording 참조는 유지된다', async () => {
+    const loadMeetingDetail = jest.fn(async () => buildReadyResult());
+    const renameMeeting = jest.fn(async () => {});
+    const loadMeeting = jest.fn(async () => ({ ...baseMeeting, title: '새 제목' }));
+
+    const input = buildInput({ loadMeeting, loadMeetingDetail, renameMeeting });
+
+    const { result } = await renderHook(() => useMeetingDetailViewModel(input));
+
+    await waitFor(() => expect(result.current.viewModel.kind).toBe('ready'));
+
+    const recordingBeforeRename = result.current.recording;
+
+    await act(async () => {
+      await result.current.rename('새 제목');
+    });
+
+    expect(renameMeeting).toHaveBeenCalledWith('meeting-1', '새 제목');
+    expect(loadMeeting).toHaveBeenCalledWith('meeting-1');
+    expect(result.current.viewModel).toMatchObject({ title: '새 제목' });
+    expect(result.current.recording).toBe(recordingBeforeRename);
+  });
+
+  it('rename이 MeetingNotFoundError로 실패하면 renameNotFound 문구로 reject하고 title은 바뀌지 않는다', async () => {
+    const loadMeetingDetail = jest.fn(async () => buildReadyResult());
+    const renameMeeting = jest.fn(async () => {
+      throw new MeetingNotFoundError('없음');
+    });
+    const loadMeeting = jest.fn();
+
+    const input = buildInput({ loadMeeting, loadMeetingDetail, renameMeeting });
+
+    const { result } = await renderHook(() => useMeetingDetailViewModel(input));
+
+    await waitFor(() => expect(result.current.viewModel.kind).toBe('ready'));
+
+    await expect(result.current.rename('새 제목')).rejects.toThrow('회의를 찾을 수 없습니다.');
+    expect(result.current.viewModel).toMatchObject({ title: '제품 회의' });
+  });
+
+  it('rename이 일반 오류로 실패하면 renameFailed 문구로 reject하고 title은 바뀌지 않는다', async () => {
+    const loadMeetingDetail = jest.fn(async () => buildReadyResult());
+    const renameMeeting = jest.fn(async () => {
+      throw new Error('DB 오류');
+    });
+    const loadMeeting = jest.fn();
+
+    const input = buildInput({ loadMeeting, loadMeetingDetail, renameMeeting });
+
+    const { result } = await renderHook(() => useMeetingDetailViewModel(input));
+
+    await waitFor(() => expect(result.current.viewModel.kind).toBe('ready'));
+
+    await expect(result.current.rename('새 제목')).rejects.toThrow('제목을 저장하지 못했습니다.');
+    expect(result.current.viewModel).toMatchObject({ title: '제품 회의' });
+  });
+
+  it('rename 뒤 loadMeeting이 null이면 renameNotFound 문구로 reject하고 title은 바뀌지 않는다', async () => {
+    const loadMeetingDetail = jest.fn(async () => buildReadyResult());
+    const renameMeeting = jest.fn(async () => {});
+    const loadMeeting = jest.fn(async () => null);
+
+    const input = buildInput({ loadMeeting, loadMeetingDetail, renameMeeting });
+
+    const { result } = await renderHook(() => useMeetingDetailViewModel(input));
+
+    await waitFor(() => expect(result.current.viewModel.kind).toBe('ready'));
+
+    await expect(result.current.rename('새 제목')).rejects.toThrow('회의를 찾을 수 없습니다.');
+    expect(result.current.viewModel).toMatchObject({ title: '제품 회의' });
   });
 });

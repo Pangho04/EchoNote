@@ -1,11 +1,12 @@
 import type { ReactElement } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { TranscriptList } from '@/entities/transcript';
 import { palette } from '@/shared/config/theme';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { AppText } from '@/shared/ui/app-text';
-import { createThemedStyles, useTheme } from '@/shared/ui/theme-provider';
+import { StatusRow } from '@/shared/ui/status-row';
+import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 import { toFailureMessage } from '../model/request-transcription';
 import type {
@@ -23,26 +24,6 @@ export interface TranscriptionPanelProps {
 type Banner = { title: string; details: readonly string[] };
 
 const BANNERS = UI_STRINGS.transcription.banner;
-
-function StatusRow({ label }: { label: string }): ReactElement {
-  const styles = useStyles();
-  const theme = useTheme();
-
-  return (
-    <View style={styles.statusRow}>
-      <AppText style={styles.statusLabel} variant="body">
-        {label}
-      </AppText>
-
-      <ActivityIndicator
-        accessibilityElementsHidden
-        color={theme.colors.accent}
-        importantForAccessibility="no-hide-descendants"
-        size="small"
-      />
-    </View>
-  );
-}
 
 function FailureBox({ title, details }: Banner): ReactElement {
   const styles = useStyles();
@@ -235,15 +216,6 @@ const useStyles = createThemedStyles((theme) =>
     },
     body: {
       gap: theme.spacing[2],
-    },
-    statusRow: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      gap: theme.spacing[2],
-    },
-    statusLabel: {
-      fontSize: 15,
-      fontWeight: theme.typography.fontWeight.semibold,
     },
     track: {
       backgroundColor: theme.colors.border,

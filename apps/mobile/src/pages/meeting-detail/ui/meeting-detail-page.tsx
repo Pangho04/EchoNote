@@ -1,18 +1,24 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { type ReactElement, useCallback, useEffect, useMemo } from 'react';
+import { type ReactElement, useCallback, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { pendingImports } from '@/features/record-meeting';
 import { ROUTES } from '@/shared/config/routes';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { useDialog } from '@/shared/ui/dialog';
 import { NavigationHeader } from '@/shared/ui/navigation-header';
+import { StatusRow } from '@/shared/ui/status-row';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
-import { createMeetingDetailLoader } from '../model/create-meeting-detail-loader';
+import {
+  createMeetingDetailLoader,
+  createMeetingTitleCommands,
+} from '../model/create-meeting-detail-loader';
 import { useMeetingDetailViewModel } from '../model/use-meeting-detail-view-model';
 import { MeetingDetailContent } from './meeting-detail-content';
+import { MeetingDetailHeader } from './meeting-detail-header';
 
 export interface MeetingDetailPageProps {
   meetingId: string;
@@ -29,12 +35,19 @@ export function MeetingDetailPage({
   const { openDialog } = useDialog();
 
   const loadMeetingDetail = useMemo(() => createMeetingDetailLoader(database), [database]);
+  const titleCommands = useMemo(() => createMeetingTitleCommands(database), [database]);
   const timeZone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
-  const { viewModel, recording } = useMeetingDetailViewModel({
+  const { viewModel, recording, rename } = useMeetingDetailViewModel({
     meetingId,
     timeZone,
     loadMeetingDetail,
+    getPendingImport: pendingImports.get,
+    consumePendingImport: pendingImports.consume,
+    loadMeeting: titleCommands.loadMeeting,
+    renameMeeting: titleCommands.renameMeeting,
   });
+  // import-failed는 다시 렌더돼도 유지되므로 목록으로 한 번만 돌아간다.
+  const hasLeftAfterImportFailure = useRef(false);
 
   // deep link로 바로 들어오면 되돌아갈 화면이 없다.
   const leave = useCallback(() => {
@@ -53,14 +66,30 @@ export function MeetingDetailPage({
    * @clear -
    */
   useEffect(() => {
-    if (viewModel.kind === 'loading' || viewModel.kind === 'ready') return;
+    switch (viewModel.kind) {
+      case 'loading':
+      case 'importing':
+      case 'ready':
+        return;
 
-    openDialog({
-      title: UI_STRINGS.meetingDetail.openFailedTitle,
-      message: viewModel.message,
-      actions: [{ label: UI_STRINGS.common.confirm, emphasis: 'primary', onPress: leave }],
-      onDismiss: leave,
-    });
+      case 'import-failed':
+        if (hasLeftAfterImportFailure.current) return;
+
+        hasLeftAfterImportFailure.current = true;
+        leave();
+
+        return;
+
+      case 'not-found':
+      case 'recording-missing':
+      case 'error':
+        openDialog({
+          title: UI_STRINGS.meetingDetail.openFailedTitle,
+          message: viewModel.message,
+          actions: [{ label: UI_STRINGS.common.confirm, emphasis: 'primary', onPress: leave }],
+          onDismiss: leave,
+        });
+    }
   }, [leave, openDialog, viewModel]);
 
   // 컴포넌트가 아니라 함수로 호출한다. 요소 타입이 유지되어야 상태가 보존된다.
@@ -73,14 +102,32 @@ export function MeetingDetailPage({
           <MeetingDetailContent
             autoRequest={autoRequest}
             recording={recording}
+            rename={rename}
             viewModel={viewModel}
           />
         );
 
-      // 이 셋은 팝업이 안내를 맡는다. 본문에는 아무것도 그리지 않는다.
+      // rename을 넘기지 않아 연필이 비활성된다.
+      case 'importing':
+        return (
+          <>
+            <MeetingDetailHeader
+              dateLabel={viewModel.dateLabel}
+              metaLabel={UI_STRINGS.meetingDetail.importingMeta}
+              title={viewModel.title}
+            />
+
+            <View style={styles.importingBody}>
+              <StatusRow label={UI_STRINGS.meetingDetail.uploading} />
+            </View>
+          </>
+        );
+
+      // 팝업이나 목록 복귀가 안내를 맡는다. 본문에는 아무것도 그리지 않는다.
       case 'not-found':
       case 'recording-missing':
       case 'error':
+      case 'import-failed':
       case 'loading':
         return <View style={styles.body} />;
     }
@@ -110,6 +157,11 @@ const useStyles = createThemedStyles((theme) =>
     },
     body: {
       flex: 1,
+    },
+    // 텍스트 변환 패널의 상태 행과 같은 자리에 둔다.
+    importingBody: {
+      paddingHorizontal: theme.spacing[5],
+      paddingTop: theme.spacing[6],
     },
   }),
 );

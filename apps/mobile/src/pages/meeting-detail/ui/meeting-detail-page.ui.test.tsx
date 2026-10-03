@@ -4,6 +4,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 
 import type { Recording } from '@/entities/recording';
 import { RecordingPlayer, useRecordingPlayback } from '@/features/play-recording';
+import { pendingImports } from '@/features/record-meeting';
 import {
   createTranscriptionDeps,
   TranscriptionPanel,
@@ -12,7 +13,10 @@ import {
 import { DialogProvider } from '@/shared/ui/dialog';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
-import { createMeetingDetailLoader } from '../model/create-meeting-detail-loader';
+import {
+  createMeetingDetailLoader,
+  createMeetingTitleCommands,
+} from '../model/create-meeting-detail-loader';
 import {
   type MeetingDetailViewModel,
   useMeetingDetailViewModel,
@@ -44,16 +48,24 @@ jest.mock('@/shared/api/gateway-client', () => ({
 }));
 jest.mock('../model/create-meeting-detail-loader', () => ({
   createMeetingDetailLoader: jest.fn(),
+  createMeetingTitleCommands: jest.fn(),
 }));
 jest.mock('../model/use-meeting-detail-view-model', () => ({
   useMeetingDetailViewModel: jest.fn(),
+}));
+// pendingImports는 싱글턴 객체라 느슨하게 mock해 page가 전달하는 메서드만 대체한다.
+jest.mock('@/features/record-meeting', () => ({
+  pendingImports: { consume: jest.fn(), get: jest.fn(() => undefined) },
 }));
 
 const mockedUseSQLiteContext = jest.mocked(useSQLiteContext);
 const mockedUseRouter = jest.mocked(useRouter);
 const mockedCreateMeetingDetailLoader = jest.mocked(createMeetingDetailLoader);
+const mockedCreateMeetingTitleCommands = jest.mocked(createMeetingTitleCommands);
 const mockedUseMeetingDetailViewModel = jest.mocked(useMeetingDetailViewModel);
 const mockedLoad = jest.fn();
+const mockedLoadMeeting = jest.fn();
+const mockedRenameMeetingCommand = jest.fn();
 const database = {} as ReturnType<typeof useSQLiteContext>;
 const gateway = {};
 const transcriptionDeps = {} as ReturnType<typeof createTranscriptionDeps>;
@@ -74,6 +86,8 @@ const recording: Recording = {
   byteSize: 1_000,
 };
 
+const mockedRename = jest.fn(async () => {});
+
 const readyState = {
   viewModel: {
     kind: 'ready',
@@ -82,6 +96,7 @@ const readyState = {
     durationLabel: '12분',
   },
   recording,
+  rename: mockedRename,
 } as const;
 
 function pageElement(autoRequest = false) {
@@ -109,6 +124,11 @@ describe('MeetingDetailPage', () => {
       replace: mockedReplace,
     } as unknown as ReturnType<typeof useRouter>);
     mockedCreateMeetingDetailLoader.mockReturnValue(mockedLoad);
+    mockedCreateMeetingTitleCommands.mockReturnValue({
+      loadMeeting: mockedLoadMeeting,
+      renameMeeting: mockedRenameMeetingCommand,
+    });
+    jest.mocked(pendingImports.get).mockReturnValue(undefined);
     // 뒤로 갈 화면이 없는 deep link 진입을 기본값으로 둔다. back 경로는 개별 케이스가 켠다.
     mockedCanGoBack.mockReturnValue(false);
     jest.mocked(createTranscriptionDeps).mockReturnValue(transcriptionDeps);
@@ -166,6 +186,7 @@ describe('MeetingDetailPage', () => {
     mockedUseMeetingDetailViewModel.mockReturnValue({
       viewModel: { kind, message } as MeetingDetailViewModel,
       recording: null,
+      rename: mockedRename,
     });
 
     const { getByText } = await renderPage();
@@ -198,5 +219,73 @@ describe('MeetingDetailPage', () => {
 
     expect(mockedReplace).toHaveBeenCalledWith('/');
     expect(mockedReplace).toHaveBeenCalledTimes(1);
+  });
+
+  it('T-D2: importing이면 업로드 중 문구와 가져오기 메타·제목을 보여주고 재생기·텍스트 변환 훅을 호출하지 않는다', async () => {
+    mockedUseMeetingDetailViewModel.mockReturnValue({
+      viewModel: {
+        kind: 'importing',
+        title: '가져온 회의',
+        dateLabel: '2026년 10월 3일 · 오전 9:00',
+      },
+      recording: null,
+      rename: mockedRename,
+    });
+
+    const { getByText } = await renderPage();
+
+    expect(getByText('가져온 회의')).toBeTruthy();
+    expect(getByText('업로드 중')).toBeTruthy();
+    expect(getByText('녹음 파일 가져오는 중')).toBeTruthy();
+    expect(useRecordingPlayback).not.toHaveBeenCalled();
+    expect(useTranscription).not.toHaveBeenCalled();
+  });
+
+  it('T-D5: importing이면 제목 수정 연필이 disabled고, ready면 enabled다', async () => {
+    mockedUseMeetingDetailViewModel.mockReturnValue({
+      viewModel: {
+        kind: 'importing',
+        title: '가져온 회의',
+        dateLabel: '2026년 10월 3일 · 오전 9:00',
+      },
+      recording: null,
+      rename: mockedRename,
+    });
+
+    const importing = await renderPage();
+
+    expect(importing.getByLabelText('회의 제목 수정').props.accessibilityState.disabled).toBe(true);
+
+    mockedUseMeetingDetailViewModel.mockReturnValue(readyState);
+
+    const ready = await renderPage();
+
+    expect(ready.getByLabelText('회의 제목 수정').props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('T-D4: import-failed면 팝업 없이 목록으로 한 번만 돌아간다', async () => {
+    mockedUseMeetingDetailViewModel.mockReturnValue({
+      viewModel: { kind: 'import-failed' },
+      recording: null,
+      rename: mockedRename,
+    });
+
+    const { queryByText, rerender } = await renderPage();
+
+    expect(queryByText('회의를 열 수 없습니다')).toBeNull();
+    expect(mockedReplace).toHaveBeenCalledWith('/');
+    expect(mockedReplace).toHaveBeenCalledTimes(1);
+
+    await rerender(pageElement());
+
+    expect(mockedReplace).toHaveBeenCalledTimes(1);
+  });
+
+  it('T-I7b: ready면 autoRequest를 텍스트 변환 훅에 그대로 넘긴다', async () => {
+    mockedUseMeetingDetailViewModel.mockReturnValue(readyState);
+
+    await renderPage(true);
+
+    expect(useTranscription).toHaveBeenLastCalledWith(transcriptionDeps, recording, true);
   });
 });

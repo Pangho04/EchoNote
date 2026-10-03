@@ -18,6 +18,7 @@ export interface MeetingDetailContentProps {
   viewModel: Extract<MeetingDetailViewModel, { kind: 'ready' }>;
   recording: Recording;
   autoRequest: boolean;
+  rename: (title: string) => Promise<void>;
 }
 
 // page가 ready일 때만 마운트한다. 재생·텍스트 변환 훅을 조건 없이 호출하기 위해서다.
@@ -25,6 +26,7 @@ export function MeetingDetailContent({
   viewModel,
   recording,
   autoRequest,
+  rename,
 }: MeetingDetailContentProps): ReactElement {
   const database = useSQLiteContext();
   const gateway = useGatewayClient();
@@ -38,6 +40,7 @@ export function MeetingDetailContent({
       <MeetingDetailHeader
         dateLabel={viewModel.dateLabel}
         metaLabel={toDetailMetaLabel(viewModel.durationLabel, transcription.panel)}
+        rename={rename}
         title={viewModel.title}
       />
 

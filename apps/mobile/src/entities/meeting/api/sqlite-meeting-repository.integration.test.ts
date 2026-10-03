@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { migrateDatabase } from '@/shared/platform/database/migrate-database';
 
 import { MeetingStatus } from '../model/meeting';
+import { MeetingNotFoundError } from '../model/meeting-repository';
 import { createSQLiteMeetingRepository } from './sqlite-meeting-repository';
 
 type SQLiteValue = string | number | null;
@@ -167,5 +168,51 @@ describe('SQLiteMeetingRepository integration', () => {
       created_at_ms: Date.parse(originalParams.createdAt),
       updated_at_ms: Date.parse(originalParams.createdAt),
     });
+  });
+
+  it('rename은 title과 updated_at_ms를 바꾸고 created_at_ms는 그대로 둔다', async () => {
+    const database = new DatabaseSync(':memory:');
+    databases.push(database);
+    const adapter = createSQLiteAdapter(database);
+    await migrateDatabase(adapter);
+    const repository = createSQLiteMeetingRepository(adapter);
+
+    await repository.create({
+      meetingId: 'meeting-1',
+      title: '제품 회의',
+      createdAt: '2026-08-08T00:11:00.000Z',
+    });
+    await repository.rename({
+      meetingId: 'meeting-1',
+      title: '바뀐 제목',
+      updatedAt: '2026-08-09T00:00:00.000Z',
+    });
+
+    const storedRow = database
+      .prepare('SELECT id, title, created_at_ms, updated_at_ms FROM meetings WHERE id = ?')
+      .get('meeting-1');
+
+    expect(storedRow).toEqual({
+      id: 'meeting-1',
+      title: '바뀐 제목',
+      created_at_ms: Date.parse('2026-08-08T00:11:00.000Z'),
+      updated_at_ms: Date.parse('2026-08-09T00:00:00.000Z'),
+    });
+  });
+
+  it('rename은 존재하지 않는 meetingId면 MeetingNotFoundError를 던진다', async () => {
+    const database = new DatabaseSync(':memory:');
+    databases.push(database);
+    const adapter = createSQLiteAdapter(database);
+    await migrateDatabase(adapter);
+    const repository = createSQLiteMeetingRepository(adapter);
+
+    await expect(
+      repository.rename({
+        meetingId: 'missing',
+        title: '새 제목',
+        updatedAt: '2026-08-09T00:00:00.000Z',
+      }),
+    ).rejects.toThrow(MeetingNotFoundError);
   });
 });

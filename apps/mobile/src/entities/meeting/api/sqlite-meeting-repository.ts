@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { type Meeting, MeetingStatus } from '../model/meeting';
-import type { MeetingRepository } from '../model/meeting-repository';
+import { MeetingNotFoundError, type MeetingRepository } from '../model/meeting-repository';
 
 // SQLite SELECT 결과 한 행의 실제 모양이다.
 // 이 type은 adapter 밖으로 export하지 않는다.
@@ -116,6 +116,21 @@ export function createSQLiteMeetingRepository(database: SQLiteDatabase): Meeting
       );
 
       return row ? toMeeting(row) : null;
+    },
+
+    async rename(params) {
+      const updatedAtMs = toEpochMs(params.updatedAt, 'updatedAt');
+
+      const result = await database.runAsync(
+        `UPDATE meetings SET title = ?, updated_at_ms = ? WHERE id = ?`,
+        params.title,
+        updatedAtMs,
+        params.meetingId,
+      );
+
+      if (result.changes === 0) {
+        throw new MeetingNotFoundError(`회의를 찾을 수 없습니다: ${params.meetingId}`);
+      }
     },
 
     async list(query) {

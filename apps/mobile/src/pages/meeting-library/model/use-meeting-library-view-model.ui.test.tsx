@@ -1,11 +1,14 @@
+import { MAX_UPLOAD_BYTES } from '@echonote/contracts';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { createSQLiteMeetingRepository, toMeetingListItemVM } from '@/entities/meeting';
+import type { Recording } from '@/entities/recording';
 import { useSession } from '@/features/authenticate';
 import { makeListMeetings } from '@/features/list-meetings';
-import type { RecordingPermissionService } from '@/features/record-meeting';
-import { startRecording } from '@/features/record-meeting';
+import type { RecordingImportService, RecordingPermissionService } from '@/features/record-meeting';
+import { importRecording, pendingImports, startRecording } from '@/features/record-meeting';
+import { UI_STRINGS } from '@/shared/config/ui-strings';
 
 // 배럴을 jest.mock으로 갈아끼웠으므로 실제 MeetingStatus는 model 모듈에서 직접 가져온다.
 import { type Meeting, MeetingStatus } from '../../../entities/meeting/model/meeting';
@@ -20,12 +23,29 @@ jest.mock('@/features/authenticate', () => ({
 jest.mock('@/entities/meeting', () => ({
   createSQLiteMeetingRepository: jest.fn(),
   toMeetingListItemVM: jest.fn(),
+  nomalizeMeetingTitle: jest.fn(() => '새 녹음'),
 }));
 jest.mock('@/features/list-meetings', () => ({
   makeListMeetings: jest.fn(),
 }));
-jest.mock('@/features/record-meeting', () => ({
-  startRecording: jest.fn(),
+jest.mock('@/features/record-meeting', () => {
+  const actual = jest.requireActual('@/features/record-meeting');
+
+  return {
+    startRecording: jest.fn(),
+    importRecording: jest.fn(),
+    isAllowedRecordingMimeType: jest.fn(() => true),
+    pendingImports: actual.pendingImports,
+  };
+});
+jest.mock('@/features/record-meeting/api/recording-file-service.native', () => ({
+  createNativeRecordingFileService: jest.fn(() => ({
+    exists: jest.fn(),
+    inspect: jest.fn(),
+    move: jest.fn(),
+    delete: jest.fn(),
+  })),
+  createFinalRecordingUri: jest.fn(() => 'file:///final.m4a'),
 }));
 
 const mockedUseSQLiteContext = jest.mocked(useSQLiteContext);
@@ -34,6 +54,7 @@ const mockedCreateRepository = jest.mocked(createSQLiteMeetingRepository);
 const mockedToMeetingListItemVM = jest.mocked(toMeetingListItemVM);
 const mockedMakeListMeetings = jest.mocked(makeListMeetings);
 const mockedStartRecording = jest.mocked(startRecording);
+const mockedImportRecording = jest.mocked(importRecording);
 
 const permissionService: RecordingPermissionService = {
   get: jest.fn(),
@@ -41,6 +62,15 @@ const permissionService: RecordingPermissionService = {
   openSettings: jest.fn(),
   requestBackgroundRecording: jest.fn(),
 };
+
+function createImportService(): jest.Mocked<RecordingImportService> {
+  return {
+    pickRecording: jest.fn(),
+    copyToCache: jest.fn(),
+    readHeaderBytes: jest.fn(),
+    readDurationMs: jest.fn(),
+  };
+}
 
 function setupMeetings(meeting: Meeting | null) {
   const listMeetings = jest.fn(async () => ({
@@ -53,11 +83,17 @@ function setupMeetings(meeting: Meeting | null) {
   mockedCreateRepository.mockReturnValue({
     create: jest.fn(),
     getByMeetingId: jest.fn(),
+    rename: jest.fn(),
     list: listMeetings,
   });
   mockedMakeListMeetings.mockReturnValue(listMeetings);
 
   return listMeetings;
+}
+
+// pendingImports는 모듈 singleton이라 테스트가 남긴 항목을 다음 테스트가 보지 않도록 끝에 치운다.
+function consumeAllPendingImports() {
+  for (const failure of pendingImports.failures()) pendingImports.consume(failure.meetingId);
 }
 
 describe('useMeetingLibraryViewModel', () => {
@@ -70,12 +106,16 @@ describe('useMeetingLibraryViewModel', () => {
     } as unknown as ReturnType<typeof useSession>);
   });
 
+  afterEach(() => {
+    consumeAllPendingImports();
+  });
+
   it('granted 결과를 그대로 반환한다', async () => {
     setupMeetings(null);
     mockedStartRecording.mockResolvedValue({ kind: 'granted', meetingId: 'meeting-id' });
 
     const { result } = await renderHook(() =>
-      useMeetingLibraryViewModel(permissionService, () => 'm1'),
+      useMeetingLibraryViewModel(permissionService, () => 'm1', createImportService(), true),
     );
 
     let outcome: Awaited<ReturnType<typeof result.current.confirmRecordingTitle>> | undefined;
@@ -97,7 +137,7 @@ describe('useMeetingLibraryViewModel', () => {
     mockedStartRecording.mockResolvedValue({ kind });
 
     const { result } = await renderHook(() =>
-      useMeetingLibraryViewModel(permissionService, () => 'm1'),
+      useMeetingLibraryViewModel(permissionService, () => 'm1', createImportService(), true),
     );
 
     let outcome: Awaited<ReturnType<typeof result.current.confirmRecordingTitle>> | undefined;
@@ -130,7 +170,7 @@ describe('useMeetingLibraryViewModel', () => {
     });
 
     const { result } = await renderHook(() =>
-      useMeetingLibraryViewModel(permissionService, () => 'm1'),
+      useMeetingLibraryViewModel(permissionService, () => 'm1', createImportService(), true),
     );
 
     await act(async () => {
@@ -140,6 +180,7 @@ describe('useMeetingLibraryViewModel', () => {
     await waitFor(() => expect(result.current.items).toHaveLength(1));
     expect(listMeetings).toHaveBeenCalledTimes(1);
   });
+
   it('조회가 실패하면 원인 문구 대신 고정 안내를 남기고 clearErrorMessage로 지운다', async () => {
     setupMeetings(null);
     mockedMakeListMeetings.mockReturnValue(
@@ -149,7 +190,7 @@ describe('useMeetingLibraryViewModel', () => {
     );
 
     const { result } = await renderHook(() =>
-      useMeetingLibraryViewModel(permissionService, () => 'm1'),
+      useMeetingLibraryViewModel(permissionService, () => 'm1', createImportService(), true),
     );
 
     await act(async () => {
@@ -165,5 +206,258 @@ describe('useMeetingLibraryViewModel', () => {
     });
 
     expect(result.current.errorMessage).toBeNull();
+  });
+
+  describe('pickAndImport', () => {
+    it('picker에서 취소하면 canceled를 반환하고 가져오기를 시작하지 않는다', async () => {
+      setupMeetings(null);
+
+      const importService = createImportService();
+      importService.pickRecording.mockResolvedValue(null);
+
+      const { result } = await renderHook(() =>
+        useMeetingLibraryViewModel(permissionService, () => 'm1', importService, true),
+      );
+
+      let outcome: Awaited<ReturnType<typeof result.current.pickAndImport>> | undefined;
+
+      await act(async () => {
+        outcome = await result.current.pickAndImport();
+      });
+
+      expect(outcome).toEqual({ kind: 'canceled' });
+      expect(mockedImportRecording).not.toHaveBeenCalled();
+      expect(pendingImports.failures()).toHaveLength(0);
+    });
+
+    it('512MB를 넘으면 tooLarge를 반환하고 가져오기를 시작하지 않는다', async () => {
+      setupMeetings(null);
+
+      const importService = createImportService();
+      importService.pickRecording.mockResolvedValue({
+        uri: 'file:///big.m4a',
+        size: MAX_UPLOAD_BYTES + 1,
+      });
+
+      const { result } = await renderHook(() =>
+        useMeetingLibraryViewModel(permissionService, () => 'm1', importService, true),
+      );
+
+      let outcome: Awaited<ReturnType<typeof result.current.pickAndImport>> | undefined;
+
+      await act(async () => {
+        outcome = await result.current.pickAndImport();
+      });
+
+      expect(outcome).toEqual({ kind: 'tooLarge' });
+      expect(mockedImportRecording).not.toHaveBeenCalled();
+    });
+
+    it('picker가 reject되면 failed를 반환하고 isImporting을 되돌린다', async () => {
+      setupMeetings(null);
+
+      const importService = createImportService();
+      importService.pickRecording.mockRejectedValue(new Error('picker crashed'));
+
+      const { result } = await renderHook(() =>
+        useMeetingLibraryViewModel(permissionService, () => 'm1', importService, true),
+      );
+
+      let outcome: Awaited<ReturnType<typeof result.current.pickAndImport>> | undefined;
+
+      await act(async () => {
+        outcome = await result.current.pickAndImport();
+      });
+
+      expect(outcome).toEqual({ kind: 'failed' });
+      expect(result.current.isImporting).toBe(false);
+    });
+
+    it('크기가 괜찮으면 started를 반환하고 가져오기를 pendingImports에 등록한다', async () => {
+      setupMeetings(null);
+
+      const importService = createImportService();
+      importService.pickRecording.mockResolvedValue({ uri: 'file:///a.m4a', size: 100 });
+      mockedImportRecording.mockResolvedValue({
+        kind: 'saved',
+        recording: {} as unknown as Recording,
+      });
+
+      const { result } = await renderHook(() =>
+        useMeetingLibraryViewModel(permissionService, () => 'started-meeting', importService, true),
+      );
+
+      let outcome: Awaited<ReturnType<typeof result.current.pickAndImport>> | undefined;
+
+      await act(async () => {
+        outcome = await result.current.pickAndImport();
+      });
+
+      expect(outcome).toEqual({ kind: 'started', meetingId: 'started-meeting' });
+
+      await waitFor(() => expect(mockedImportRecording).toHaveBeenCalledTimes(1));
+    });
+
+    it('가져오는 동안 다시 호출하면 canceled를 반환해 겹치지 않게 막는다', async () => {
+      setupMeetings(null);
+
+      const importService = createImportService();
+      let resolvePick: (value: { uri: string; size: number } | null) => void = () => {};
+      importService.pickRecording.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolvePick = resolve;
+          }),
+      );
+
+      const { result } = await renderHook(() =>
+        useMeetingLibraryViewModel(permissionService, () => 'm1', importService, true),
+      );
+
+      let firstCall: Promise<Awaited<ReturnType<typeof result.current.pickAndImport>>>;
+
+      await act(async () => {
+        firstCall = result.current.pickAndImport();
+      });
+
+      await waitFor(() => expect(result.current.isImporting).toBe(true));
+
+      const secondOutcome = await act(async () => result.current.pickAndImport());
+
+      expect(secondOutcome).toEqual({ kind: 'canceled' });
+
+      await act(async () => {
+        resolvePick(null);
+        await firstCall;
+      });
+    });
+  });
+
+  describe('importFailure', () => {
+    it.each([
+      ['tooLarge', UI_STRINGS.meetingLibrary.uploadTooLarge],
+      ['unsupported', UI_STRINGS.meetingLibrary.uploadUnsupported],
+      ['unreadable', UI_STRINGS.meetingLibrary.uploadUnreadable],
+      ['failed', UI_STRINGS.meetingLibrary.uploadFailed],
+    ] as const)('%s 실패는 "%s" 문구로 알린다', async (kind, reason) => {
+      setupMeetings(null);
+
+      pendingImports.start('failure-meeting', {
+        title: '실패한 회의',
+        createdAt: '2026-08-08T00:10:00.000Z',
+        importRecording: async () => ({ kind }),
+      });
+
+      await waitFor(() => expect(pendingImports.failures()).toHaveLength(1));
+
+      const { result } = await renderHook(() =>
+        useMeetingLibraryViewModel(permissionService, () => 'm1', createImportService(), true),
+      );
+
+      await waitFor(() =>
+        expect(result.current.importFailure).toEqual({
+          meetingId: 'failure-meeting',
+          message: `실패한 회의\n${reason}`,
+        }),
+      );
+    });
+
+    it('포커스를 잃은 동안은 실패를 알리지 않고 복귀하면 알린다', async () => {
+      setupMeetings(null);
+
+      pendingImports.start('focus-meeting', {
+        title: '포커스 회의',
+        createdAt: '2026-08-08T00:10:00.000Z',
+        importRecording: async () => ({ kind: 'failed' }),
+      });
+
+      await waitFor(() => expect(pendingImports.failures()).toHaveLength(1));
+
+      const { result, rerender } = await renderHook(
+        ({ isFocused }: { isFocused: boolean }) =>
+          useMeetingLibraryViewModel(
+            permissionService,
+            () => 'm1',
+            createImportService(),
+            isFocused,
+          ),
+        { initialProps: { isFocused: false } },
+      );
+
+      expect(result.current.importFailure).toBeNull();
+
+      rerender({ isFocused: true });
+
+      await waitFor(() =>
+        expect(result.current.importFailure).toEqual({
+          meetingId: 'focus-meeting',
+          message: `포커스 회의\n${UI_STRINGS.meetingLibrary.uploadFailed}`,
+        }),
+      );
+    });
+  });
+
+  it('T-I8: 포커스 중일 때만 가져오기 settle에 맞춰 목록을 다시 읽는다', async () => {
+    const listMeetings = setupMeetings(null);
+
+    const { result, rerender } = await renderHook(
+      ({ isFocused }: { isFocused: boolean }) =>
+        useMeetingLibraryViewModel(permissionService, () => 'm1', createImportService(), isFocused),
+      { initialProps: { isFocused: false } },
+    );
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    listMeetings.mockClear();
+
+    pendingImports.start('unfocused-meeting', {
+      title: '포커스 밖 회의',
+      createdAt: '2026-08-08T00:10:00.000Z',
+      importRecording: async () => ({ kind: 'failed' }),
+    });
+
+    await waitFor(() => expect(pendingImports.failures()).toHaveLength(1));
+    expect(listMeetings).not.toHaveBeenCalled();
+
+    rerender({ isFocused: true });
+
+    pendingImports.consume('unfocused-meeting');
+
+    pendingImports.start('focused-meeting', {
+      title: '포커스 중 회의',
+      createdAt: '2026-08-08T00:10:00.000Z',
+      importRecording: async () => ({ kind: 'failed' }),
+    });
+
+    await waitFor(() => expect(listMeetings).toHaveBeenCalled());
+  });
+
+  describe('dismissImportFailure', () => {
+    it('치우면 pendingImports에서 지우고 다음 실패로 넘어간다', async () => {
+      setupMeetings(null);
+
+      pendingImports.start('first-meeting', {
+        title: '첫 실패',
+        createdAt: '2026-08-08T00:10:00.000Z',
+        importRecording: async () => ({ kind: 'failed' }),
+      });
+
+      await waitFor(() => expect(pendingImports.failures()).toHaveLength(1));
+
+      const { result } = await renderHook(() =>
+        useMeetingLibraryViewModel(permissionService, () => 'm1', createImportService(), true),
+      );
+
+      await waitFor(() => expect(result.current.importFailure?.meetingId).toBe('first-meeting'));
+
+      await act(async () => {
+        result.current.dismissImportFailure('first-meeting');
+      });
+
+      expect(pendingImports.failures()).toHaveLength(0);
+      await waitFor(() => expect(result.current.importFailure).toBeNull());
+    });
   });
 });
