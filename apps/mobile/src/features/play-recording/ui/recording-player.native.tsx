@@ -1,17 +1,13 @@
 import type { ReactElement } from 'react';
 
-import { useAudioPlayback } from '../api/use-audio-playback.native';
-import { usePlaybackSession } from '../model/use-playback-session';
+import type { PlaybackSessionViewModel } from '../model/use-playback-session';
 import { PlaybackControls } from './playback-controls';
 
 export interface RecordingPlayerProps {
-  uri: string;
+  viewModel: PlaybackSessionViewModel;
 }
 
-// saved final URI만 받아 native player와 controls를 잇는다. 원본 파일은 읽기만 한다.
-export function RecordingPlayer({ uri }: RecordingPlayerProps): ReactElement {
-  const viewModel = usePlaybackSession(useAudioPlayback(uri));
-
+export function RecordingPlayer({ viewModel }: RecordingPlayerProps): ReactElement {
   return (
     <PlaybackControls
       canPause={viewModel.canPause}

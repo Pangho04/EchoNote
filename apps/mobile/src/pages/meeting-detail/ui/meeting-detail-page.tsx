@@ -4,7 +4,6 @@ import { type ReactElement, useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { RecordingPlayer } from '@/features/play-recording';
 import { ROUTES } from '@/shared/config/routes';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { useDialog } from '@/shared/ui/dialog';
@@ -13,13 +12,17 @@ import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 import { createMeetingDetailLoader } from '../model/create-meeting-detail-loader';
 import { useMeetingDetailViewModel } from '../model/use-meeting-detail-view-model';
-import { MeetingDetailHeader } from './meeting-detail-header';
+import { MeetingDetailContent } from './meeting-detail-content';
 
 export interface MeetingDetailPageProps {
   meetingId: string;
+  autoRequest: boolean;
 }
 
-export function MeetingDetailPage({ meetingId }: MeetingDetailPageProps): ReactElement {
+export function MeetingDetailPage({
+  meetingId,
+  autoRequest,
+}: MeetingDetailPageProps): ReactElement {
   const database = useSQLiteContext();
   const router = useRouter();
   const styles = useStyles();
@@ -27,7 +30,11 @@ export function MeetingDetailPage({ meetingId }: MeetingDetailPageProps): ReactE
 
   const loadMeetingDetail = useMemo(() => createMeetingDetailLoader(database), [database]);
   const timeZone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
-  const viewModel = useMeetingDetailViewModel({ meetingId, timeZone, loadMeetingDetail });
+  const { viewModel, recording } = useMeetingDetailViewModel({
+    meetingId,
+    timeZone,
+    loadMeetingDetail,
+  });
 
   // deep link로 바로 들어오면 되돌아갈 화면이 없다.
   const leave = useCallback(() => {
@@ -60,16 +67,14 @@ export function MeetingDetailPage({ meetingId }: MeetingDetailPageProps): ReactE
   function renderBody(): ReactElement {
     switch (viewModel.kind) {
       case 'ready':
-        return (
-          <>
-            <MeetingDetailHeader
-              dateLabel={viewModel.dateLabel}
-              metaLabel={viewModel.metaLabel}
-              title={viewModel.title}
-            />
+        if (recording === null) return <View style={styles.body} />;
 
-            <RecordingPlayer uri={viewModel.recordingUri} />
-          </>
+        return (
+          <MeetingDetailContent
+            autoRequest={autoRequest}
+            recording={recording}
+            viewModel={viewModel}
+          />
         );
 
       // 이 셋은 팝업이 안내를 맡는다. 본문에는 아무것도 그리지 않는다.

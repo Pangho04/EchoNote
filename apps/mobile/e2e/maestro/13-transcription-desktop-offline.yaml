@@ -1,0 +1,44 @@
+appId: dev.pangho.echonote
+name: 데스크탑이 꺼져 있으면 깨우기 팝업 뒤 연결 실패 상자가 남는다
+env:
+  TITLE: 'E2E 깨우기'
+---
+# Windows Worker가 꺼져 있거나 응답하지 않는 상태를 전제한다.
+- runFlow: ../subflows/start-at-list.yaml
+- runFlow: ../subflows/create-recording.yaml
+# 저장 뒤 상세로 바뀌고 자동 요청이 시작된다. 연결 확인은 5초 timeout이다.
+- extendedWaitUntil:
+    visible: '다시 확인'
+    timeout: 30000
+- assertVisible: '데스크탑에 연결할 수 없습니다'
+- tapOn: '취소'
+# 팝업을 닫아도 같은 제목의 상자와 [다시 요청]이 상세에 남는다.
+- extendedWaitUntil:
+    visible: '다시 요청'
+    timeout: 10000
+- assertVisible: '데스크탑에 연결할 수 없습니다'
+- assertVisible: '.*PC가 켜져 있는지 확인해 주세요.*'
+- assertNotVisible: '다시 확인'
+# [다시 요청]도 꺼진 데스크탑에서는 같은 팝업으로 끝난다.
+- tapOn: '다시 요청'
+- extendedWaitUntil:
+    visible: '다시 확인'
+    timeout: 30000
+- tapOn: '취소'
+- extendedWaitUntil:
+    visible: '다시 요청'
+    timeout: 10000
+# 녹음 화면은 상세로 바뀌었으므로 뒤로가기는 목록이다. Android는 기기 뒤로가기, iOS는 헤더 버튼이다.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: '회의 목록으로 이동'
+- extendedWaitUntil:
+    visible: '새 회의 녹음'
+    timeout: 10000

@@ -20,7 +20,7 @@ import { createUploadGrantVerifier } from './uploads/upload-grant-verifier.js';
 // Tailscale Serve만 이 포트에 접근한다. tailnet이나 외부 주소에 직접 bind하지 않는다.
 const HOST = '127.0.0.1';
 
-const { dataDir, dockerPath, gatewayOrigin, port, uploadGrantSecret, workerApiToken } =
+const { concurrency, dataDir, dockerPath, gatewayOrigin, port, uploadGrantSecret, workerApiToken } =
   loadEnvironment();
 
 let nonceStore: NonceStore;
@@ -34,11 +34,21 @@ try {
   process.exit(1);
 }
 
+let runners: ReturnType<typeof startJobRunner>[] = [];
+const notifyUploadCompletion = createUploadCompletionClient({ gatewayOrigin, workerApiToken });
+
 const server = buildServer({
   dataDir,
   logger: true,
   nonceStore,
-  notifyUploadCompletion: createUploadCompletionClient({ gatewayOrigin, workerApiToken }),
+  // 업로드로 job이 생기면 idle 대기를 끊어 바로 claim하게 한다. job이 없는 runner는 idle을 받고 다시 기다린다.
+  notifyUploadCompletion: async (command) => {
+    const result = await notifyUploadCompletion(command);
+
+    for (const runner of runners) runner.wake();
+
+    return result;
+  },
   verifyGrant: createUploadGrantVerifier({ secret: uploadGrantSecret }),
 });
 
@@ -46,7 +56,6 @@ try {
   await server.listen({ host: HOST, port });
 
   const startup = new AbortController();
-  let runner: ReturnType<typeof startJobRunner> | undefined;
   let shuttingDown = false;
 
   // 진행 중 job과 요청이 끝난 뒤 server를 닫는다. 두 번째 이후 신호는 무시한다.
@@ -58,7 +67,7 @@ try {
 
     try {
       await starting;
-      await runner?.stop();
+      await Promise.all(runners.map(async (runner) => runner.stop()));
       await server.close();
       nonceStore.close();
     } catch (error) {
@@ -81,7 +90,7 @@ try {
 
       if (shuttingDown) return;
 
-      runner = startJobRunner({
+      const options = {
         client: createJobLeaseClient({ gatewayOrigin, workerApiToken }),
         logger: server.log,
         preventSleep: createSleepPreventer({ logger: server.log }),
@@ -90,7 +99,10 @@ try {
           logger: server.log,
           transcribe: createDockerTranscriber({ ...deps, imageId }),
         }),
-      });
+      };
+
+      // runner마다 job 하나를 처리한다. 업로드 수신 서버는 하나라 포트를 나누지 않는다.
+      runners = Array.from({ length: concurrency }, () => startJobRunner(options));
     } catch (error) {
       // 종료 신호로 멈춘 확인은 실패가 아니다.
       if (startup.signal.aborted) return;

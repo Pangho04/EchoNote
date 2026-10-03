@@ -36,11 +36,35 @@ function toEpochMs(value: string, field: string): number {
   return epochMs;
 }
 
-function toMeeting(row: MeetingRow): Meeting {
+// 목록 조회만 LEFT JOIN으로 마지막 텍스트 변환 status를 함께 읽는다. 행이 없으면 null이다.
+type MeetingListRow = MeetingRow & {
+  transcription_status: string | null;
+};
+
+function toMeetingStatus(value: string | null): MeetingStatus {
+  switch (value) {
+    case null:
+      return MeetingStatus.LocalOnly;
+    case 'created':
+      return MeetingStatus.Created;
+    case 'queued':
+      return MeetingStatus.Queued;
+    case 'processing':
+      return MeetingStatus.Processing;
+    case 'completed':
+      return MeetingStatus.Completed;
+    case 'failed':
+      return MeetingStatus.Failed;
+    default:
+      throw new RangeError(`올바르지 않은 텍스트 변환 status입니다: ${value}`);
+  }
+}
+
+function toMeeting(row: MeetingRow, status = MeetingStatus.LocalOnly): Meeting {
   return {
     id: row.id,
     title: row.title,
-    status: MeetingStatus.LocalOnly,
+    status,
     createdAt: toIsoTimestamp(row.created_at_ms, 'created_at_ms'),
     updatedAt: toIsoTimestamp(row.updated_at_ms, 'updated_at_ms'),
     durationMs: null,
@@ -98,9 +122,11 @@ export function createSQLiteMeetingRepository(database: SQLiteDatabase): Meeting
       const cursorCreatedAtMs = query.cursor?.createdAtMs ?? null;
       const cursorMeetingId = query.cursor?.meetingId ?? null;
 
-      const rows = await database.getAllAsync<MeetingRow>(
-        `SELECT id, title, created_at_ms, updated_at_ms
+      const rows = await database.getAllAsync<MeetingListRow>(
+        `SELECT id, title, created_at_ms, updated_at_ms,
+          meeting_transcriptions.status AS transcription_status
         FROM meetings
+        LEFT JOIN meeting_transcriptions ON meeting_transcriptions.meeting_id = meetings.id
         WHERE created_at_ms >= ?
           AND created_at_ms < ?
           AND (
@@ -123,7 +149,7 @@ export function createSQLiteMeetingRepository(database: SQLiteDatabase): Meeting
       const lookaheadRow = rows[query.limit];
 
       return {
-        meetings: pageRows.map(toMeeting),
+        meetings: pageRows.map((row) => toMeeting(row, toMeetingStatus(row.transcription_status))),
         nextCursor: lookaheadRow
           ? {
               createdAtMs: lookaheadRow.created_at_ms,

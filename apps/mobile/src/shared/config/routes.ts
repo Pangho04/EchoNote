@@ -8,6 +8,8 @@ export const ROUTES = {
   meeting: {
     list: ROOT,
     detail: (meetingId: string) => `/meetings/${meetingId}` as const,
+    // 녹음 저장 직후 상세. 상세가 텍스트 변환을 한 번 자동 요청한다.
+    afterRecording: (meetingId: string) => `/meetings/${meetingId}?autoRequest=1` as const,
   },
   recording: {
     session: (meetingId: string) => `/recording?meetingId=${meetingId}` as const,

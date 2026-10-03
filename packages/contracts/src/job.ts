@@ -33,9 +33,12 @@ export const processingJobSchema = z.object({
 
 export type ProcessingJob = z.infer<typeof processingJobSchema>;
 
+// 앱이 업로드 전에 같은 한도로 막아 Gateway 400을 받기 전에 안내한다.
+export const MAX_UPLOAD_BYTES = 536_870_912;
+
 export const createJobRequestSchema = z.strictObject({
   meetingId: z.uuid(),
-  sizeBytes: z.number().int().min(1).max(536_870_912),
+  sizeBytes: z.number().int().min(1).max(MAX_UPLOAD_BYTES),
   sha256: z.string().regex(/^[0-9a-f]{64}$/),
   mimeType: z.enum(['audio/mp4']),
 });

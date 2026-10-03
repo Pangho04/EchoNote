@@ -94,7 +94,7 @@ describe('migrateDatabase', () => {
     return database;
   }
 
-  it('새 DB에 v5 schema를 만들고 재실행해도 schema를 바꾸지 않는다', async () => {
+  it('새 DB에 v6 schema를 만들고 재실행해도 schema를 바꾸지 않는다', async () => {
     const database = openDatabase();
     const adapter = createSQLiteAdapter(database);
 
@@ -102,8 +102,8 @@ describe('migrateDatabase', () => {
     const firstSchema = database.prepare('SELECT sql FROM sqlite_master ORDER BY name').all();
     await migrateDatabase(adapter);
 
-    expect(getUserVersion(database)).toEqual({ user_version: 5 });
-    expect(getTableNames(database)).toEqual(['meetings', 'recordings']);
+    expect(getUserVersion(database)).toEqual({ user_version: 6 });
+    expect(getTableNames(database)).toEqual(['meeting_transcriptions', 'meetings', 'recordings']);
     expect(getColumnNames(database, 'meetings')).toEqual([
       'id',
       'title',
@@ -118,18 +118,26 @@ describe('migrateDatabase', () => {
       'duration_ms',
       'byte_size',
     ]);
+    expect(getColumnNames(database, 'meeting_transcriptions')).toEqual([
+      'meeting_id',
+      'job_id',
+      'status',
+      'error_code',
+      'duration_ms',
+      'segments_json',
+    ]);
     expect(database.prepare('SELECT sql FROM sqlite_master ORDER BY name').all()).toEqual(
       firstSchema,
     );
   });
 
-  it('v4 DB는 데이터를 그대로 두고 version만 5로 올린다', async () => {
+  it('v4 DB는 데이터를 그대로 두고 v6까지 올린다', async () => {
     const database = openDatabase();
     createVersion4Database(database);
 
     await migrateDatabase(createSQLiteAdapter(database));
 
-    expect(getUserVersion(database)).toEqual({ user_version: 5 });
+    expect(getUserVersion(database)).toEqual({ user_version: 6 });
     expect(database.prepare('SELECT * FROM meetings').all()).toEqual([
       { id: 'meeting-1', title: '제품 회의', created_at_ms: 200, updated_at_ms: 300 },
     ]);
@@ -138,7 +146,7 @@ describe('migrateDatabase', () => {
     ]);
   });
 
-  it.each([1, 3, 6])('이어서 올릴 수 없는 version %i DB는 열지 않는다', async (version) => {
+  it.each([1, 3, 7])('이어서 올릴 수 없는 version %i DB는 열지 않는다', async (version) => {
     const database = openDatabase();
     database.exec('PRAGMA user_version = ' + version);
 
@@ -146,6 +154,18 @@ describe('migrateDatabase', () => {
       UnsupportedDatabaseVersionError,
     );
     expect(getUserVersion(database)).toEqual({ user_version: version });
+  });
+
+  it('v5 DB에는 meeting_transcriptions만 더하고 기존 행을 남긴다', async () => {
+    const database = openDatabase();
+    createVersion4Database(database);
+    database.exec('PRAGMA user_version = 5');
+
+    await migrateDatabase(createSQLiteAdapter(database));
+
+    expect(getUserVersion(database)).toEqual({ user_version: 6 });
+    expect(getTableNames(database)).toEqual(['meeting_transcriptions', 'meetings', 'recordings']);
+    expect(database.prepare('SELECT id FROM meetings').all()).toEqual([{ id: 'meeting-1' }]);
   });
 
   it('v5 중간 실패 시 schema와 version을 되돌린다', async () => {

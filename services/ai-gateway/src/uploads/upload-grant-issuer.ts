@@ -5,6 +5,7 @@ import {
   UPLOAD_GRANT_ISSUER,
   UPLOAD_GRANT_TTL_SECONDS,
   uploadGrantClaimsSchema,
+  type UploadGrantResponse,
 } from '@echonote/contracts';
 import { SignJWT } from 'jose';
 
@@ -15,12 +16,10 @@ type UploadGrantIssuerOptions = {
   createJti?: () => string;
 };
 
-type UploadGrant = { uploadUrl: string; grant: string; expiresAt: string };
-
 export type IssueUploadGrant = (input: {
   ownerId: string;
   job: JobSnapshot;
-}) => Promise<UploadGrant>;
+}) => Promise<UploadGrantResponse>;
 
 export const createUploadGrantIssuer = ({
   secret,

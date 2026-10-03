@@ -15,11 +15,12 @@ export interface RecordingExitInput {
 }
 
 export interface RecordingExit {
-  finish(): void;
+  finish(meetingId: string): void;
   cancel(): void;
 }
 
 // 녹음 화면을 떠나는 모든 경로(저장 완료·[취소]·뒤로가기)를 한곳에서 정한다.
+// 저장 완료는 상세로 바꿔 들어가 텍스트 변환을 자동 요청하고, 취소 경로는 목록으로 돌아간다.
 // 로그아웃 상태에선 목록이 guard에서 빠져 이동이 무시되므로, 유지 표시를 내려 guard가 녹음 화면을 빼게 한다.
 export function useRecordingExit({
   canDiscard,
@@ -43,7 +44,28 @@ export function useRecordingExit({
     latestRef.current = { isSignedIn, canDiscard, isSaving, discard };
   });
 
-  const finish = useCallback(() => {
+  // 만료 뒤 다시 로그인한 녹음 화면은 아래 목록이 없다. 목록을 먼저 놓아 상세의 뒤로가기가 목록이 되게 한다.
+  const finish = useCallback(
+    (meetingId: string) => {
+      release();
+
+      if (!latestRef.current.isSignedIn) return;
+
+      const detail = ROUTES.meeting.afterRecording(meetingId);
+
+      if (navigation.canGoBack()) {
+        router.replace(detail);
+
+        return;
+      }
+
+      router.replace(ROUTES.meeting.list);
+      router.push(detail);
+    },
+    [navigation, release, router],
+  );
+
+  const leave = useCallback(() => {
     release();
 
     if (latestRef.current.isSignedIn) router.dismissTo(ROUTES.meeting.list);
@@ -89,7 +111,7 @@ export function useRecordingExit({
     const latest = latestRef.current;
 
     if (latest.isSignedIn) {
-      if (!latest.canDiscard && !latest.isSaving) finish();
+      if (!latest.canDiscard && !latest.isSaving) leave();
       else router.dismissTo(ROUTES.meeting.list);
 
       return;
@@ -97,9 +119,9 @@ export function useRecordingExit({
 
     if (latest.isSaving) return;
 
-    if (latest.canDiscard) confirmDiscard(finish);
-    else finish();
-  }, [confirmDiscard, finish, router]);
+    if (latest.canDiscard) confirmDiscard(leave);
+    else leave();
+  }, [confirmDiscard, leave, router]);
 
   // 취소 버튼·iOS 스와이프·Android 뒤로가기가 모두 여기서 멈춘다. 확인 뒤 같은 action을
   // 다시 보내면 이 hook은 그 action을 다시 막지 않는다.

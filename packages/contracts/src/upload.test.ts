@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { uploadCompletionRequestSchema, uploadGrantClaimsSchema } from './index';
+import {
+  uploadCompletionRequestSchema,
+  uploadGrantClaimsSchema,
+  uploadGrantResponseSchema,
+} from './index';
 
 const claims = {
   aud: 'echonote-upload-receiver',
@@ -59,5 +63,25 @@ describe('uploadCompletionRequestSchema', () => {
     expect(uploadCompletionRequestSchema.safeParse({ ...completion, ...override }).success).toBe(
       false,
     );
+  });
+});
+
+describe('uploadGrantResponseSchema', () => {
+  const response = {
+    expiresAt: '2026-10-02T00:05:00.000Z',
+    grant: 'header.payload.signature',
+    uploadUrl: 'https://worker.example.ts.net/uploads',
+  };
+
+  it('Gateway 응답을 허용하고 추가 필드를 통과시킨다', () => {
+    expect(uploadGrantResponseSchema.safeParse({ ...response, extra: 1 }).success).toBe(true);
+  });
+
+  it.each([
+    ['URL이 아닌 uploadUrl', { uploadUrl: 'uploads' }],
+    ['빈 grant', { grant: '' }],
+    ['ISO가 아닌 expiresAt', { expiresAt: 'soon' }],
+  ])('%s를 거부한다', (_label, override) => {
+    expect(uploadGrantResponseSchema.safeParse({ ...response, ...override }).success).toBe(false);
   });
 });

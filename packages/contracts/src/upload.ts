@@ -35,3 +35,12 @@ export const uploadCompletionRequestSchema = z.strictObject({
 });
 
 export type UploadCompletionRequest = z.infer<typeof uploadCompletionRequestSchema>;
+
+// 앱이 POST /v1/jobs/:jobId/upload-grants로 받는 응답. 앱이 받는 쪽이라 Gateway가 필드를 더해도 거부하지 않는다.
+export const uploadGrantResponseSchema = z.object({
+  uploadUrl: z.url(),
+  grant: z.string().min(1),
+  expiresAt: z.iso.datetime(),
+});
+
+export type UploadGrantResponse = z.infer<typeof uploadGrantResponseSchema>;

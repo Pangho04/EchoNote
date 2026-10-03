@@ -85,7 +85,7 @@ describe('toMeetingListItemVM', () => {
       title: '제품 로드맵 정기 회의',
       monthLabel: '8월',
       dayLabel: '04',
-      metaLabel: '52분 · 전사와 요약 완료',
+      metaLabel: '52분 · 텍스트 변환 완료',
       accessory: { kind: 'chip', label: '완료' },
     });
   });
@@ -127,11 +127,15 @@ describe('toMeetingListItemVM', () => {
   });
 
   it.each([
-    { status: MeetingStatus.Created, metaLabel: '52분 · 처리 준비 중', chipLabel: '대기' },
-    { status: MeetingStatus.Queued, metaLabel: '52분 · 처리 대기', chipLabel: '대기' },
-    { status: MeetingStatus.Processing, metaLabel: '52분 · 전사·요약 중', chipLabel: '처리 중' },
-    { status: MeetingStatus.Completed, metaLabel: '52분 · 전사와 요약 완료', chipLabel: '완료' },
-    { status: MeetingStatus.Failed, metaLabel: '52분 · 처리 실패', chipLabel: '실패' },
+    {
+      status: MeetingStatus.Created,
+      metaLabel: '52분 · 변환 요청 미완료',
+      chipLabel: '요청 미완료',
+    },
+    { status: MeetingStatus.Queued, metaLabel: '52분 · 변환 대기', chipLabel: '대기' },
+    { status: MeetingStatus.Processing, metaLabel: '52분 · 텍스트 변환 중', chipLabel: '변환 중' },
+    { status: MeetingStatus.Completed, metaLabel: '52분 · 텍스트 변환 완료', chipLabel: '완료' },
+    { status: MeetingStatus.Failed, metaLabel: '52분 · 변환 실패', chipLabel: '실패' },
   ])('$status 상태를 chip label로 표시한다', ({ status, metaLabel, chipLabel }) => {
     const vm = toMeetingListItemVM({ ...meeting, status }, 'Asia/Seoul');
 

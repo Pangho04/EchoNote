@@ -7,7 +7,7 @@ import { UI_STRINGS } from '@/shared/config/ui-strings';
 
 export type MeetingDetailViewModel =
   | { kind: 'loading' }
-  | { kind: 'ready'; title: string; dateLabel: string; metaLabel: string; recordingUri: string }
+  | { kind: 'ready'; title: string; dateLabel: string; durationLabel: string }
   | { kind: 'not-found'; message: string }
   | { kind: 'recording-missing'; message: string }
   | { kind: 'error'; message: string };
@@ -16,6 +16,17 @@ export interface UseMeetingDetailViewModelInput {
   meetingId: string;
   timeZone: string;
   loadMeetingDetail: (meetingId: string) => Promise<MeetingDetailResult>;
+}
+
+// recording은 viewModel이 ready일 때만 있다. 재생·텍스트 변환 훅이 표시값이 아닌 Domain을 받는다.
+export interface MeetingDetailState {
+  viewModel: MeetingDetailViewModel;
+  recording: Recording | null;
+}
+
+interface LoadedDetail {
+  key: string;
+  state: MeetingDetailState;
 }
 
 function formatDateLabel(createdAt: string, timeZone: string): string {
@@ -67,26 +78,42 @@ function toReadyViewModel(
     kind: 'ready',
     title: meeting.title,
     dateLabel: formatDateLabel(meeting.createdAt, timeZone),
-    metaLabel: `${formatDurationLabel(recording.durationMs)} · ${UI_STRINGS.meetingStatus.localOnly.metaLabel}`,
-    recordingUri: recording.uri,
+    durationLabel: formatDurationLabel(recording.durationMs),
   };
 }
 
-function toViewModel(result: MeetingDetailResult, timeZone: string): MeetingDetailViewModel {
+function toDetailState(result: MeetingDetailResult, timeZone: string): MeetingDetailState {
   switch (result.kind) {
     case 'ready':
-      return toReadyViewModel(result.meeting, result.recording, timeZone);
+      return {
+        viewModel: toReadyViewModel(result.meeting, result.recording, timeZone),
+        recording: result.recording,
+      };
 
     case 'not-found':
-      return { kind: 'not-found', message: UI_STRINGS.meetingDetail.notFound };
+      return {
+        viewModel: { kind: 'not-found', message: UI_STRINGS.meetingDetail.notFound },
+        recording: null,
+      };
 
     case 'recording-missing':
-      return { kind: 'recording-missing', message: UI_STRINGS.meetingDetail.recordingMissing };
+      return {
+        viewModel: {
+          kind: 'recording-missing',
+          message: UI_STRINGS.meetingDetail.recordingMissing,
+        },
+        recording: null,
+      };
 
     case 'error':
-      return { kind: 'error', message: UI_STRINGS.meetingDetail.loadFailed };
+      return {
+        viewModel: { kind: 'error', message: UI_STRINGS.meetingDetail.loadFailed },
+        recording: null,
+      };
   }
 }
+
+const LOADING: MeetingDetailState = { viewModel: { kind: 'loading' }, recording: null };
 
 // 조회 대상이 같은지 판단하는 키다. 둘 중 하나만 바뀌어도 다시 읽어야 한다.
 function toRequestKey(meetingId: string, timeZone: string): string {
@@ -95,13 +122,11 @@ function toRequestKey(meetingId: string, timeZone: string): string {
 
 export function useMeetingDetailViewModel(
   input: UseMeetingDetailViewModelInput,
-): MeetingDetailViewModel {
+): MeetingDetailState {
   const { meetingId, timeZone, loadMeetingDetail } = input;
   const requestKey = toRequestKey(meetingId, timeZone);
 
-  const [loaded, setLoaded] = useState<{ key: string; viewModel: MeetingDetailViewModel } | null>(
-    null,
-  );
+  const [loaded, setLoaded] = useState<LoadedDetail | null>(null);
 
   /**
    * @when 상세 화면에 들어오거나 다른 회의로 바뀔 때
@@ -117,12 +142,15 @@ export function useMeetingDetailViewModel(
       try {
         const result = await loadMeetingDetail(meetingId);
 
-        if (active) setLoaded({ key, viewModel: toViewModel(result, timeZone) });
+        if (active) setLoaded({ key, state: toDetailState(result, timeZone) });
       } catch {
         if (active)
           setLoaded({
             key,
-            viewModel: { kind: 'error', message: UI_STRINGS.meetingDetail.loadFailed },
+            state: {
+              viewModel: { kind: 'error', message: UI_STRINGS.meetingDetail.loadFailed },
+              recording: null,
+            },
           });
       }
     }
@@ -136,5 +164,5 @@ export function useMeetingDetailViewModel(
 
   // 조회 대상이 바뀌면 이전 회의 결과를 그대로 두지 않고 다시 loading을 보여준다.
   // loadMeetingDetail만 교체되는 경우(database context 변경)는 깜빡임을 피해 이전 결과를 유지한다.
-  return loaded?.key === requestKey ? loaded.viewModel : { kind: 'loading' };
+  return loaded?.key === requestKey ? loaded.state : LOADING;
 }

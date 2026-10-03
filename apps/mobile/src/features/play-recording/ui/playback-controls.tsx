@@ -46,9 +46,7 @@ export function PlaybackControls(props: PlaybackControlsProps): ReactElement {
         importantForAccessibility="no-hide-descendants"
         style={styles.track}
       >
-        <View style={[styles.fill, { width: `${progressRatio * 100}%` }]}>
-          <View style={styles.fillHighlight} />
-        </View>
+        <View style={[styles.fill, { width: `${progressRatio * 100}%` }]} />
       </View>
 
       <AppText color="textSecondary" style={styles.time} variant="caption">
@@ -143,9 +141,9 @@ const useStyles = createThemedStyles((theme) =>
   StyleSheet.create({
     container: {
       alignItems: 'center',
-      gap: theme.spacing[4],
+      gap: theme.spacing[2],
       paddingHorizontal: theme.spacing[5],
-      paddingVertical: theme.spacing[5],
+      paddingVertical: theme.spacing[3],
     },
     track: {
       alignSelf: 'stretch',
@@ -159,44 +157,36 @@ const useStyles = createThemedStyles((theme) =>
       borderRadius: theme.radii.round,
       height: '100%',
     },
-    fillHighlight: {
-      backgroundColor: 'rgba(255,255,255,0.35)',
-      height: 1,
-      left: 0,
-      position: 'absolute',
-      right: 0,
-      top: 0,
-    },
     time: {
       fontVariant: ['tabular-nums'],
     },
     row: {
       alignItems: 'center',
       flexDirection: 'row',
-      gap: theme.spacing[5],
+      gap: theme.spacing[4],
       justifyContent: 'center',
     },
     seekButton: {
       alignItems: 'center',
-      height: 48,
+      height: 40,
       justifyContent: 'center',
-      width: 48,
+      width: 40,
     },
     seekIcon: {
-      height: 36,
-      width: 36,
+      height: 28,
+      width: 28,
     },
     seekIconMirrored: {
       transform: [{ scaleX: -1 }],
     },
     seekArc: {
       borderColor: theme.colors.accent,
-      borderRadius: 18,
+      borderRadius: 14,
       borderTopColor: 'transparent',
       borderWidth: 2,
-      height: 36,
+      height: 28,
       transform: [{ rotate: '-45deg' }],
-      width: 36,
+      width: 28,
     },
     seekArrow: {
       borderBottomColor: 'transparent',
@@ -206,7 +196,7 @@ const useStyles = createThemedStyles((theme) =>
       borderTopColor: 'transparent',
       borderTopWidth: 6,
       height: 0,
-      left: 15,
+      left: 11,
       position: 'absolute',
       top: -5,
       width: 0,
@@ -222,6 +212,7 @@ const useStyles = createThemedStyles((theme) =>
       top: 0,
     },
     seekLabel: {
+      fontSize: 10,
       fontVariant: ['tabular-nums'],
       fontWeight: theme.typography.fontWeight.semibold,
       lineHeight: 12,
@@ -230,29 +221,29 @@ const useStyles = createThemedStyles((theme) =>
       alignItems: 'center',
       backgroundColor: theme.colors.accent,
       borderRadius: theme.radii.round,
-      height: 64,
+      height: 44,
       justifyContent: 'center',
-      width: 64,
+      width: 44,
     },
     pauseIcon: {
       flexDirection: 'row',
-      gap: 6,
+      gap: 4,
     },
     pauseBar: {
       backgroundColor: palette.white,
       borderRadius: 2,
-      height: 22,
-      width: 6,
+      height: 14,
+      width: 4,
     },
     playIcon: {
       borderBottomColor: 'transparent',
-      borderBottomWidth: 11,
+      borderBottomWidth: 7,
       borderLeftColor: palette.white,
-      borderLeftWidth: 18,
+      borderLeftWidth: 11,
       borderTopColor: 'transparent',
-      borderTopWidth: 11,
+      borderTopWidth: 7,
       height: 0,
-      marginLeft: 4,
+      marginLeft: 3,
       width: 0,
     },
     error: {

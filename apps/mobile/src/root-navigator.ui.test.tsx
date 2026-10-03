@@ -47,6 +47,8 @@ const fake = {
   openDialogAction: jest.fn(),
   mounts: 0,
   unmounts: 0,
+  detailMounts: 0,
+  detailUnmounts: 0,
   backHandlers: [] as Parameters<typeof BackHandler.addEventListener>[1][],
 };
 
@@ -93,11 +95,29 @@ function FakeRecordingRoute(): ReactElement {
       <Pressable onPress={cancel}>
         <Text>CANCEL</Text>
       </Pressable>
-      <Pressable onPress={finish}>
+      <Pressable onPress={() => finish('m-1')}>
         <Text>SAVED</Text>
       </Pressable>
     </View>
   );
+}
+
+// 목록 쌓임 뒤에도 상세가 언마운트되지 않는지 보려고 마운트·언마운트를 센다.
+function FakeDetailRoute(): ReactElement {
+  /**
+   * @when 상세 화면이 마운트되면
+   * @expect 마운트·언마운트 횟수를 센다
+   * @clear 언마운트 횟수를 올린다
+   */
+  useEffect(() => {
+    fake.detailMounts += 1;
+
+    return () => {
+      fake.detailUnmounts += 1;
+    };
+  }, []);
+
+  return <Text>DETAIL</Text>;
 }
 
 // 만료 팝업이 열려 있던 팝업을 대체하는지 보려고 목록에서 팝업을 미리 띄운다.
@@ -133,7 +153,7 @@ function TestLayout(): ReactElement {
 const routes = {
   _layout: TestLayout,
   index: FakeListRoute,
-  'meetings/[meetingId]': () => <Text>DETAIL</Text>,
+  'meetings/[meetingId]': FakeDetailRoute,
   '+not-found': NotFoundRoute,
   recording: FakeRecordingRoute,
   'sign-in': () => <Text>SIGN-IN</Text>,
@@ -198,6 +218,8 @@ beforeEach(() => {
     openDialogAction: jest.fn(),
     mounts: 0,
     unmounts: 0,
+    detailMounts: 0,
+    detailUnmounts: 0,
     backHandlers: [],
   });
   jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_event, handler) => {
@@ -287,16 +309,20 @@ describe('RootNavigator', () => {
   it.each([
     ['링크를 열면', () => openLink('echonote://missing')],
     ['앱 안에서 이동하면', () => navigate('/missing' as never)],
-  ])('T2 상세에서 없는 경로 %s 목록 화면이 되고 상세 위에 목록이 쌓인다', async (_name, go) => {
-    const view = await start('/meetings/x', SIGNED_IN);
+  ])(
+    'T2 상세에서 없는 경로 %s 목록 화면이 되고 상세 위에 목록이 쌓인다. 상세는 언마운트되지 않는다',
+    async (_name, go) => {
+      const view = await start('/meetings/x', SIGNED_IN);
 
-    await go();
+      await go();
 
-    expect(screen.getByText('LIST')).toBeTruthy();
-    expect(stackNames(view)).toEqual(['meetings/[meetingId]', 'index']);
-  });
+      expect(screen.getByText('LIST')).toBeTruthy();
+      expect(stackNames(view)).toEqual(['meetings/[meetingId]', 'index']);
+      expect(fake.detailUnmounts).toBe(0);
+    },
+  );
 
-  it('T3 녹음 화면에서 만료되면 목록만 빠지고 녹음 화면은 유지된다. 다시 로그인하면 저장 완료 시 목록 1개 스택이다', async () => {
+  it('T3 녹음 화면에서 만료되면 목록만 빠지고 녹음 화면은 유지된다. 다시 로그인하면 저장 완료 시 목록 위 상세다', async () => {
     const view = await start('/', SIGNED_IN);
 
     await navigate(ROUTES.recording.session('m-1'));
@@ -314,7 +340,10 @@ describe('RootNavigator', () => {
 
     await press('SAVED');
 
-    expect(stackNames(view)).toEqual(['index']);
+    const detail = view.getRouterState()?.routes[0]?.state?.routes.at(-1);
+
+    expect(stackNames(view)).toEqual(['index', 'meetings/[meetingId]']);
+    expect(detail?.params).toEqual({ meetingId: 'm-1', autoRequest: '1' });
     expect(isRecordingScreenHeld()).toBe(false);
   });
 
@@ -331,13 +360,17 @@ describe('RootNavigator', () => {
     expect(isRecordingScreenHeld()).toBe(false);
   });
 
-  it('T3 signedIn 녹음에서 저장 완료하면 목록이고 유지 표시가 꺼진다', async () => {
+  it('T3 signedIn 녹음에서 저장 완료하면 녹음 화면이 자동 요청 상세로 바뀌고 유지 표시가 꺼진다', async () => {
     const view = await start('/', SIGNED_IN);
 
     await navigate(ROUTES.recording.session('m-1'));
     await press('SAVED');
 
-    expect(stackNames(view)).toEqual(['index']);
+    const detail = view.getRouterState()?.routes[0]?.state?.routes.at(-1);
+
+    expect(stackNames(view)).toEqual(['index', 'meetings/[meetingId]']);
+    expect(detail?.params).toEqual({ meetingId: 'm-1', autoRequest: '1' });
+    expect(screen.getByText('DETAIL')).toBeTruthy();
     expect(isRecordingScreenHeld()).toBe(false);
   });
 

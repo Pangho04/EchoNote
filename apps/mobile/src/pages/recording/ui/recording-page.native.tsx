@@ -76,14 +76,14 @@ function RecordingSessionScreen({ draft }: { draft: RecordingDraft }): ReactElem
 
   /**
    * @when 녹음 원본 저장이 완료되어 savedRecording이 생겼을 때
-   * @expect 저장 완료를 토스트로 알리고 녹음 화면을 떠난다(로그인 상태면 회의 목록, 아니면 로그인 화면).
+   * @expect 저장 완료를 토스트로 알리고 녹음 화면을 떠난다(로그인 상태면 그 회의 상세, 아니면 로그인 화면).
    * @clear -
    */
   useEffect(() => {
     if (!savedRecording) return;
 
     showToast(UI_STRINGS.recording.saved);
-    finish();
+    finish(savedRecording.meetingId);
   }, [finish, savedRecording, showToast]);
 
   return <RecordingPageView viewModel={viewModel} onCancel={cancel} />;

@@ -142,3 +142,25 @@ node --env-file=services/inference-worker/.env.local -e "fetch(new URL('/v1/work
 **증상** — 로그에 WDA(WebDriverAgent) started successfully 직후 곧바로 연결이 끊기고, `DVTSecureSocketProxy ... Have you mounted the Developer Image?`가 같이 찍힌다.
 
 **대응** — iPhone 잠금을 풀고 다시 실행하면 통과한다. 실행 중에는 잠금 해제 상태를 유지한다.
+
+## `expo run:ios`가 `Connecting to <기기>`에서 멈춤
+
+**증상** — iPhone 실기기 빌드는 끝났는데 설치 단계 `Connecting to <기기>`에서 몇 분째 진행되지 않는다.
+
+**대응** — 프로세스를 끝내고 빌드 산출물을 `devicectl`로 직접 설치·실행한다.
+
+```bash
+xcrun devicectl device install app --device <udid> <DerivedData>/Build/Products/Debug-iphoneos/EchoNote.app
+xcrun devicectl device process launch --terminate-existing --device <udid> \
+  --payload-url "exp+echonote://expo-development-client/?url=http%3A%2F%2F<MAC_IP>%3A8081" dev.pangho.echonote
+```
+
+## iPhone 실기기 maestro-runner가 `failed to start port forwarding: device <udid> not found`
+
+**증상** — WDA 빌드·실행까지 진행한 뒤 포트 포워딩 단계에서 기기를 찾지 못한다. `devicectl`로는 기기가 `connected`(Transport Type `localNetwork`)라 앱 설치·실행은 된다.
+
+**원인** — maestro-runner는 usbmuxd로 포트를 연다. 무선 기기가 usbmuxd 목록에서 빠지면 `devicectl` 연결과 무관하게 실패한다.
+
+**확인** — usbmuxd `ListDevices` 결과가 0대인지 본다. libimobiledevice(`idevice_id`)가 없으면 Python으로 `/var/run/usbmuxd`에 `ListDevices` plist를 보내 확인한다.
+
+**대응** — iPhone 잠금을 풀고 화면을 켠 뒤 목록에 다시 잡히는지 본다. 그래도 0대면 USB로 연결하거나 `sudo launchctl kickstart -k system/com.apple.usbmuxd`로 usbmuxd를 다시 시작한다.

@@ -300,6 +300,55 @@ describe('claimJob·renewJobLease·failJob (local Supabase)', () => {
   });
 });
 
+describe('claimJob 사용자별 순서 (local Supabase)', () => {
+  it('A가 job 둘을 먼저 올려도 뒤에 올린 B의 job을 A의 둘째보다 먼저 가져간다', async () => {
+    const repository = createJobRepository({
+      secretKey: local.secretKey,
+      supabaseUrl: local.apiUrl,
+      timeoutMs: 5000,
+    });
+    const ownerA = await createUser();
+    const ownerB = await createUser();
+
+    while ((await repository.claimJob()).kind === 'claimed');
+
+    const queue = async (ownerId: string) => {
+      const created = await repository.createJob(createInput(ownerId, randomUUID()));
+
+      if (created.kind !== 'created') throw new Error('job was not created');
+
+      const { job } = created;
+
+      await repository.completeUpload({
+        jobId: job.id,
+        mimeType: job.mimeType,
+        ownerId,
+        sha256: job.sha256,
+        sizeBytes: job.sizeBytes,
+      });
+
+      return job.id;
+    };
+
+    const a1 = await queue(ownerA);
+    const a2 = await queue(ownerA);
+    const b1 = await queue(ownerB);
+    const ours = new Set([a1, a2, b1]);
+    const order: string[] = [];
+
+    // 비운 뒤 lease가 막 끝난 이전 실행의 job이 먼저 claim될 수 있어 만든 job만 순서를 본다.
+    while (order.length < ours.size) {
+      const result = await repository.claimJob();
+
+      if (result.kind !== 'claimed') throw new Error('queued job was not claimed');
+
+      if (ours.has(result.job.id)) order.push(result.job.id);
+    }
+
+    expect(order).toEqual([a1, b1, a2]);
+  });
+});
+
 describe('completeJob·findOwnedTranscript (local Supabase)', () => {
   it('lease로 약 3.5 MiB 전사 결과를 저장하고 owner에게만 돌려준다', async () => {
     const repository = createJobRepository({
