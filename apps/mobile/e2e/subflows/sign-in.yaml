@@ -15,7 +15,7 @@ name: 로그인
 
 # 기기의 비밀번호 관리자(삼성 패스 등)가 저장 여부를 묻는 창을 띄우면 목록을 덮는다.
 - extendedWaitUntil:
-    visible: '새 회의 녹음|.*로그인 정보를.*저장할까요.*'
+    visible: '메뉴 열기|.*로그인 정보를.*저장할까요.*'
     timeout: 30000
 - runFlow:
     when:

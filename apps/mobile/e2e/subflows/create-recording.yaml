@@ -1,13 +1,14 @@
 appId: dev.pangho.echonote
 name: 회의 하나 만들기
 ---
-# 상세·재조회 flow가 쓸 회의를 만든다. 이미 있으면 그대로 둔다.
+# 상세·재조회 flow가 쓸 회의를 만들고 목록으로 돌아온다. 이미 있으면 그대로 둔다.
 # 제목은 호출한 flow의 TITLE을 쓴다. 여기에 env 기본값을 두면 호출부 값을 덮어쓴다.
 - runFlow:
     when:
       notVisible: .*${TITLE}.*
     commands:
-      - tapOn: '새 회의 녹음'
+      - tapOn: '메뉴 열기'
+      - tapOn: '녹음하기'
       - tapOn: '기본 이름으로 저장'
       - inputText: ${TITLE}
       # iPhone 실기기는 낮은 타자 속도에서도 앞쪽 글자를 가끔 빠뜨린다(`E2E` → `EE`). 한 번 다시 쓴다.
@@ -29,6 +30,20 @@ name: 회의 하나 만들기
       - waitForAnimationToEnd:
           timeout: 3000
       - tapOn: '녹음 종료'
+      # 저장하면 상세로 바뀌고 자동 변환 요청이 시작된다. 호출한 flow는 목록에서 이어가므로 돌아온다.
+      - extendedWaitUntil:
+          visible: '회의 기록'
+          timeout: 40000
+      - runFlow:
+          when:
+            platform: Android
+          commands:
+            - back
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - tapOn: '회의 목록으로 이동'
       - extendedWaitUntil:
           visible: .*${TITLE}.*
           timeout: 40000

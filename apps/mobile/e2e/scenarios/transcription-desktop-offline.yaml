@@ -3,9 +3,25 @@ name: 데스크탑이 꺼져 있으면 깨우기 팝업 뒤 연결 실패 상자
 env:
   TITLE: 'E2E 깨우기'
 ---
-# Windows Worker가 꺼져 있거나 응답하지 않는 상태를 전제한다.
+# Windows Worker가 꺼져 있거나 응답하지 않는 상태를 전제한다. 그래서 suite에서 빼 단건으로만 실행한다.
 - runFlow: ../subflows/start-at-list.yaml
-- runFlow: ../subflows/create-recording.yaml
+# 상세에 머물러야 하므로 목록으로 돌아오는 create-recording 대신 녹음을 직접 만든다.
+- tapOn: '메뉴 열기'
+- tapOn: '녹음하기'
+- tapOn: '기본 이름으로 저장'
+- inputText: ${TITLE}
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- tapOn: '녹음 시작'
+- extendedWaitUntil:
+    visible: '녹음 종료'
+    timeout: 40000
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: '녹음 종료'
 # 저장 뒤 상세로 바뀌고 자동 요청이 시작된다. 연결 확인은 5초 timeout이다.
 - extendedWaitUntil:
     visible: '다시 확인'
@@ -40,5 +56,5 @@ env:
     commands:
       - tapOn: '회의 목록으로 이동'
 - extendedWaitUntil:
-    visible: '새 회의 녹음'
+    visible: '메뉴 열기'
     timeout: 10000

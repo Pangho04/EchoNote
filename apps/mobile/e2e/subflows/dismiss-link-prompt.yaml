@@ -5,6 +5,6 @@ name: iOS 링크 확인 창 정리
 # 앞선 flow가 남긴 창이 있으면 화면 전체를 덮어 이후 단계가 모두 실패한다.
 - runFlow:
     when:
-      visible: '열기'
+      visible: '^열기$'
     commands:
-      - tapOn: '열기'
+      - tapOn: '^열기$'
