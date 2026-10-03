@@ -61,7 +61,7 @@ type Harness = {
   renew?: JobLeaseClient['renew'];
 };
 
-const runners: { stop(): Promise<void> }[] = [];
+const runners: ReturnType<typeof startJobRunner>[] = [];
 
 // 첫 claim만 claimed이고 그 뒤로는 idle이다.
 const claimOnce = () => {
@@ -889,5 +889,33 @@ describe('startJobRunner', () => {
 
     expect(client.fail).toHaveBeenCalledTimes(1);
     expect(client.claim).toHaveBeenCalledTimes(1);
+  });
+
+  it('idle 대기 중 wake하면 60초를 기다리지 않고 바로 다시 claim한다', async () => {
+    const { client, runner } = start();
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.claim).toHaveBeenCalledTimes(1);
+
+    runner.wake();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.claim).toHaveBeenCalledTimes(2);
+  });
+
+  it('claim 요청 중에 wake하면 그 claim이 idle이어도 바로 다시 claim한다', async () => {
+    const claiming = deferred<{ kind: 'idle' }>();
+    const { client, runner } = start({
+      claim: vi
+        .fn<JobLeaseClient['claim']>()
+        .mockImplementationOnce(async () => claiming.promise)
+        .mockResolvedValue({ kind: 'idle' }),
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    runner.wake();
+    claiming.resolve({ kind: 'idle' });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(client.claim).toHaveBeenCalledTimes(2);
   });
 });

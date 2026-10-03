@@ -34,11 +34,21 @@ try {
   process.exit(1);
 }
 
+let runner: ReturnType<typeof startJobRunner> | undefined;
+const notifyUploadCompletion = createUploadCompletionClient({ gatewayOrigin, workerApiToken });
+
 const server = buildServer({
   dataDir,
   logger: true,
   nonceStore,
-  notifyUploadCompletion: createUploadCompletionClient({ gatewayOrigin, workerApiToken }),
+  // 업로드로 job이 생기면 idle 대기를 끊어 바로 claim하게 한다.
+  notifyUploadCompletion: async (command) => {
+    const result = await notifyUploadCompletion(command);
+
+    runner?.wake();
+
+    return result;
+  },
   verifyGrant: createUploadGrantVerifier({ secret: uploadGrantSecret }),
 });
 
@@ -46,7 +56,6 @@ try {
   await server.listen({ host: HOST, port });
 
   const startup = new AbortController();
-  let runner: ReturnType<typeof startJobRunner> | undefined;
   let shuttingDown = false;
 
   // 진행 중 job과 요청이 끝난 뒤 server를 닫는다. 두 번째 이후 신호는 무시한다.

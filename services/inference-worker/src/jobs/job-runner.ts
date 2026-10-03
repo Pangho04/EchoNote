@@ -66,6 +66,8 @@ export const startJobRunner = ({ client, logger, preventSleep, processJob }: Job
   // HTTP timeout(10초)이 heartbeat(60초)보다 짧아 진행 중 renew는 최대 하나다.
   let renewing: Promise<unknown> | undefined;
   let wake: (() => void) | undefined;
+  // claim 요청 중에 깨우면 그 claim이 idle을 받아도 기다리지 않고 바로 다시 claim한다.
+  let wakeRequested = false;
   let abortCurrent: ((reason: AbortReason) => void) | undefined;
 
   const wait = async (ms: number) =>
@@ -273,6 +275,8 @@ export const startJobRunner = ({ client, logger, preventSleep, processJob }: Job
     while (!stopping) {
       let delay: number;
 
+      wakeRequested = false;
+
       try {
         delay = await runOnce();
       } catch {
@@ -280,13 +284,18 @@ export const startJobRunner = ({ client, logger, preventSleep, processJob }: Job
         delay = IDLE_WAIT_MS;
       }
 
-      if (delay > 0 && !stopping) await wait(delay);
+      if (delay > 0 && !stopping && !wakeRequested) await wait(delay);
     }
   };
 
   const running = run();
 
   return {
+    // 새 job이 생겼을 때 대기 중이면 바로 claim한다. 처리 중이면 끝난 뒤 어차피 즉시 claim한다.
+    wake() {
+      wakeRequested = true;
+      wake?.();
+    },
     async stop() {
       stopping = true;
       wake?.();
