@@ -5,10 +5,11 @@ import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
-import type { TranscriptSegment } from '../model/transcription';
+import { findActiveSegmentIndex, type TranscriptSegment } from '../model/transcription';
 
 export interface TranscriptListProps {
   segments: TranscriptSegment[];
+  positionMs: number;
   onPressSegment(startMs: number): void;
   contentContainerStyle?: StyleProp<ViewStyle>;
 }
@@ -27,17 +28,20 @@ function formatStartLabel(ms: number): string {
 
 export function TranscriptList({
   segments,
+  positionMs,
   onPressSegment,
   contentContainerStyle,
 }: TranscriptListProps): ReactElement {
   const styles = useStyles();
+  const activeIndex = findActiveSegmentIndex(segments, positionMs);
 
   return (
     <FlatList
       contentContainerStyle={contentContainerStyle}
       data={segments}
+      extraData={activeIndex}
       keyExtractor={(segment, index) => `${index}-${segment.startMs}`}
-      renderItem={({ item }) => {
+      renderItem={({ item, index }) => {
         const startLabel = formatStartLabel(item.startMs);
 
         return (
@@ -51,7 +55,12 @@ export function TranscriptList({
               {startLabel.padStart(5, '0')}
             </AppText>
 
-            <AppText style={styles.text} variant="reading">
+            {/* 재생 중인 문장만 진하게 그려 나머지 문장도 눌러서 이동할 수 있음을 드러낸다. */}
+            <AppText
+              color={index === activeIndex ? 'textPrimary' : 'textTertiary'}
+              style={styles.text}
+              variant="reading"
+            >
               {item.text}
             </AppText>
           </Pressable>

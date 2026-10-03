@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import { lightTheme } from '@/shared/config/theme';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
@@ -17,12 +18,20 @@ function buildViewModel(panel: TranscriptionPanelState): TranscriptionViewModel 
   };
 }
 
-async function renderPanel(panel: TranscriptionPanelState, onPressSegment = jest.fn()) {
+async function renderPanel(
+  panel: TranscriptionPanelState,
+  onPressSegment = jest.fn(),
+  positionMs = 0,
+) {
   const viewModel = buildViewModel(panel);
 
   await render(
     <ThemeProvider mode="light">
-      <TranscriptionPanel onPressSegment={onPressSegment} viewModel={viewModel} />
+      <TranscriptionPanel
+        onPressSegment={onPressSegment}
+        positionMs={positionMs}
+        viewModel={viewModel}
+      />
     </ThemeProvider>,
   );
 
@@ -154,6 +163,29 @@ describe('TranscriptionPanel', () => {
     await fireEvent.press(screen.getByRole('button', { name: '1:05부터 재생' }));
 
     expect(onPressSegment).toHaveBeenCalledWith(65_000);
+  });
+
+  it.each([
+    [0, lightTheme.colors.textTertiary, lightTheme.colors.textTertiary],
+    [66_000, lightTheme.colors.textTertiary, lightTheme.colors.textPrimary],
+  ])('재생 위치 %dms면 재생 중인 문장만 진하게 그린다', async (positionMs, first, second) => {
+    await renderPanel(
+      {
+        kind: 'completed',
+        content: {
+          durationMs: 120_000,
+          segments: [
+            { startMs: 0, endMs: 5_000, text: '첫 문장' },
+            { startMs: 65_000, endMs: 70_000, text: '둘째 문장' },
+          ],
+        },
+      },
+      jest.fn(),
+      positionMs,
+    );
+
+    expect(screen.getByText('첫 문장')).toHaveStyle({ color: first });
+    expect(screen.getByText('둘째 문장')).toHaveStyle({ color: second });
   });
 
   it('segment가 없는 completed는 빈 결과 문구를 그린다', async () => {

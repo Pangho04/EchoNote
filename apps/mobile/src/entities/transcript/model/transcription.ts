@@ -12,6 +12,22 @@ export type TranscriptSegment = {
   text: string;
 };
 
+// 시작 시각이 재생 위치 이하인 마지막 문장. 재생 전(위치 0)이나 첫 문장 이전이면 -1이다.
+// segments는 시작 시각 오름차순이다.
+export function findActiveSegmentIndex(segments: TranscriptSegment[], positionMs: number): number {
+  if (positionMs <= 0) return -1;
+
+  let active = -1;
+
+  for (const [index, segment] of segments.entries()) {
+    if (segment.startMs > positionMs) break;
+
+    active = index;
+  }
+
+  return active;
+}
+
 export type TranscriptContent = {
   durationMs: number;
   segments: TranscriptSegment[];

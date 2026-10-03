@@ -45,6 +45,7 @@ export function MeetingDetailContent({
 
       <TranscriptionPanel
         onPressSegment={(startMs) => void player.playFrom(startMs)}
+        positionMs={player.positionMs}
         viewModel={transcription}
       />
     </>

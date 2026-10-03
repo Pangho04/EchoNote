@@ -58,7 +58,9 @@ const database = {} as ReturnType<typeof useSQLiteContext>;
 const gateway = {};
 const transcriptionDeps = {} as ReturnType<typeof createTranscriptionDeps>;
 const mockedPlayFrom = jest.fn(async () => {});
-const player = { playFrom: mockedPlayFrom } as unknown as ReturnType<typeof useRecordingPlayback>;
+const player = { playFrom: mockedPlayFrom, positionMs: 12_000 } as unknown as ReturnType<
+  typeof useRecordingPlayback
+>;
 const transcription = { panel: { kind: 'none', notice: null } } as ReturnType<
   typeof useTranscription
 >;
@@ -149,6 +151,7 @@ describe('MeetingDetailPage', () => {
     const panelProps = jest.mocked(TranscriptionPanel).mock.lastCall?.[0];
 
     expect(panelProps?.viewModel).toBe(transcription);
+    expect(panelProps?.positionMs).toBe(12_000);
 
     panelProps?.onPressSegment(3_000);
 

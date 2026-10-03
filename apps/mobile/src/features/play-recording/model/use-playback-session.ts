@@ -9,6 +9,7 @@ const SEEK_STEP_MS = 10_000;
 
 export interface PlaybackSessionViewModel {
   status: PlaybackStatusKind;
+  positionMs: number;
   positionLabel: string;
   durationLabel: string;
   progressRatio: number;
@@ -114,6 +115,7 @@ export function usePlaybackSession(playback: AudioPlayback): PlaybackSessionView
 
   return {
     status: kind,
+    positionMs,
     positionLabel: formatClockLabel(positionMs),
     durationLabel: formatClockLabel(durationMs),
     progressRatio: durationMs === null ? 0 : Math.min(Math.max(positionMs / durationMs, 0), 1),

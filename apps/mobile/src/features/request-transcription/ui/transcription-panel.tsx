@@ -16,6 +16,7 @@ import type {
 
 export interface TranscriptionPanelProps {
   viewModel: TranscriptionViewModel;
+  positionMs: number;
   onPressSegment(startMs: number): void;
 }
 
@@ -88,6 +89,7 @@ function PanelButton(props: { label: string; disabled: boolean; onPress(): void 
 // 상세 화면 아래 텍스트 변환 영역. 실패 상태는 제목·불릿 이유 상자와 오른쪽 끝 버튼으로 그린다.
 export function TranscriptionPanel({
   viewModel,
+  positionMs,
   onPressSegment,
 }: TranscriptionPanelProps): ReactElement {
   const { panel, disabled } = viewModel;
@@ -195,6 +197,7 @@ export function TranscriptionPanel({
       <TranscriptList
         contentContainerStyle={styles.container}
         onPressSegment={onPressSegment}
+        positionMs={positionMs}
         segments={panel.content.segments}
       />
     );
