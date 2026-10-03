@@ -110,18 +110,21 @@ describe('createSQLiteMeetingRepository', () => {
         title: '셋',
         created_at_ms: 300,
         updated_at_ms: 300,
+        transcription_status: null,
       },
       {
         id: 'meeting-2',
         title: '둘',
         created_at_ms: 200,
         updated_at_ms: 200,
+        transcription_status: 'processing',
       },
       {
         id: 'meeting-1',
         title: '하나',
         created_at_ms: 100,
         updated_at_ms: 100,
+        transcription_status: 'failed',
       },
     ]);
 
@@ -152,7 +155,14 @@ describe('createSQLiteMeetingRepository', () => {
       'meeting-3',
       3,
     );
+    expect(normalizedSql).toContain(
+      'LEFT JOIN meeting_transcriptions ON meeting_transcriptions.meeting_id = meetings.id',
+    );
     expect(result.meetings.map((meeting) => meeting.id)).toEqual(['meeting-3', 'meeting-2']);
+    expect(result.meetings.map((meeting) => meeting.status)).toEqual([
+      MeetingStatus.LocalOnly,
+      MeetingStatus.Processing,
+    ]);
     expect(result.nextCursor).toEqual({
       createdAtMs: 100,
       meetingId: 'meeting-1',

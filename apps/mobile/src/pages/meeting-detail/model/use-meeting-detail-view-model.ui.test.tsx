@@ -57,28 +57,30 @@ describe('useMeetingDetailViewModel', () => {
       useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
     );
 
-    expect(result.current).toEqual({ kind: 'loading' });
+    expect(result.current).toEqual({ viewModel: { kind: 'loading' }, recording: null });
     expect(loadMeetingDetail).toHaveBeenCalledTimes(1);
     expect(loadMeetingDetail).toHaveBeenCalledWith('meeting-1');
 
     await unmount();
   });
 
-  it('ready 결과가 오면 kind가 ready이고 title, dateLabel, metaLabel, recordingUri가 담긴다', async () => {
+  it('ready 결과가 오면 표시값은 viewModel에, 녹음 Domain은 recording에 담긴다', async () => {
     const loadMeetingDetail = jest.fn(async () => buildReadyResult());
 
     const { result } = await renderHook(() =>
       useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
     );
 
-    await waitFor(() => expect(result.current.kind).toBe('ready'));
+    await waitFor(() => expect(result.current.viewModel.kind).toBe('ready'));
 
     expect(result.current).toEqual({
-      kind: 'ready',
-      title: '제품 회의',
-      dateLabel: '2026년 8월 4일 · 오전 10:00',
-      metaLabel: '52분 14초 · 녹음만 저장됨',
-      recordingUri: 'file://recording.m4a',
+      viewModel: {
+        kind: 'ready',
+        title: '제품 회의',
+        dateLabel: '2026년 8월 4일 · 오전 10:00',
+        durationLabel: '52분 14초',
+      },
+      recording: baseRecording,
     });
   });
 
@@ -92,7 +94,10 @@ describe('useMeetingDetailViewModel', () => {
     );
 
     await waitFor(() =>
-      expect(result.current).toEqual({ kind: 'not-found', message: '회의를 찾을 수 없습니다.' }),
+      expect(result.current.viewModel).toEqual({
+        kind: 'not-found',
+        message: '회의를 찾을 수 없습니다.',
+      }),
     );
   });
 
@@ -106,7 +111,7 @@ describe('useMeetingDetailViewModel', () => {
     );
 
     await waitFor(() =>
-      expect(result.current).toEqual({
+      expect(result.current.viewModel).toEqual({
         kind: 'recording-missing',
         message: '녹음 파일을 찾을 수 없습니다.',
       }),
@@ -123,7 +128,10 @@ describe('useMeetingDetailViewModel', () => {
     );
 
     await waitFor(() =>
-      expect(result.current).toEqual({ kind: 'error', message: '회의를 불러오지 못했습니다.' }),
+      expect(result.current.viewModel).toEqual({
+        kind: 'error',
+        message: '회의를 불러오지 못했습니다.',
+      }),
     );
   });
 
@@ -143,19 +151,19 @@ describe('useMeetingDetailViewModel', () => {
 
     await rerender({ meetingId: 'meeting-2' });
 
-    expect(result.current).toEqual({ kind: 'loading' });
+    expect(result.current.viewModel).toEqual({ kind: 'loading' });
 
     await act(async () => {
       freshRequest.resolve(buildReadyResult({ title: '두 번째 회의' }));
     });
 
-    expect(result.current).toMatchObject({ kind: 'ready', title: '두 번째 회의' });
+    expect(result.current.viewModel).toMatchObject({ kind: 'ready', title: '두 번째 회의' });
 
     await act(async () => {
       staleRequest.resolve(buildReadyResult({ title: '첫 번째 회의' }));
     });
 
-    expect(result.current).toMatchObject({ kind: 'ready', title: '두 번째 회의' });
+    expect(result.current.viewModel).toMatchObject({ kind: 'ready', title: '두 번째 회의' });
 
     await unmount();
   });
@@ -178,34 +186,34 @@ describe('useMeetingDetailViewModel', () => {
       firstRequest.resolve(buildReadyResult({ title: '첫 번째 회의' }));
     });
 
-    expect(result.current).toMatchObject({ kind: 'ready', title: '첫 번째 회의' });
+    expect(result.current.viewModel).toMatchObject({ kind: 'ready', title: '첫 번째 회의' });
 
     await rerender({ meetingId: 'meeting-2' });
 
     // 두 번째 요청이 아직 끝나지 않았어도 이전 회의가 남아 있으면 안 된다.
-    expect(result.current).toEqual({ kind: 'loading' });
+    expect(result.current.viewModel).toEqual({ kind: 'loading' });
 
     await unmount();
   });
 
   it.each([
-    [0, '0초 · 녹음만 저장됨'],
-    [59_999, '59초 · 녹음만 저장됨'],
-    [3_134_000, '52분 14초 · 녹음만 저장됨'],
-    [60_000, '1분 · 녹음만 저장됨'],
-    [3_600_000, '1시간 · 녹음만 저장됨'],
-    [3_660_000, '1시간 1분 · 녹음만 저장됨'],
-    [3_601_000, '1시간 1초 · 녹음만 저장됨'],
-  ])('durationMs가 %d이면 metaLabel은 "%s"이다', async (durationMs, expectedMetaLabel) => {
+    [0, '0초'],
+    [59_999, '59초'],
+    [3_134_000, '52분 14초'],
+    [60_000, '1분'],
+    [3_600_000, '1시간'],
+    [3_660_000, '1시간 1분'],
+    [3_601_000, '1시간 1초'],
+  ])('durationMs가 %d이면 durationLabel은 "%s"이다', async (durationMs, expectedDurationLabel) => {
     const loadMeetingDetail = jest.fn(async () => buildReadyResult({}, { durationMs }));
 
     const { result } = await renderHook(() =>
       useMeetingDetailViewModel({ meetingId: 'meeting-1', timeZone: TIME_ZONE, loadMeetingDetail }),
     );
 
-    await waitFor(() => expect(result.current.kind).toBe('ready'));
+    await waitFor(() => expect(result.current.viewModel.kind).toBe('ready'));
 
-    expect(result.current).toMatchObject({ metaLabel: expectedMetaLabel });
+    expect(result.current.viewModel).toMatchObject({ durationLabel: expectedDurationLabel });
   });
 
   it('createdAt이 잘못됐거나 durationMs가 비정상이거나 loadMeetingDetail가 reject해도 error VM이 되고 렌더는 throw하지 않는다', async () => {
@@ -233,7 +241,10 @@ describe('useMeetingDetailViewModel', () => {
       );
 
       await waitFor(() =>
-        expect(result.current).toEqual({ kind: 'error', message: '회의를 불러오지 못했습니다.' }),
+        expect(result.current).toEqual({
+          viewModel: { kind: 'error', message: '회의를 불러오지 못했습니다.' },
+          recording: null,
+        }),
       );
 
       await unmount();

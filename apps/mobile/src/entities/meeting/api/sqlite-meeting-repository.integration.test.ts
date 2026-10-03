@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { migrateDatabase } from '@/shared/platform/database/migrate-database';
 
+import { MeetingStatus } from '../model/meeting';
 import { createSQLiteMeetingRepository } from './sqlite-meeting-repository';
 
 type SQLiteValue = string | number | null;
@@ -91,6 +92,42 @@ describe('SQLiteMeetingRepository integration', () => {
     });
     expect(secondPage.meetings.map(({ id }) => id)).toEqual(['meeting-b', 'meeting-a']);
     expect(secondPage.nextCursor).toBeNull();
+  });
+
+  it('목록은 텍스트 변환 행 status를 붙이고 행이 없으면 LocalOnly다', async () => {
+    const database = new DatabaseSync(':memory:');
+    databases.push(database);
+    const adapter = createSQLiteAdapter(database);
+    await migrateDatabase(adapter);
+    const repository = createSQLiteMeetingRepository(adapter);
+
+    await repository.create({
+      meetingId: 'meeting-b',
+      title: '둘',
+      createdAt: '2026-01-03T00:00:00.000Z',
+    });
+    await repository.create({
+      meetingId: 'meeting-a',
+      title: '하나',
+      createdAt: '2026-01-02T00:00:00.000Z',
+    });
+    database
+      .prepare(
+        `INSERT INTO meeting_transcriptions (meeting_id, job_id, status, error_code)
+        VALUES (?, ?, 'failed', NULL)`,
+      )
+      .run('meeting-b', '00000000-0000-4000-8000-00000000000b');
+
+    const page = await repository.list({
+      yearStartMs: Date.parse('2026-01-01T00:00:00.000Z'),
+      nextYearStartMs: Date.parse('2027-01-01T00:00:00.000Z'),
+      limit: 10,
+    });
+
+    expect(page.meetings.map(({ id, status }) => [id, status])).toEqual([
+      ['meeting-b', MeetingStatus.Failed],
+      ['meeting-a', MeetingStatus.LocalOnly],
+    ]);
   });
 
   it('같은 meetingId는 동일 생성 입력만 멱등 성공으로 인정한다', async () => {

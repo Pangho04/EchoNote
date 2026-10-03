@@ -6,6 +6,7 @@ import {
   createJobRequestSchema,
   failJobRequestSchema,
   jobLeaseRequestSchema,
+  MAX_UPLOAD_BYTES,
   processingJobSchema,
   processingJobStatusSchema,
   renewJobLeaseResponseSchema,
@@ -63,6 +64,10 @@ describe('createJobRequestSchema', () => {
     sha256: 'a'.repeat(64),
     mimeType: 'audio/mp4',
   };
+
+  it('MAX_UPLOAD_BYTES는 512 MiB다', () => {
+    expect(MAX_UPLOAD_BYTES).toBe(512 * 1024 * 1024);
+  });
 
   it.each([1, 536_870_912])('sizeBytes %d를 허용한다', (sizeBytes) => {
     expect(createJobRequestSchema.safeParse({ ...request, sizeBytes }).success).toBe(true);

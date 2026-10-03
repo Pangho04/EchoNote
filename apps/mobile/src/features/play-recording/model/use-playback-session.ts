@@ -20,6 +20,7 @@ export interface PlaybackSessionViewModel {
   pause(): void;
   seekBackward(): Promise<void>;
   seekForward(): Promise<void>;
+  playFrom(ms: number): Promise<void>;
 }
 
 interface ButtonState {
@@ -96,6 +97,18 @@ export function usePlaybackSession(playback: AudioPlayback): PlaybackSessionView
     );
   }
 
+  // 끝 위치로 옮기면 바로 ENDED가 되므로 마지막 1ms 앞에서 멈춘다. ENDED여도 처음으로 되감지 않는다.
+  function playFrom(ms: number): Promise<void> {
+    const { canSeek } = toButtonState(kind, durationMs !== null);
+
+    if (durationMs === null || durationMs <= 0 || !canSeek) return Promise.resolve();
+
+    return run(async () => {
+      await playback.seekTo(Math.min(ms, durationMs - 1));
+      playback.play();
+    });
+  }
+
   // native 오류 원문은 영어이고 플랫폼마다 달라 사용자가 할 일을 알려주지 않는다. 앱 문구로만 알린다.
   const statusError = kind === PlaybackStatusKind.ERROR ? UI_STRINGS.playback.failed : null;
 
@@ -110,5 +123,6 @@ export function usePlaybackSession(playback: AudioPlayback): PlaybackSessionView
     pause: () => void run(() => playback.pause()),
     seekBackward: () => seekBy(-SEEK_STEP_MS),
     seekForward: () => seekBy(SEEK_STEP_MS),
+    playFrom,
   };
 }

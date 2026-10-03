@@ -179,4 +179,40 @@ describe('usePlaybackSession', () => {
 
     expect(result.current.errorMessage).toBe('재생 조작에 실패했습니다.');
   });
+
+  it('ENDED에서 playFrom은 처음이 아니라 그 시각으로 옮긴 뒤 재생한다', async () => {
+    const playback = buildPlayback({ kind: PlaybackStatusKind.ENDED, positionMs: 60_000 });
+    const { result } = await renderHook(() => usePlaybackSession(playback));
+
+    await act(() => result.current.playFrom(12_000));
+
+    expect(playback.seekTo).toHaveBeenCalledTimes(1);
+    expect(playback.seekTo).toHaveBeenCalledWith(12_000);
+    expect(jest.mocked(playback.seekTo).mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(playback.play).mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it('길이 이상의 시각은 끝 1ms 앞으로 보정한다', async () => {
+    const playback = buildPlayback();
+    const { result } = await renderHook(() => usePlaybackSession(playback));
+
+    await act(() => result.current.playFrom(90_000));
+
+    expect(playback.seekTo).toHaveBeenCalledWith(59_999);
+  });
+
+  it.each([
+    ['길이를 모름', { durationMs: null }],
+    ['LOADING', { kind: PlaybackStatusKind.LOADING }],
+    ['ERROR', { kind: PlaybackStatusKind.ERROR }],
+  ])('%s이면 playFrom을 무시한다', async (_label, overrides) => {
+    const playback = buildPlayback(overrides);
+    const { result } = await renderHook(() => usePlaybackSession(playback));
+
+    await act(() => result.current.playFrom(12_000));
+
+    expect(playback.seekTo).not.toHaveBeenCalled();
+    expect(playback.play).not.toHaveBeenCalled();
+  });
 });
