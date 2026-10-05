@@ -54,7 +54,7 @@ app → pages → widgets → features → entities → shared
 
 - 하위 계층은 상위 계층을 import하지 않는다.
 - 같은 계층의 서로 다른 slice를 직접 import하지 않는다.
-- 다른 계층은 slice의 공개 진입점인 `index.ts`를 통해 import한다.
+- 다른 계층은 slice의 공개 진입점인 `index.ts`를 통해 import한다. 예외로 feature의 `ui/` 컴포넌트는 `index.ts`에 내보내지 않고 `@/features/<slice>/ui/<파일>` 경로로 직접 import한다. `index.ts`가 UI를 내보내면 Node에서 도는 vitest가 React Native 소스까지 읽어 실패한다.
 - `shared`에는 EchoNote 도메인 용어와 기능을 넣지 않는다. 다만 여러 slice가 함께 쓰는 route 경로(`config/routes.ts`)와 화면 문구(`config/ui-strings.ts`) 상수는 예외로 도메인별 키를 가진다. 이 파일들은 값만 두고 규칙·동작을 넣지 않는다.
 - 재사용 가능성을 추측해 미리 slice나 공통 컴포넌트를 만들지 않는다.
 - 파일이 작고 역할이 하나라면 불필요한 하위 디렉터리를 추가하지 않는다.
