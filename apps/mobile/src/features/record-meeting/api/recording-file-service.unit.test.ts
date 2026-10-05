@@ -16,6 +16,12 @@ describe('detectMimeTypeFromBytes', () => {
     expect(detectMimeTypeFromBytes(bytes)).toBe('audio/mp4');
   });
 
+  it('삼성 음성 녹음의 3gp4 brand도 audio/mp4로 판별한다', () => {
+    const bytes = toBytes('00000018667479703367703400000000');
+
+    expect(detectMimeTypeFromBytes(bytes)).toBe('audio/mp4');
+  });
+
   it('ftyp brand가 없으면 허용 목록을 벗어나는 fallback을 돌려준다', () => {
     const bytes = toBytes('49443303000000000000000000000000');
 
