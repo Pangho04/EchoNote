@@ -1,7 +1,7 @@
 appId: dev.pangho.echonote
 name: DB가 손상되면 복구 화면을 띄운다
 env:
-  DEV_CLIENT_URL: 'exp+echonote://expo-development-client/?url=http%3A%2F%2F192.168.0.195%3A8081'
+  DEV_CLIENT_URL: 'exp+echonote://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
 ---
 # 선행: e2e/device-state.sh <platform> db-corrupt
 # 초기화가 성공하면 DB가 새로 만들어지므로 후행 복구 조작은 필요 없다.

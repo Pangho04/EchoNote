@@ -45,4 +45,4 @@ name: m4a 파일을 업로드해 회의 만들기
 - extendedWaitUntil:
     visible: '.*[0-9]+초 · .*'
     timeout: 30000
-- assertVisible: '.*_녹음.*'
+- assertVisible: '.*e2e-upload.*'

@@ -6,7 +6,9 @@ name: 로그인
 - tapOn: '이메일'
 - eraseText: 80
 - inputText: ${E2E_EMAIL}
-- tapOn: '비밀번호'
+# iOS는 이메일 입력 뒤 암호 자동 완성 말풍선이 비밀번호 칸을 덮는다. 칸을 누르지 않고
+# 키보드 Next로 초점을 옮긴다.
+- pressKey: Enter
 - eraseText: 80
 - inputText: ${E2E_PASSWORD}
 # 버튼을 누르지 않고 키보드 Return으로 제출한다. 작은 iPhone에서는 버튼 좌표가 키보드 위
