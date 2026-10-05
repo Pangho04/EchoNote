@@ -19,14 +19,19 @@ const HEADER_BYTE_LENGTH = 12;
 const DURATION_TIMEOUT_MS = 10_000;
 
 // size 0은 picker가 크기를 알려 주지 않은 경우다.
-export type PickedRecording = {
+export type CachedRecording = {
   uri: string;
   size: number;
 };
 
+// name은 확장자를 포함한 원본 파일 이름이다. 회의 이름의 바탕이 된다.
+export type PickedRecording = CachedRecording & {
+  name: string;
+};
+
 export interface RecordingImportService {
   pickRecording(): Promise<PickedRecording | null>;
-  copyToCache(input: { sourceUri: string; meetingId: string }): Promise<PickedRecording>;
+  copyToCache(input: { sourceUri: string; meetingId: string }): Promise<CachedRecording>;
   readHeaderBytes(uri: string, length: number): Promise<Uint8Array>;
   readDurationMs(uri: string, timeoutMs: number): Promise<number>;
 }
@@ -62,7 +67,7 @@ export async function importRecording(
   deps: ImportRecordingDependencies,
   input: ImportRecordingInput,
 ): Promise<ImportResult> {
-  let copy: PickedRecording;
+  let copy: CachedRecording;
 
   try {
     copy = await deps.importer.copyToCache({

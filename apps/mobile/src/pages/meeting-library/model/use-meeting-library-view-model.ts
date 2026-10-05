@@ -53,6 +53,11 @@ export type PickAndImportResult =
 
 export type ImportFailureNotice = { meetingId: string; message: string };
 
+// 'S-1m-q-1.m4a' → 'S-1m-q-1'. 점이 없으면 그대로 둔다.
+function stripExtension(fileName: string): string {
+  return fileName.replace(/\.[^.]+$/, '');
+}
+
 function toImportFailureReason(failure: ImportFailure): string {
   switch (failure.kind) {
     case 'tooLarge':
@@ -234,7 +239,7 @@ export function useMeetingLibraryViewModel(
       const meetingId = createRecordingId();
       const createdAt = new Date().toISOString();
       const title = nomalizeMeetingTitle(
-        '',
+        stripExtension(source.name),
         createdAt,
         Intl.DateTimeFormat().resolvedOptions().timeZone,
       );

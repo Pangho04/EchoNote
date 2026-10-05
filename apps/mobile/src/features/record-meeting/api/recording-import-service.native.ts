@@ -33,7 +33,7 @@ export function createNativeRecordingImportService(): RecordingImportService {
 
       if (picked.canceled) return null;
 
-      return { uri: picked.result.uri, size: picked.result.size };
+      return { uri: picked.result.uri, size: picked.result.size, name: picked.result.name };
     },
 
     async copyToCache({ sourceUri, meetingId }) {

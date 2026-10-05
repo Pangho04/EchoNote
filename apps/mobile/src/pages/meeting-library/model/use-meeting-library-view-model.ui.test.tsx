@@ -2,7 +2,11 @@ import { MAX_UPLOAD_BYTES } from '@echonote/contracts';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 
-import { createSQLiteMeetingRepository, toMeetingListItemVM } from '@/entities/meeting';
+import {
+  createSQLiteMeetingRepository,
+  nomalizeMeetingTitle,
+  toMeetingListItemVM,
+} from '@/entities/meeting';
 import type { Recording } from '@/entities/recording';
 import { useSession } from '@/features/authenticate';
 import { makeListMeetings } from '@/features/list-meetings';
@@ -52,6 +56,7 @@ const mockedUseSQLiteContext = jest.mocked(useSQLiteContext);
 const mockedUseSession = jest.mocked(useSession);
 const mockedCreateRepository = jest.mocked(createSQLiteMeetingRepository);
 const mockedToMeetingListItemVM = jest.mocked(toMeetingListItemVM);
+const mockedNomalizeMeetingTitle = jest.mocked(nomalizeMeetingTitle);
 const mockedMakeListMeetings = jest.mocked(makeListMeetings);
 const mockedStartRecording = jest.mocked(startRecording);
 const mockedImportRecording = jest.mocked(importRecording);
@@ -237,6 +242,7 @@ describe('useMeetingLibraryViewModel', () => {
       importService.pickRecording.mockResolvedValue({
         uri: 'file:///big.m4a',
         size: MAX_UPLOAD_BYTES + 1,
+        name: 'big.m4a',
       });
 
       const { result } = await renderHook(() =>
@@ -257,7 +263,11 @@ describe('useMeetingLibraryViewModel', () => {
       setupMeetings(null);
 
       const importService = createImportService();
-      importService.pickRecording.mockResolvedValue({ uri: 'file:///unknown.m4a', size: 0 });
+      importService.pickRecording.mockResolvedValue({
+        uri: 'file:///unknown.m4a',
+        size: 0,
+        name: 'unknown.m4a',
+      });
       mockedImportRecording.mockResolvedValue({
         kind: 'saved',
         recording: {} as unknown as Recording,
@@ -301,7 +311,11 @@ describe('useMeetingLibraryViewModel', () => {
       setupMeetings(null);
 
       const importService = createImportService();
-      importService.pickRecording.mockResolvedValue({ uri: 'file:///a.m4a', size: 100 });
+      importService.pickRecording.mockResolvedValue({
+        uri: 'file:///a.m4a',
+        size: 100,
+        name: 'a.m4a',
+      });
       mockedImportRecording.mockResolvedValue({
         kind: 'saved',
         recording: {} as unknown as Recording,
@@ -322,11 +336,44 @@ describe('useMeetingLibraryViewModel', () => {
       await waitFor(() => expect(mockedImportRecording).toHaveBeenCalledTimes(1));
     });
 
+    it('고른 파일 이름에서 확장자를 뗀 값이 회의 이름이 된다', async () => {
+      setupMeetings(null);
+
+      const importService = createImportService();
+      importService.pickRecording.mockResolvedValue({
+        uri: 'file:///S-1m-q-1.m4a',
+        size: 100,
+        name: 'S-1m-q-1.m4a',
+      });
+      mockedImportRecording.mockResolvedValue({
+        kind: 'saved',
+        recording: {} as unknown as Recording,
+      });
+
+      const { result } = await renderHook(() =>
+        useMeetingLibraryViewModel(permissionService, () => 'named-meeting', importService, true),
+      );
+
+      await act(async () => {
+        await result.current.pickAndImport();
+      });
+
+      await waitFor(() => expect(mockedImportRecording).toHaveBeenCalledTimes(1));
+      // 제목 정규화는 entities mock이라 입력값(확장자를 뗀 파일 이름)만 확인한다.
+      expect(mockedNomalizeMeetingTitle).toHaveBeenCalledWith(
+        'S-1m-q-1',
+        expect.any(String),
+        expect.any(String),
+      );
+    });
+
     it('가져오는 동안 다시 호출하면 canceled를 반환해 겹치지 않게 막는다', async () => {
       setupMeetings(null);
 
       const importService = createImportService();
-      let resolvePick: (value: { uri: string; size: number } | null) => void = () => {};
+      let resolvePick: (
+        value: { uri: string; size: number; name: string } | null,
+      ) => void = () => {};
       importService.pickRecording.mockImplementation(
         () =>
           new Promise((resolve) => {
