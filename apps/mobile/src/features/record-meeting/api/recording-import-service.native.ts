@@ -1,4 +1,5 @@
 import { createAudioPlayer } from 'expo-audio';
+import { getDocumentAsync } from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
@@ -37,11 +38,19 @@ async function readDurationMs(uri: string, timeoutMs: number): Promise<number> {
 export function createNativeRecordingImportService(): RecordingImportService {
   return {
     async pickRecording() {
-      const picked = await File.pickFileAsync({ mimeTypes: PICKER_MIME_TYPES });
+      // Android는 원본 content:// 주소를 받아 copyToCache에서 한 번만 복사한다.
+      // expo-file-system의 File.name은 이 주소의 끝부분(msf:123 같은 문서 ID)이라
+      // 표시 이름을 주는 document picker를 쓴다.
+      const picked = await getDocumentAsync({
+        type: PICKER_MIME_TYPES,
+        copyToCacheDirectory: Platform.OS === 'ios',
+      });
 
-      if (picked.canceled) return null;
+      const asset = picked.canceled ? undefined : picked.assets[0];
 
-      return { uri: picked.result.uri, size: picked.result.size, name: picked.result.name };
+      if (asset === undefined) return null;
+
+      return { uri: asset.uri, size: asset.size ?? 0, name: asset.name };
     },
 
     async copyToCache({ sourceUri, meetingId }) {
