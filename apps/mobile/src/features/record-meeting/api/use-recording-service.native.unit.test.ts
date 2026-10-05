@@ -83,7 +83,7 @@ describe('useNativeRecordingService', () => {
     const listener = vi.fn();
     service.subscribe(listener);
 
-    expect(useVoiceRecorder).toHaveBeenCalledWith(11, expect.any(Function));
+    expect(useVoiceRecorder).toHaveBeenCalledWith(37, expect.any(Function));
 
     mocks.statusListener?.({
       id: 'recorder-1',
