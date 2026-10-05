@@ -64,6 +64,17 @@ jest.mock('@/entities/recording', () => ({
   deleteRecordingFile: jest.fn(),
 }));
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'mocked-uuid' }));
+// Provider처럼 렌더마다 같은 client를 준다.
+const mockGatewayClient = {};
+
+jest.mock('@/shared/api/gateway-client', () => ({
+  useGatewayClient: jest.fn(() => mockGatewayClient),
+}));
+jest.mock('@/features/request-transcription', () => ({
+  createTranscriptionDeps: jest.fn(() => ({})),
+  syncPendingTranscriptions: jest.fn(async () => false),
+  TRANSCRIPTION_POLL_INTERVAL_MS: 5_000,
+}));
 jest.mock('@/features/record-meeting/api/recording-permission-service.native', () => ({
   recordingPermissionService: { get: jest.fn(), request: jest.fn(), openSettings: jest.fn() },
 }));

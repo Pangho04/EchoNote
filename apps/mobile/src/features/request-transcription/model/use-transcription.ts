@@ -82,7 +82,8 @@ type FetchContext = 'entry' | 'poll' | 'after-upload';
 // schedule은 조건이 맞으면 다음 조회를 예약하고, reconcile은 쓰기가 0행이라 행을 다시 읽는다.
 type FetchStep = 'schedule' | 'reconcile' | 'done';
 
-const POLL_INTERVAL_MS = 5_000;
+// 상세와 목록이 같은 간격으로 서버 상태를 묻는다.
+export const TRANSCRIPTION_POLL_INTERVAL_MS = 5_000;
 
 const jobIdSchema = z.uuid();
 
@@ -193,7 +194,7 @@ export function createTranscriptionController(
     timer = setTimeout(() => {
       timer = null;
       void fetchJob('poll');
-    }, POLL_INTERVAL_MS);
+    }, TRANSCRIPTION_POLL_INTERVAL_MS);
   }
 
   function showNoRow(notice: TranscriptionNotice | null = null): void {

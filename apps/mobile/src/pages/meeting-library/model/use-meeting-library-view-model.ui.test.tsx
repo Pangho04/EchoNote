@@ -12,6 +12,7 @@ import { useSession } from '@/features/authenticate';
 import { makeListMeetings } from '@/features/list-meetings';
 import type { RecordingImportService, RecordingPermissionService } from '@/features/record-meeting';
 import { importRecording, pendingImports, startRecording } from '@/features/record-meeting';
+import { syncPendingTranscriptions } from '@/features/request-transcription';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 
 // 배럴을 jest.mock으로 갈아끼웠으므로 실제 MeetingStatus는 model 모듈에서 직접 가져온다.
@@ -28,6 +29,7 @@ jest.mock('@/entities/meeting', () => ({
   createSQLiteMeetingRepository: jest.fn(),
   toMeetingListItemVM: jest.fn(),
   nomalizeMeetingTitle: jest.fn(() => '새 녹음'),
+  MeetingStatus: jest.requireActual('../../../entities/meeting/model/meeting').MeetingStatus,
 }));
 jest.mock('@/features/list-meetings', () => ({
   makeListMeetings: jest.fn(),
@@ -42,6 +44,17 @@ jest.mock('@/features/record-meeting', () => {
     pendingImports: actual.pendingImports,
   };
 });
+// Provider처럼 렌더마다 같은 client를 준다.
+const mockGatewayClient = {};
+
+jest.mock('@/shared/api/gateway-client', () => ({
+  useGatewayClient: jest.fn(() => mockGatewayClient),
+}));
+jest.mock('@/features/request-transcription', () => ({
+  createTranscriptionDeps: jest.fn(() => ({})),
+  syncPendingTranscriptions: jest.fn(async () => false),
+  TRANSCRIPTION_POLL_INTERVAL_MS: 5_000,
+}));
 jest.mock('@/features/record-meeting/api/recording-file-service.native', () => ({
   createNativeRecordingFileService: jest.fn(() => ({
     exists: jest.fn(),
@@ -60,6 +73,7 @@ const mockedNomalizeMeetingTitle = jest.mocked(nomalizeMeetingTitle);
 const mockedMakeListMeetings = jest.mocked(makeListMeetings);
 const mockedStartRecording = jest.mocked(startRecording);
 const mockedImportRecording = jest.mocked(importRecording);
+const mockedSyncPendingTranscriptions = jest.mocked(syncPendingTranscriptions);
 
 const permissionService: RecordingPermissionService = {
   get: jest.fn(),
@@ -504,6 +518,98 @@ describe('useMeetingLibraryViewModel', () => {
     });
 
     await waitFor(() => expect(listMeetings).toHaveBeenCalled());
+  });
+
+  describe('진행 중 전사 동기화', () => {
+    const pendingMeeting: Meeting = {
+      id: 'meeting-1',
+      title: '제품 회의',
+      status: MeetingStatus.Processing,
+      createdAt: '2026-08-08T00:10:00.000Z',
+      updatedAt: '2026-08-08T00:10:00.000Z',
+      durationMs: 60_000,
+    };
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      mockedToMeetingListItemVM.mockReturnValue({
+        id: 'meeting-1',
+        title: '제품 회의',
+        monthLabel: '8월',
+        dayLabel: '08',
+        metaLabel: '1분 · 변환 중',
+        accessory: { kind: 'chip', label: '변환 중' },
+      });
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    async function renderFocused(meeting: Meeting) {
+      const listMeetings = setupMeetings(meeting);
+      const hook = await renderHook(
+        ({ isFocused }: { isFocused: boolean }) =>
+          useMeetingLibraryViewModel(
+            permissionService,
+            () => 'm1',
+            createImportService(),
+            isFocused,
+          ),
+        { initialProps: { isFocused: true } },
+      );
+
+      await act(async () => {
+        await hook.result.current.refresh();
+      });
+
+      return { ...hook, listMeetings };
+    }
+
+    it('변환 중 회의가 있으면 바로 묻고 5초마다 다시 묻는다. 바뀌면 목록을 다시 읽는다', async () => {
+      mockedSyncPendingTranscriptions.mockResolvedValueOnce(true).mockResolvedValue(false);
+
+      const { listMeetings } = await renderFocused(pendingMeeting);
+
+      expect(mockedSyncPendingTranscriptions).toHaveBeenCalledTimes(1);
+      expect(mockedSyncPendingTranscriptions.mock.calls[0]![1]).toEqual(['meeting-1']);
+      expect(listMeetings).toHaveBeenCalledTimes(2);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(5_000);
+      });
+
+      expect(mockedSyncPendingTranscriptions).toHaveBeenCalledTimes(2);
+    });
+
+    it('대기·변환 중 회의가 없으면 서버에 묻지 않는다', async () => {
+      await renderFocused({ ...pendingMeeting, status: MeetingStatus.Completed });
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000);
+      });
+
+      expect(mockedSyncPendingTranscriptions).not.toHaveBeenCalled();
+    });
+
+    it('포커스를 잃으면 진행 중인 조회를 끊고 더 묻지 않는다', async () => {
+      mockedSyncPendingTranscriptions.mockResolvedValue(false);
+
+      const { rerender } = await renderFocused(pendingMeeting);
+
+      expect(mockedSyncPendingTranscriptions).toHaveBeenCalledTimes(1);
+
+      const signal = mockedSyncPendingTranscriptions.mock.calls[0]![2];
+
+      await rerender({ isFocused: false });
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000);
+      });
+
+      expect(signal.aborted).toBe(true);
+      expect(mockedSyncPendingTranscriptions).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('dismissImportFailure', () => {
