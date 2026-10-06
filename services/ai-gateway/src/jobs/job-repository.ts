@@ -10,7 +10,11 @@ import {
 } from '@echonote/contracts';
 import { z } from 'zod';
 
+import { type TranscriptCipher, TranscriptCipherError } from './transcript-cipher.js';
+
 type JobRepositoryOptions = {
+  // 전사문은 저장소에 암호문으로만 둔다. 잠금·풀기는 이 cipher가 한다.
+  cipher: TranscriptCipher;
   supabaseUrl: string;
   // loadEnvironment로 검증한 값만 받는다. new Headers의 TypeError 문구가 값을 담는다.
   secretKey: string;
@@ -135,10 +139,20 @@ const completeJobRowSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('stale') }),
 ]);
 
-// 열 형태만 먼저 확인하고 내용 규칙은 camelCase로 옮긴 뒤 계약으로 검사한다.
+// 열 형태만 먼저 확인하고 내용 규칙은 복호화해 camelCase로 옮긴 뒤 계약으로 검사한다.
+// 확장 migration 동안 옛 Gateway가 남긴 평문 행은 암호문 열이 null이다. 그 행은 읽지 않고 decrypt_failed로 구분한다.
 const transcriptRowsSchema = z
-  .array(z.object({ duration_ms: z.unknown(), segments: z.unknown() }))
+  .array(
+    z.object({
+      duration_ms: z.unknown(),
+      segments_sealed: z.string().nullable(),
+      dek_sealed: z.string().nullable(),
+      key_version: z.number().nullable(),
+    }),
+  )
   .max(1);
+
+const TRANSCRIPT_COLUMNS = 'duration_ms,segments_sealed,dek_sealed,key_version';
 
 const toJobSnapshot = (row: z.infer<typeof jobRowSchema>): JobSnapshot => ({
   id: row.id,
@@ -189,6 +203,7 @@ const ensureOk = (label: string, response: Response) => {
 };
 
 export const createJobRepository = ({
+  cipher,
   supabaseUrl,
   secretKey,
   timeoutMs,
@@ -384,13 +399,16 @@ export const createJobRepository = ({
     },
 
     async completeJob({ jobId, leaseId, transcript }) {
+      const sealed = cipher.seal({ jobId, segments: transcript.segments });
       const response = await callStore('complete_job', async () =>
         fetch(`${supabaseUrl}/rest/v1/rpc/complete_job`, {
           body: JSON.stringify({
             p_job_id: jobId,
             p_lease_id: leaseId,
             p_duration_ms: transcript.durationMs,
-            p_segments: transcript.segments,
+            p_segments_sealed: sealed.segmentsSealed,
+            p_dek_sealed: sealed.dekSealed,
+            p_key_version: sealed.keyVersion,
           }),
           headers,
           method: 'POST',
@@ -414,7 +432,7 @@ export const createJobRepository = ({
       const query = new URLSearchParams({
         job_id: `eq.${jobId}`,
         owner_id: `eq.${ownerId}`,
-        select: 'duration_ms,segments',
+        select: TRANSCRIPT_COLUMNS,
       });
       const response = await callStore('select_transcripts', async () =>
         fetch(`${supabaseUrl}/rest/v1/transcripts?${query}`, {
@@ -437,9 +455,32 @@ export const createJobRepository = ({
 
       if (row === undefined) return null;
 
+      if (row.segments_sealed === null || row.dek_sealed === null || row.key_version === null) {
+        throw new Error('select_transcripts decrypt_failed plain_row');
+      }
+
+      let segments: unknown;
+
+      // 변조·KEK 불일치는 invalid response와 구분해 운영에서 원인을 가를 수 있게 한다. reason 코드만 남긴다.
+      try {
+        segments = cipher.open({
+          dekSealed: row.dek_sealed,
+          jobId,
+          keyVersion: row.key_version,
+          segmentsSealed: row.segments_sealed,
+        });
+      } catch (error) {
+        if (error instanceof TranscriptCipherError) {
+          // eslint-disable-next-line preserve-caught-error -- cause로 붙이면 로그에 암호문·키 조각이 실릴 수 있다. reason만 옮긴다.
+          throw new Error(`select_transcripts decrypt_failed ${error.reason}`);
+        }
+
+        throw error;
+      }
+
       const transcript = transcriptResultSchema.safeParse({
         durationMs: row.duration_ms,
-        segments: row.segments,
+        segments,
       });
 
       if (!transcript.success) throw new Error('select_transcripts invalid response');

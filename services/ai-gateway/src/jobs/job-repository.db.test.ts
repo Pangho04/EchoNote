@@ -4,8 +4,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { HEADER_SAFE_PATTERN, LOOPBACK_HOSTS } from '../config/environment.js';
 import { createJobRepository } from './job-repository.js';
+import { createTranscriptCipher } from './transcript-cipher.js';
 
 type LocalSupabase = { apiUrl: string; secretKey: string };
+
+const cipher = createTranscriptCipher({ kek: Buffer.alloc(32, 5) });
 
 // 원격 프로젝트에 요청하지 않도록 첫 fetch 전에 loopback API URL인지 확인한다.
 const readLocalSupabase = (): LocalSupabase | undefined => {
@@ -99,6 +102,7 @@ afterAll(async () => {
 describe('createJobRepository (local Supabase)', () => {
   it('같은 owner·key 동시 요청 10건은 row 1개로 수렴한다', async () => {
     const repository = createJobRepository({
+      cipher,
       secretKey: local.secretKey,
       supabaseUrl: local.apiUrl,
       timeoutMs: 5000,
@@ -126,6 +130,7 @@ describe('createJobRepository (local Supabase)', () => {
 
   it('다른 owner는 같은 key·payload로도 각자 row를 만든다', async () => {
     const repository = createJobRepository({
+      cipher,
       secretKey: local.secretKey,
       supabaseUrl: local.apiUrl,
       timeoutMs: 5000,
@@ -145,6 +150,7 @@ describe('createJobRepository (local Supabase)', () => {
 describe('findOwnedJob (local Supabase)', () => {
   it('owner의 job만 찾고 다른 owner에게는 null을 돌려준다', async () => {
     const repository = createJobRepository({
+      cipher,
       secretKey: local.secretKey,
       supabaseUrl: local.apiUrl,
       timeoutMs: 5000,
@@ -165,6 +171,7 @@ describe('findOwnedJob (local Supabase)', () => {
 describe('completeUpload (local Supabase)', () => {
   it('같은 통지 동시 10건은 queued 1건·existing 9건이고 status는 queued다', async () => {
     const repository = createJobRepository({
+      cipher,
       secretKey: local.secretKey,
       supabaseUrl: local.apiUrl,
       timeoutMs: 5000,
@@ -195,6 +202,7 @@ describe('completeUpload (local Supabase)', () => {
 
   it('payload가 다르면 conflict, 다른 owner면 not_found이고 status는 created다', async () => {
     const repository = createJobRepository({
+      cipher,
       secretKey: local.secretKey,
       supabaseUrl: local.apiUrl,
       timeoutMs: 5000,
@@ -228,6 +236,7 @@ describe('completeUpload (local Supabase)', () => {
 describe('claimJob·renewJobLease·failJob (local Supabase)', () => {
   it('queued job 둘에 동시 claim 10건은 두 job을 한 번씩만 가져가고 그 lease로만 연장·실패 확정된다', async () => {
     const repository = createJobRepository({
+      cipher,
       secretKey: local.secretKey,
       supabaseUrl: local.apiUrl,
       timeoutMs: 5000,
@@ -303,6 +312,7 @@ describe('claimJob·renewJobLease·failJob (local Supabase)', () => {
 describe('claimJob 사용자별 순서 (local Supabase)', () => {
   it('A가 job 둘을 먼저 올려도 뒤에 올린 B의 job을 A의 둘째보다 먼저 가져간다', async () => {
     const repository = createJobRepository({
+      cipher,
       secretKey: local.secretKey,
       supabaseUrl: local.apiUrl,
       timeoutMs: 5000,
@@ -350,8 +360,9 @@ describe('claimJob 사용자별 순서 (local Supabase)', () => {
 });
 
 describe('completeJob·findOwnedTranscript (local Supabase)', () => {
-  it('lease로 약 3.5 MiB 전사 결과를 저장하고 owner에게만 돌려준다', async () => {
+  it('완료한 전사는 암호문으로 저장되고 왕복한다 — 약 3.5 MiB, owner에게만', async () => {
     const repository = createJobRepository({
+      cipher,
       secretKey: local.secretKey,
       supabaseUrl: local.apiUrl,
       timeoutMs: 5000,
@@ -404,6 +415,25 @@ describe('completeJob·findOwnedTranscript (local Supabase)', () => {
     await expect(repository.completeJob({ jobId: job.id, leaseId, transcript })).resolves.toEqual({
       kind: 'completed',
     });
+
+    // 저장소에는 평문 열이 비고 암호문 열만 찬다.
+    const [row] = (await (
+      await callLocal(
+        `/rest/v1/transcripts?select=segments,segments_sealed,dek_sealed,key_version&job_id=eq.${job.id}`,
+      )
+    ).json()) as {
+      segments: unknown;
+      segments_sealed: string | null;
+      dek_sealed: string | null;
+      key_version: number | null;
+    }[];
+
+    expect(row?.segments).toBeNull();
+    expect(row?.key_version).toBe(1);
+    expect(row?.dek_sealed).toMatch(/^[A-Za-z0-9+/]{80}$/);
+    expect(Buffer.from(row!.segments_sealed!, 'base64').includes(Buffer.from('가가가'))).toBe(
+      false,
+    );
     await expect(repository.findOwnedTranscript({ jobId: job.id, ownerId })).resolves.toEqual(
       transcript,
     );
@@ -419,5 +449,64 @@ describe('completeJob·findOwnedTranscript (local Supabase)', () => {
     ).resolves.toEqual({
       kind: 'stale',
     });
+  });
+
+  // 확장 migration 동안 옛 Gateway가 보내는 평문 body(p_segments)도 같은 함수가 받는다. 축소 migration에서 이 테스트를 지운다.
+  it('p_segments만 보낸 옛 body도 completed이고 평문 행이 된다', async () => {
+    const repository = createJobRepository({
+      cipher,
+      secretKey: local.secretKey,
+      supabaseUrl: local.apiUrl,
+      timeoutMs: 5000,
+    });
+    const ownerId = await createUser();
+    const created = await repository.createJob(createInput(ownerId, randomUUID()));
+
+    if (created.kind !== 'created') throw new Error('job was not created');
+
+    const { job } = created;
+
+    while ((await repository.claimJob()).kind === 'claimed');
+
+    await repository.completeUpload({
+      jobId: job.id,
+      mimeType: job.mimeType,
+      ownerId,
+      sha256: job.sha256,
+      sizeBytes: job.sizeBytes,
+    });
+
+    let leaseId: string | undefined;
+
+    for (let attempt = 0; attempt < 10 && leaseId === undefined; attempt += 1) {
+      const result = await repository.claimJob();
+
+      if (result.kind === 'idle') break;
+
+      if (result.job.id === job.id) leaseId = result.lease.leaseId;
+    }
+
+    if (leaseId === undefined) throw new Error('created job was not claimed');
+
+    const response = await callLocal('/rest/v1/rpc/complete_job', {
+      body: JSON.stringify({
+        p_duration_ms: 1000,
+        p_job_id: job.id,
+        p_lease_id: leaseId,
+        p_segments: [{ endMs: 1000, startMs: 0, text: '옛 body' }],
+      }),
+      method: 'POST',
+    });
+    const [row] = (await (
+      await callLocal(`/rest/v1/transcripts?select=segments,segments_sealed&job_id=eq.${job.id}`)
+    ).json()) as { segments: unknown; segments_sealed: string | null }[];
+
+    expect(await response.json()).toEqual({ kind: 'completed' });
+    expect(row?.segments).toEqual([{ endMs: 1000, startMs: 0, text: '옛 body' }]);
+    expect(row?.segments_sealed).toBeNull();
+    // 평문 행은 새 Gateway가 읽지 못한다(축소 migration 전까지의 승인된 구간).
+    await expect(repository.findOwnedTranscript({ jobId: job.id, ownerId })).rejects.toThrow(
+      'select_transcripts decrypt_failed plain_row',
+    );
   });
 });

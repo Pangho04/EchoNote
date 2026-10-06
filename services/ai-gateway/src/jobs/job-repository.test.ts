@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createJobRepository, JobStoreUnavailableError } from './job-repository.js';
+import { createTranscriptCipher } from './transcript-cipher.js';
+
+// 고정 테스트 KEK로 실제 cipher를 쓴다. 요청 body·응답 fixture가 진짜 암호문이어야 평문 누출 검사가 의미 있다.
+const cipher = createTranscriptCipher({ kek: Buffer.alloc(32, 5) });
 
 const SECRET = 'sb_secret_SECRETVALUE';
 
@@ -46,7 +50,7 @@ const stubFetch = (implementation: (url: string, init: RequestInit) => Promise<R
 };
 
 const createRepository = (timeoutMs = 5000) =>
-  createJobRepository({ secretKey: SECRET, supabaseUrl: 'https://store.test', timeoutMs });
+  createJobRepository({ cipher, secretKey: SECRET, supabaseUrl: 'https://store.test', timeoutMs });
 
 const captureError = async (promise: Promise<unknown>) => {
   try {
@@ -442,23 +446,37 @@ describe('completeJob', () => {
     transcript,
   };
 
-  it('complete_job_v1에 snake_case 인자를 보내고 redirect를 따라가지 않는다', async () => {
+  it('complete_job에 잠근 전사문만 보내고 redirect를 따라가지 않는다', async () => {
     const fetchMock = stubFetch(async () => Response.json({ kind: 'stale' }));
 
     await createRepository().completeJob(completion);
 
     const [url, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
 
     expect(url).toBe('https://store.test/rest/v1/rpc/complete_job');
     expect(init.method).toBe('POST');
     expect(init.redirect).toBe('manual');
     expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
-    expect(JSON.parse(init.body as string)).toEqual({
-      p_duration_ms: transcript.durationMs,
-      p_job_id: completion.jobId,
-      p_lease_id: completion.leaseId,
-      p_segments: transcript.segments,
-    });
+    expect(Object.keys(body).sort()).toEqual([
+      'p_dek_sealed',
+      'p_duration_ms',
+      'p_job_id',
+      'p_key_version',
+      'p_lease_id',
+      'p_segments_sealed',
+    ]);
+    expect(body.p_duration_ms).toBe(transcript.durationMs);
+    expect(body.p_key_version).toBe(1);
+    expect(init.body as string).not.toContain('안녕');
+    expect(
+      cipher.open({
+        dekSealed: body.p_dek_sealed as string,
+        jobId: completion.jobId,
+        keyVersion: 1,
+        segmentsSealed: body.p_segments_sealed as string,
+      }),
+    ).toEqual(transcript.segments);
   });
 
   it.each(['completed', 'stale'] as const)('%s를 그대로 돌려준다', async (kind) => {
@@ -491,10 +509,18 @@ describe('completeJob', () => {
 
 describe('findOwnedTranscript', () => {
   const ownedInput = { jobId: jobRow.id, ownerId: input.ownerId };
-  const transcriptRow = {
-    duration_ms: 2_000,
-    segments: [{ endMs: 1_000, startMs: 0, text: '안녕하세요' }],
+  const segments = [{ endMs: 1_000, startMs: 0, text: '안녕하세요' }];
+  const sealRow = (value: unknown) => {
+    const sealed = cipher.seal({ jobId: jobRow.id, segments: value });
+
+    return {
+      dek_sealed: sealed.dekSealed,
+      duration_ms: 2_000,
+      key_version: sealed.keyVersion,
+      segments_sealed: sealed.segmentsSealed,
+    };
   };
+  const transcriptRow = sealRow(segments);
 
   it('transcripts를 job_id·owner_id로 조회하고 apikey를 붙이며 redirect를 따라가지 않는다', async () => {
     const fetchMock = stubFetch(async () => Response.json([]));
@@ -508,20 +534,44 @@ describe('findOwnedTranscript', () => {
     expect(Object.fromEntries(searchParams)).toEqual({
       job_id: `eq.${jobRow.id}`,
       owner_id: `eq.${input.ownerId}`,
-      select: 'duration_ms,segments',
+      select: 'duration_ms,segments_sealed,dek_sealed,key_version',
     });
     expect(init.method).toBeUndefined();
     expect(init.redirect).toBe('manual');
     expect(new Headers(init.headers).get('apikey')).toBe(SECRET);
   });
 
-  it('row 1건은 camelCase 전사 결과로 바꾼다', async () => {
+  it('row 1건은 풀어서 camelCase 전사 결과로 바꾼다', async () => {
     stubFetch(async () => Response.json([transcriptRow]));
 
     await expect(createRepository().findOwnedTranscript(ownedInput)).resolves.toEqual({
       durationMs: 2_000,
-      segments: transcriptRow.segments,
+      segments,
     });
+  });
+
+  const flipByte = (encoded: string) => {
+    const bytes = Buffer.from(encoded, 'base64');
+
+    bytes[30] = bytes[30]! ^ 0xff;
+
+    return bytes.toString('base64');
+  };
+
+  it.each([
+    ['변조한 암호문', { ...transcriptRow, dek_sealed: flipByte(transcriptRow.dek_sealed) }],
+    ['다른 KEK 버전', { ...transcriptRow, key_version: 2 }],
+    [
+      '평문 열만 있는 행',
+      { dek_sealed: null, duration_ms: 2_000, key_version: null, segments_sealed: null },
+    ],
+  ])('%s은 본문 없는 decrypt_failed Error로 바꾼다', async (_label, row) => {
+    stubFetch(async () => Response.json([row]));
+
+    const error = await captureError(createRepository().findOwnedTranscript(ownedInput));
+
+    expect(error.message).toMatch(/^select_transcripts decrypt_failed \w+$/);
+    expect(error.message).not.toContain('안녕');
   });
 
   it('row가 없으면 null을 돌려준다', async () => {
@@ -532,7 +582,7 @@ describe('findOwnedTranscript', () => {
 
   it.each([
     ['row 2건', () => Response.json([transcriptRow, transcriptRow])],
-    ['계약 위반 segment', () => Response.json([{ ...transcriptRow, segments: [{ text: '' }] }])],
+    ['계약 위반 segment', () => Response.json([sealRow([{ text: '' }])])],
     ['깨진 JSON', () => new Response('{not json')],
   ])('%s는 본문 없는 invalid response Error로 바꾼다', async (_label, createResponse) => {
     stubFetch(async () => createResponse());

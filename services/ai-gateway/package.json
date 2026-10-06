@@ -12,7 +12,9 @@
     "start": "node dist/index.js",
     "test": "vitest run --exclude \"**/*.db.test.ts\"",
     "test:db": "vitest run src/jobs/job-repository.db.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seal:transcripts:local": "tsx --env-file=.env.test.local src/scripts/seal-existing-transcripts.ts --target=local",
+    "seal:transcripts:remote": "tsx --env-file=.env.local src/scripts/seal-existing-transcripts.ts --target=remote"
   },
   "dependencies": {
     "@echonote/contracts": "workspace:*",

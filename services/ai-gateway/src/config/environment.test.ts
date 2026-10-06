@@ -6,12 +6,15 @@ const SECRET = 'sb_secret_TESTVALUE';
 const GRANT_SECRET_BYTES = Buffer.alloc(32, 7);
 const GRANT_SECRET_B64 = GRANT_SECRET_BYTES.toString('base64');
 const WORKER_API_TOKEN = Buffer.alloc(32, 9).toString('base64');
+const KEK_BYTES = Buffer.alloc(32, 11);
+const KEK_B64 = KEK_BYTES.toString('base64');
 
 beforeEach(() => {
   vi.stubEnv('SUPABASE_URL', 'https://example.supabase.co');
   vi.stubEnv('SUPABASE_SECRET_KEY', SECRET);
   vi.stubEnv('UPLOAD_GRANT_SECRET_B64', GRANT_SECRET_B64);
   vi.stubEnv('WORKER_API_TOKEN', WORKER_API_TOKEN);
+  vi.stubEnv('TRANSCRIPT_KEK_B64', KEK_B64);
   vi.stubEnv('WORKER_RECEIVER_BASE_URL', 'https://receiver.example.ts.net');
 });
 
@@ -36,6 +39,7 @@ describe('loadEnvironment', () => {
     expect(loadEnvironment()).toEqual({
       supabaseSecretKey: SECRET,
       supabaseUrl: 'https://example.supabase.co',
+      transcriptKek: new Uint8Array(KEK_BYTES),
       uploadGrantSecret: new Uint8Array(GRANT_SECRET_BYTES),
       workerApiToken: WORKER_API_TOKEN,
       workerReceiverOrigin: 'https://receiver.example.ts.net',
@@ -103,6 +107,38 @@ describe('loadEnvironment', () => {
 
     expect(error.message).toBe('WORKER_API_TOKEN must be standard Base64 of at least 32 bytes');
     expect(error.stack).not.toContain(WORKER_API_TOKEN.slice(0, 20));
+  });
+
+  it.each([
+    ['없음', ''],
+    ['31바이트', Buffer.alloc(31, 1).toString('base64')],
+    ['비표준 base64', `${KEK_B64.slice(0, -1)}!`],
+  ])('TRANSCRIPT_KEK_B64 %s는 값을 드러내지 않고 throw한다', (_label, value) => {
+    vi.stubEnv('TRANSCRIPT_KEK_B64', value);
+
+    const error = captureError();
+
+    expect(error.message).toBe('TRANSCRIPT_KEK_B64 must be standard Base64 of exactly 32 bytes');
+    expect(error.stack).not.toContain(KEK_B64.slice(0, 20));
+  });
+
+  it.each([33, 48])('TRANSCRIPT_KEK_B64 %i바이트는 throw한다', (length) => {
+    vi.stubEnv('TRANSCRIPT_KEK_B64', Buffer.alloc(length, 1).toString('base64'));
+
+    expect(captureError().message).toBe(
+      'TRANSCRIPT_KEK_B64 must be standard Base64 of exactly 32 bytes',
+    );
+  });
+
+  it.each([
+    ['UPLOAD_GRANT_SECRET_B64', GRANT_SECRET_B64],
+    ['WORKER_API_TOKEN', WORKER_API_TOKEN],
+  ])('TRANSCRIPT_KEK_B64가 %s와 같으면 throw한다', (_label, value) => {
+    vi.stubEnv('TRANSCRIPT_KEK_B64', value);
+
+    expect(captureError().message).toBe(
+      'TRANSCRIPT_KEK_B64 must differ from UPLOAD_GRANT_SECRET_B64 and WORKER_API_TOKEN',
+    );
   });
 
   it('WORKER_API_TOKEN이 UPLOAD_GRANT_SECRET_B64와 같으면 값을 드러내지 않고 throw한다', () => {

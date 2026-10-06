@@ -1,6 +1,6 @@
 begin;
 
-select plan(28);
+select plan(35);
 
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-00000000000a', 'owner-a@example.test');
@@ -35,11 +35,11 @@ values
 select is(
   (select prosecdef from pg_proc where oid = 'public.complete_job'::regproc),
   true,
-  'complete_job_v1은 security definer다'
+  'complete_job은 security definer다'
 );
 select ok(
   (select proconfig from pg_proc where oid = 'public.complete_job'::regproc) @> array['search_path=""'],
-  'complete_job_v1은 빈 search_path로 실행된다'
+  'complete_job은 빈 search_path로 실행된다'
 );
 select is(
   (select proowner from pg_proc where oid = 'public.complete_job'::regproc),
@@ -65,16 +65,16 @@ select is(
 
 -- 권한
 select ok(
-  not has_function_privilege('anon', 'public.complete_job(uuid,uuid,integer,jsonb)', 'execute'),
-  'anon은 complete_job_v1을 실행할 수 없다'
+  not has_function_privilege('anon', 'public.complete_job(uuid,uuid,integer,jsonb,text,text,integer)', 'execute'),
+  'anon은 complete_job을 실행할 수 없다'
 );
 select ok(
-  not has_function_privilege('authenticated', 'public.complete_job(uuid,uuid,integer,jsonb)', 'execute'),
-  'authenticated는 complete_job_v1을 실행할 수 없다'
+  not has_function_privilege('authenticated', 'public.complete_job(uuid,uuid,integer,jsonb,text,text,integer)', 'execute'),
+  'authenticated는 complete_job을 실행할 수 없다'
 );
 select ok(
-  has_function_privilege('service_role', 'public.complete_job(uuid,uuid,integer,jsonb)', 'execute'),
-  'service_role은 complete_job_v1을 실행할 수 있다'
+  has_function_privilege('service_role', 'public.complete_job(uuid,uuid,integer,jsonb,text,text,integer)', 'execute'),
+  'service_role은 complete_job을 실행할 수 있다'
 );
 select table_privs_are('public', 'transcripts', 'service_role', array['SELECT']);
 select table_privs_are('public', 'transcripts', 'anon', array[]::text[]);
@@ -112,9 +112,52 @@ select is(
   '두 번째 complete는 전사 결과를 더하지 않는다'
 );
 
+-- 새 Gateway 호출: 암호문 3개만 주면 암호문 행이 된다. 평문 열은 비어야 한다.
+select is(
+  public.complete_job('00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-0000000001b2',
+    1500, p_segments_sealed => repeat('A', 40), p_dek_sealed => repeat('B', 80), p_key_version => 1),
+  '{"kind": "completed"}'::jsonb,
+  '암호문 3개만 보내도 completed다'
+);
+select ok(
+  (select segments is null and segments_sealed = repeat('A', 40) and dek_sealed = repeat('B', 80)
+     and key_version = 1
+   from public.transcripts where job_id = '00000000-0000-4000-8000-0000000000b2'),
+  '암호문 행은 평문 열이 비어 있다'
+);
+select is(
+  public.complete_job('00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-0000000001b2',
+    1500, p_segments_sealed => repeat('A', 40), p_dek_sealed => repeat('B', 80), p_key_version => 1),
+  '{"kind": "stale"}'::jsonb,
+  '암호문으로 완료한 job에 다시 보내도 stale이다'
+);
+-- 평문과 암호문을 섞거나 둘 다 빼면 제약 위반으로 insert가 실패하고 job은 processing으로 남는다.
+select throws_ok(
+  $$select public.complete_job('00000000-0000-4000-8000-0000000000c1',
+    '00000000-0000-4000-8000-0000000001c1', 0, '[]'::jsonb, p_segments_sealed => 'AAAA')$$,
+  '23514', null, '평문과 암호문을 함께 주면 거부한다'
+);
+select throws_ok(
+  $$select public.complete_job('00000000-0000-4000-8000-0000000000c1',
+    '00000000-0000-4000-8000-0000000001c1', 0)$$,
+  '23514', null, '평문도 암호문도 없으면 거부한다'
+);
+select throws_ok(
+  $$select public.complete_job('00000000-0000-4000-8000-0000000000c1',
+    '00000000-0000-4000-8000-0000000001c1', 0, p_segments_sealed => 'AAAA',
+    p_dek_sealed => repeat('B', 80), p_key_version => 2)$$,
+  '23514', null, 'key_version 2는 거부한다'
+);
+select throws_ok(
+  $$select public.complete_job('00000000-0000-4000-8000-0000000000c1',
+    '00000000-0000-4000-8000-0000000001c1', 0, p_segments_sealed => 'AAAA',
+    p_dek_sealed => repeat('B', 79), p_key_version => 1)$$,
+  '23514', null, '80자가 아닌 dek_sealed는 거부한다'
+);
+
 -- stale
 select is(
-  public.complete_job('00000000-0000-4000-8000-0000000000b2', gen_random_uuid(), 0, '[]'::jsonb),
+  public.complete_job('00000000-0000-4000-8000-0000000000c1', gen_random_uuid(), 0, '[]'::jsonb),
   '{"kind": "stale"}'::jsonb,
   '다른 lease_id는 stale이다'
 );
@@ -140,11 +183,11 @@ select is(
   '없는 job은 stale이다'
 );
 select ok(
-  (select status = 'processing' and lease_id = '00000000-0000-4000-8000-0000000001b2'
-   from public.jobs where id = '00000000-0000-4000-8000-0000000000b2')
+  (select status = 'processing' and lease_id = '00000000-0000-4000-8000-0000000001c1'
+   from public.jobs where id = '00000000-0000-4000-8000-0000000000c1')
   and (select status = 'failed' and lease_id is null
    from public.jobs where id = '00000000-0000-4000-8000-0000000000f1')
-  and (select count(*) = 1 from public.transcripts),
+  and (select count(*) = 2 from public.transcripts),
   'stale complete는 job도 전사 결과도 바꾸지 않는다'
 );
 
@@ -161,7 +204,7 @@ select ok(
   '전사 저장이 실패하면 job은 processing으로 남는다'
 );
 
--- completed job은 다시 claim되지 않는다. b2·c1(기한 남음)도 대상이 아니다.
+-- completed job은 다시 claim되지 않는다. c1(기한 남음)도 대상이 아니다.
 select is(
   array[public.claim_job() -> 'job' ->> 'id', public.claim_job() -> 'job' ->> 'id',
     public.claim_job() ->> 'kind'],
@@ -175,7 +218,7 @@ set local role authenticated;
 select is(current_user::text, 'authenticated', 'authenticated로 실행 중이다');
 select throws_ok(
   $$select public.complete_job(gen_random_uuid(), gen_random_uuid(), 0, '[]'::jsonb)$$,
-  '42501', null, 'authenticated는 complete_job_v1을 호출할 수 없다'
+  '42501', null, 'authenticated는 complete_job을 호출할 수 없다'
 );
 
 reset role;

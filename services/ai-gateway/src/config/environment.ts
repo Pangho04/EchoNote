@@ -20,6 +20,20 @@ const loadBase64Secret = (name: string) => {
   return encoded;
 };
 
+// 전사문을 잠그는 KEK. AES-256 키라 정확히 32바이트여야 한다. 이 값을 잃으면 저장된 전사문을 복구할 수 없다.
+export const loadTranscriptKek = () => {
+  const encoded = process.env.TRANSCRIPT_KEK_B64 ?? '';
+  const decoded = Buffer.from(encoded, 'base64');
+
+  if (decoded.toString('base64') !== encoded || decoded.length !== MIN_SECRET_BYTES) {
+    throw new Error(
+      `TRANSCRIPT_KEK_B64 must be standard Base64 of exactly ${MIN_SECRET_BYTES} bytes`,
+    );
+  }
+
+  return { encoded, kek: new Uint8Array(decoded) };
+};
+
 // grant를 담은 요청이 향할 곳이다.
 const loadWorkerReceiverOrigin = () => {
   const receiverUrl = process.env.WORKER_RECEIVER_BASE_URL;
@@ -69,9 +83,18 @@ export const loadEnvironment = () => {
     throw new Error('WORKER_API_TOKEN must differ from UPLOAD_GRANT_SECRET_B64');
   }
 
+  const transcriptKek = loadTranscriptKek();
+
+  if (transcriptKek.encoded === uploadGrantSecret || transcriptKek.encoded === workerApiToken) {
+    throw new Error(
+      'TRANSCRIPT_KEK_B64 must differ from UPLOAD_GRANT_SECRET_B64 and WORKER_API_TOKEN',
+    );
+  }
+
   return {
     supabaseSecretKey,
     supabaseUrl: url.origin,
+    transcriptKek: transcriptKek.kek,
     uploadGrantSecret: new Uint8Array(Buffer.from(uploadGrantSecret, 'base64')),
     workerApiToken,
     workerReceiverOrigin: loadWorkerReceiverOrigin(),

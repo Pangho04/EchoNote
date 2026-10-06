@@ -4,16 +4,24 @@ import 'fastify';
 import { createSupabaseAccessTokenVerifier } from './auth/supabase-access-token-verifier.js';
 import { loadEnvironment } from './config/environment.js';
 import { createJobRepository } from './jobs/job-repository.js';
+import { createTranscriptCipher } from './jobs/transcript-cipher.js';
 import { buildServer } from './server.js';
 import { createUploadGrantIssuer } from './uploads/upload-grant-issuer.js';
 
-const { supabaseSecretKey, supabaseUrl, uploadGrantSecret, workerApiToken, workerReceiverOrigin } =
-  loadEnvironment();
+const {
+  supabaseSecretKey,
+  supabaseUrl,
+  transcriptKek,
+  uploadGrantSecret,
+  workerApiToken,
+  workerReceiverOrigin,
+} = loadEnvironment();
 const host = process.env.ECHONOTE_BIND_HOST ?? '127.0.0.1';
 const port = Number.parseInt(process.env.ECHONOTE_GATEWAY_PORT ?? '4317', 10);
 // Supabase 대시보드 JWT Signing Keys의 Current key 알고리즘과 같아야 한다.
 const verifier = createSupabaseAccessTokenVerifier({ algorithms: ['ES256'], supabaseUrl });
 const jobRepository = createJobRepository({
+  cipher: createTranscriptCipher({ kek: transcriptKek }),
   secretKey: supabaseSecretKey,
   supabaseUrl,
   timeoutMs: 5000,

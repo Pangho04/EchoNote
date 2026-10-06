@@ -180,7 +180,8 @@ Meeting·Recording·목록·SQLite·ViewModel 작업 전 반드시 읽는다 →
 - 회의 메타데이터와 오디오는 앱 로컬 SQLite·파일 영역을 원본으로 유지한다.
 - 서버 처리 작업·전사·요약·revision은 Supabase를 원본으로 두고 앱 SQLite에 내려받는다.
 - Supabase 사용자 세션은 iOS Keychain·Android Keystore·Electron `safeStorage`에 저장한다.
-- Supabase service role key, DB URL, Windows Worker credential을 앱 번들에 포함하지 않는다.
+- 전사 본문은 Gateway가 봉투 암호화(AES-256-GCM, 행마다 DEK, DEK는 KEK로 포장)로 잠가 Supabase에 저장한다. KEK(`TRANSCRIPT_KEK_B64`)는 Gateway 실행 환경에만 두고 Supabase·저장소·Worker에 두지 않는다.
+- Supabase service role key, DB URL, Windows Worker credential, 전사문 KEK를 앱 번들에 포함하지 않는다.
 - Vercel Gateway의 `/v1` API는 사용자 JWT 또는 Worker credential을 검증한다.
 - Windows 업로드 API는 loopback에 바인딩하고 Tailscale Serve로만 노출한다.
 - 녹음 파일과 전사·요약 본문을 Vercel·Supabase 로그에 남기지 않는다.
