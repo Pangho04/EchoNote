@@ -12,10 +12,12 @@ module.exports = {
     userInterfaceStyle: 'automatic',
     ios: {
       bundleIdentifier: IS_RELEASE ? 'dev.pangho.echonote' : 'dev.pangho.echonote.dev',
+      buildNumber: '1',
       supportsTablet: false,
     },
     android: {
       package: IS_RELEASE ? 'dev.pangho.echonote' : 'dev.pangho.echonote.dev',
+      versionCode: 1,
     },
     plugins: [
       ['expo-router', { sitemap: false }],
@@ -33,6 +35,7 @@ module.exports = {
       'expo-secure-store',
       // release 앱이 개발 서버 연결 링크(exp+echonote)를 가로채지 않게 개발 앱에만 등록한다.
       ['expo-dev-client', { addGeneratedScheme: !IS_RELEASE }],
+      ...(IS_RELEASE ? ['./plugins/with-release-signing'] : []),
     ],
     experiments: { typedRoutes: true },
   },

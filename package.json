@@ -22,6 +22,8 @@
     "format:check": "prettier --check .",
     "lint": "turbo run lint",
     "prepare": "husky",
+    "release:mobile:aos": "pnpm --filter @echonote/mobile exec bash scripts/release.sh android",
+    "release:mobile:ios": "pnpm --filter @echonote/mobile exec bash scripts/release.sh ios",
     "supabase:reset": "supabase db reset --local --workdir services/ai-gateway",
     "supabase:start": "supabase start --workdir services/ai-gateway",
     "supabase:stop": "supabase stop --workdir services/ai-gateway",
