@@ -1,9 +1,9 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 없는 경로 링크는 목록으로
 ---
 - runFlow: ../subflows/start-at-list.yaml
 
-- openLink: echonote://no-such-path
+- openLink: echonote-dev://no-such-path
 - runFlow: ../subflows/dismiss-link-prompt.yaml
 - extendedWaitUntil:
     visible: '메뉴 열기'

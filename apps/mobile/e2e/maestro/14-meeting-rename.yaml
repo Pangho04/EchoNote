@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 회의 상세에서 이름 바꾸기
 env:
   TITLE: 'E2E 이름 전'

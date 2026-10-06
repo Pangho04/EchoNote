@@ -3,7 +3,7 @@
 # maestro flow는 권한이나 DB 파일을 건드릴 수 없어 바깥에서 준비한다.
 set -euo pipefail
 
-APP_ID=dev.pangho.echonote
+APP_ID=dev.pangho.echonote.dev
 DB_DIR_ANDROID=files/SQLite
 DB_NAME=echonote.db
 TMP_DB=/tmp/echonote-e2e.db
@@ -67,7 +67,7 @@ ios_device_edit_db() {
   local pid
   [ -z "$DEVICE" ] && usage
   rm -rf "$dir" && mkdir -p "$dir"
-  pid=$(xcrun devicectl device info processes --device "$DEVICE" 2>/dev/null | awk '/EchoNote.app\/EchoNote/ {print $1}' | head -1)
+  pid=$(xcrun devicectl device info processes --device "$DEVICE" 2>/dev/null | awk '/EchoNoteDev.app\/EchoNoteDev/ {print $1}' | head -1)
   [ -n "$pid" ] && xcrun devicectl device process terminate --device "$DEVICE" --pid "$pid" > /dev/null
   for f in "$DB_NAME" "$DB_NAME-wal"; do
     ios_copy from --source "Documents/SQLite/$f" --destination "$dir/$f"

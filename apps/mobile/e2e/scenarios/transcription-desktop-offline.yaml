@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 데스크탑이 꺼져 있으면 깨우기 팝업 뒤 연결 실패 상자가 남는다
 env:
   TITLE: 'E2E 깨우기'

@@ -24,12 +24,12 @@ export function redirectSystemPath({
 function isUnknownAppPath(path: string): boolean {
   const hasScheme = /^[a-z][\w+.-]*:/i.test(path);
 
-  if (hasScheme && !/^echonote:/i.test(path)) return false;
+  if (hasScheme && !/^echonote(?:-dev)?:/i.test(path)) return false;
 
-  if (/^echonote:\/\/expo-development-client(?:[/?#]|$)/i.test(path)) return false;
+  if (/^echonote(?:-dev)?:\/\/expo-development-client(?:[/?#]|$)/i.test(path)) return false;
 
   const pathname = path
-    .replace(/^echonote:(?:\/\/)?/i, '')
+    .replace(/^echonote(?:-dev)?:(?:\/\/)?/i, '')
     .replace(/[?#].*$/, '')
     .replace(/^\/*/, '/')
     .replace(/(.)\/+$/, '$1');

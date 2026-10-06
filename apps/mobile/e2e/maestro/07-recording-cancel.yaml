@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 녹음 취소 확인과 폐기
 env:
   TITLE: 'E2E 폐기 녹음'

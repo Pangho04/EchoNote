@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 회의 하나 만들기
 ---
 # 상세·재조회 flow가 쓸 회의를 만들고 목록으로 돌아온다. 이미 있으면 그대로 둔다.

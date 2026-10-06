@@ -17,7 +17,7 @@ adb connect <IP>:<디버깅포트>
 adb devices -l
 
 # 마이크 권한 미리 허용 (flow가 시스템 다이얼로그를 다루지 않는다)
-adb shell pm grant dev.pangho.echonote android.permission.RECORD_AUDIO
+adb shell pm grant dev.pangho.echonote.dev android.permission.RECORD_AUDIO
 ```
 
 iOS는 개발자 프로파일을 기기에서 신뢰한 뒤(설정 → 일반 → VPN 및 기기 관리) 한 번 직접 실행해 마이크 권한을 허용해 둔다.
@@ -74,8 +74,8 @@ maestro test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" e2e/maest
 
 ```bash
 # Android: 앱 녹음 하나를 꺼내 다운로드 폴더에 둔다
-adb exec-out run-as dev.pangho.echonote ls files/recordings
-adb exec-out run-as dev.pangho.echonote cat files/recordings/<id>.m4a > /tmp/e2e-upload.m4a
+adb exec-out run-as dev.pangho.echonote.dev ls files/recordings
+adb exec-out run-as dev.pangho.echonote.dev cat files/recordings/<id>.m4a > /tmp/e2e-upload.m4a
 adb push /tmp/e2e-upload.m4a /sdcard/Download/e2e-upload.m4a
 ```
 
@@ -112,7 +112,7 @@ adb shell input keyevent 82
 ```bash
 # dev client를 개발 서버에 붙여 앱 본체를 띄운다
 xcrun devicectl device process launch --terminate-existing --device <udid> \
-  --payload-url "exp+echonote://expo-development-client/?url=http%3A%2F%2F<MAC_IP>%3A8081" dev.pangho.echonote
+  --payload-url "exp+echonote://expo-development-client/?url=http%3A%2F%2F<MAC_IP>%3A8081" dev.pangho.echonote.dev
 
 maestro-runner --platform ios --device <udid> --team-id <TEAM_ID> \
   --wda-bundle-id <고유 번들 ID> --output /tmp/maestro-runner \

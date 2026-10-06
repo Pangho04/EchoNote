@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 로그인
 ---
 # 계정은 저장소 밖 파일에서 실행 시 `-e E2E_EMAIL=… -e E2E_PASSWORD=…`로 받는다.
