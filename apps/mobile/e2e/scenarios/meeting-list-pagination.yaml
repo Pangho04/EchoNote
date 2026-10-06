@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 목록 끝에 닿으면 다음 page를 이어 불러온다
 ---
 # 선행: e2e/device-state.sh <platform> meetings-seed <device>

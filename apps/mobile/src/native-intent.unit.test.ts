@@ -35,6 +35,9 @@ describe('redirectSystemPath', () => {
     'echonote:///sign-in/',
     'exp+echonote://expo-development-client/?url=x',
     'echonote://expo-development-client/?url=x',
+    'echonote-dev://meetings/m-1',
+    'echonote-dev://expo-development-client/?url=x',
+    'echonote-devx://missing',
   ])('앱 실행 중 들어온 아는 경로 %s는 그대로 돌려준다', (path) => {
     expect(redirectSystemPath({ path, initial: false })).toBe(path);
   });
@@ -48,6 +51,7 @@ describe('redirectSystemPath', () => {
     'echonote:missing',
     'ECHONOTE://missing',
     'echonote:///_sitemap',
+    'echonote-dev://missing',
   ])('앱 실행 중 들어온 없는 경로 %s는 목록 경로로 바꾼다', (path) => {
     expect(redirectSystemPath({ path, initial: false })).toBe('/');
   });

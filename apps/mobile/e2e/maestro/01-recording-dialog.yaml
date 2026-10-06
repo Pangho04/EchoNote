@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 제목 입력 팝업
 ---
 - runFlow: ../subflows/start-at-list.yaml

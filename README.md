@@ -148,7 +148,7 @@ tools/
 
 - **문제** — Xcode 27로 빌드한 개발 앱이 iOS 27 기기에서 실행하자마자 종료(signal 5)됐습니다.
 - **원인** — Xcode 27은 iOS 27 SDK만 제공하고, 그 SDK로 빌드한 앱은 UIKit의 scene 생명주기(앱 전체가 아니라 창 단위로 시작·중단을 관리하는 방식)를 요구합니다. Expo SDK 57 기본값은 예전 application 생명주기(앱 전체를 하나로 관리하는 방식)였습니다.
-- **해결** — `app.json`의 `expo-build-properties` 플러그인에 `ios.enableSceneSupport: true`를 두고 네이티브 앱을 다시 빌드했습니다.
+- **해결** — `app.config.js`의 `expo-build-properties` 플러그인에 `ios.enableSceneSupport: true`를 두고 네이티브 앱을 다시 빌드했습니다.
 
 ### 4. Android 녹음 품질 개선
 

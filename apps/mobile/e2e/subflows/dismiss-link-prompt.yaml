@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: iOS 링크 확인 창 정리
 ---
 # iOS는 커스텀 스킴 링크를 열 때 시스템 확인 창을 띄운다.

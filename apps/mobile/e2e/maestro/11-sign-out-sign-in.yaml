@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 로그아웃 뒤 다시 로그인
 ---
 - runFlow: ../subflows/start-at-list.yaml
@@ -17,7 +17,7 @@ name: 로그아웃 뒤 다시 로그인
 - assertNotVisible: '메뉴 열기'
 
 # 로그아웃 상태에선 회의 링크를 열어도 로그인 화면에 머문다.
-- openLink: echonote://meetings/no-such-meeting-id
+- openLink: echonote-dev://meetings/no-such-meeting-id
 - runFlow: ../subflows/dismiss-link-prompt.yaml
 - extendedWaitUntil:
     visible: '.*이용 문의.*'

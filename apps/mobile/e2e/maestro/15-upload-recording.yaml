@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: m4a 파일을 업로드해 회의 만들기
 ---
 # 기기에 `e2e-upload.m4a`를 미리 넣어 둔다(README 「업로드 파일 준비」).

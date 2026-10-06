@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 목록 조회가 실패하면 팝업으로 알린다
 ---
 # 선행: e2e/device-state.sh <platform> table-drop

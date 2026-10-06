@@ -18,7 +18,7 @@ jest.mock('@/shared/config/env', () => ({
   SUPABASE_PUBLISHABLE_KEY: 'publishable-test-key',
   GATEWAY_URL: 'http://127.0.0.1:4317',
 }));
-// app.json의 sitemap 끔 설정을 그대로 넣는다. 없으면 renderRouter가 guard 밖에 _sitemap을 붙인다.
+// app.config.js의 sitemap 끔 설정을 그대로 넣는다. 없으면 renderRouter가 guard 밖에 _sitemap을 붙인다.
 jest.mock('expo-constants', () => {
   const actual = jest.requireActual('expo-constants');
   const constants = actual.default ?? actual;

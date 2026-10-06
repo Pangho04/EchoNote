@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 목록 화면에서 시작
 ---
 # 모든 flow는 이 subflow로 시작한다. 실행 순서가 무작위이고 앞 flow가 어느 화면에서 끝났는지

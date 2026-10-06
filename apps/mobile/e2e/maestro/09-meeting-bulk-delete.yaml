@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 편집 모드에서 회의 여러 개 지우기
 env:
   FIRST: 'E2E 묶음 첫째'

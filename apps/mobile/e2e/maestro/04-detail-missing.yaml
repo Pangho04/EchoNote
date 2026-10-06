@@ -1,10 +1,10 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 없는 회의를 열면 오류 팝업
 ---
 - runFlow: ../subflows/start-at-list.yaml
 
 # 존재하지 않는 meetingId로 진입한다. 뒤로 갈 화면이 없는 경로다.
-- openLink: echonote://meetings/no-such-meeting-id
+- openLink: echonote-dev://meetings/no-such-meeting-id
 
 - runFlow: ../subflows/dismiss-link-prompt.yaml
 

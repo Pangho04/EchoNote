@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: DB가 손상되면 복구 화면을 띄운다
 env:
   DEV_CLIENT_URL: 'exp+echonote://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'

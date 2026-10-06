@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: 연도를 바꿔 회의 목록 조회
 env:
   TITLE: 'E2E 연도 필터'

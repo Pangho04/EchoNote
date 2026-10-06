@@ -1,4 +1,4 @@
-appId: dev.pangho.echonote
+appId: dev.pangho.echonote.dev
 name: Gate A 녹음·재시작·재생 전체 흐름
 env:
   TITLE: 'Gate A 녹음'
