@@ -23,7 +23,8 @@ pnpm release:mobile:ios "<기기 이름>"     # 생략하면 목록에서 고른
 
 - 빌드 전에 `apps/mobile/.env.production.local`이 있어야 한다. 없으면 스크립트가 멈춘다.
   - 운영 Supabase 값과 운영 Vercel Gateway 주소를 담는다. 사용자가 직접 관리한다.
-  - 없으면 `.env.local`의 내부 IP Gateway 주소가 번들에 들어가 Mac 밖에서 동작하지 않는다.
+  - 이 파일에 없는 키는 `.env.local`의 개발 값으로 채워진다. 내부 IP Gateway 주소가 들어가면 Mac 밖에서 동작하지 않는다.
+  - 스크립트는 `EXPO_PUBLIC_GATEWAY_URL`이 `https://`로 시작하는지만 확인한다.
 - 산출물은 `~/.echonote/builds/`에 버전·빌드 번호·날짜 이름으로 보관한다.
 - 스크립트가 도중에 죽어 네이티브 폴더가 release로 남으면 `pnpm --filter @echonote/mobile native:generate:aos|ios`로 되돌린다.
 - release를 다시 배포할 때 `app.config.js`의 `ios.buildNumber`·`android.versionCode`를 올린다.
@@ -46,7 +47,9 @@ pnpm release:mobile:ios "<기기 이름>"     # 생략하면 목록에서 고른
 
 - 키는 `~/.echonote/release.keystore`, 서명 설정은 `~/.gradle/gradle.properties`의 `ECHONOTE_RELEASE_*` 4개 항목에 있다. 둘 다 저장소 밖이다.
 - `plugins/with-release-signing.js`는 생성되는 `build.gradle`에 속성 이름만 넣는다. 값이 없으면 빌드가 멈춘다.
-- 두 파일은 사용자가 따로 백업한다. 비밀번호와 키 내용을 대화·로그·문서에 출력하지 않는다.
+- `ECHONOTE_RELEASE_STORE_FILE`은 절대경로로 쓴다. Gradle은 `~`를 풀지 않는다.
+- 두 파일은 사용자가 저장소·Mac 밖(비밀번호 관리자, 암호화 외장 저장소)에 함께 백업한다. 비밀번호와 키 내용을 대화·로그·문서에 출력하지 않는다.
+- 백업에서 되살린 뒤 `keytool -list -v`의 SHA256 지문이 설치된 APK의 `apksigner verify --print-certs` 지문과 같은지 대조한다.
 - 키를 잃으면 release 앱을 업데이트할 수 없다. 앱을 지우고 새 키로 설치해야 하며 그때 로컬 데이터가 사라진다.
 
 ## Android: 서명이 다른 앱 위에 설치
@@ -55,7 +58,10 @@ pnpm release:mobile:ios "<기기 이름>"     # 생략하면 목록에서 고른
 - release APK는 debuggable이 아니라 `run-as`로 데이터를 넣을 수 없다. 데이터를 옮겨야 하면 다음 순서를 따른다.
   1. 기존 앱의 `files/SQLite`·`files/recordings`를 `run-as ... tar`로 Mac에 백업하고 해시를 대조한다.
   2. 사용자 확인 뒤 기존 앱을 지운다.
-  3. release prebuild 뒤 `buildTypes.release`에 `debuggable true`를 넣은 임시 APK를 빌드해 설치한다. 저장소 코드는 바꾸지 않는다.
+  3. 임시 debuggable APK를 빌드해 설치한다. 생성 폴더만 고치고 저장소 코드는 바꾸지 않는다.
+     - `apps/mobile`에서 `APP_VARIANT=release NODE_ENV=production CI=1 pnpm exec expo prebuild --clean --platform android`
+     - `android/app/build.gradle`의 `buildTypes { release {` 바로 아래에 `debuggable true` 추가
+     - `cd android && APP_VARIANT=release NODE_ENV=production ./gradlew assembleRelease --no-daemon` 뒤 `adb install`
   4. 개발 앱 데이터를 `run-as`로 복사하고 해시를 대조한다.
   5. 정식 release APK를 `adb install -r`로 덮어 설치한다. 서명이 같아 데이터가 유지된다.
   6. 네이티브 폴더를 개발 설정으로 되돌리고 임시 APK를 지운다.

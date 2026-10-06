@@ -32,3 +32,6 @@ __pycache__/
 # Serena MCP local config/cache
 .serena/
 .vercel
+
+# Claude Code 로컬 설정
+.claude/

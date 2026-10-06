@@ -14,26 +14,31 @@ cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 OUT_DIR="$HOME/.echonote/builds"
 
-# 이 파일이 없으면 .env.local의 개발 서버 주소가 release 번들에 들어간다. 내용은 읽지 않는다.
+# 이 파일에 없는 키는 .env.local의 개발 값으로 채워진다. Gateway 주소가 운영 https 주소인지만 확인하고 값은 출력하지 않는다.
 [ -f .env.production.local ] || { echo ".env.production.local이 없습니다." >&2; exit 1; }
+grep -q '^EXPO_PUBLIC_GATEWAY_URL=https://' .env.production.local ||
+  { echo ".env.production.local에 https로 시작하는 EXPO_PUBLIC_GATEWAY_URL이 없습니다." >&2; exit 1; }
 
 pnpm --filter @echonote/contracts build
 
 restore_dev_native() {
   cd "$ROOT"
-  env -u APP_VARIANT -u NODE_ENV CI=1 EXPO_NO_GIT_STATUS=1 pnpm exec expo prebuild --clean --platform "$PLATFORM" ||
+  env -u APP_VARIANT -u NODE_ENV CI=1 pnpm exec expo prebuild --clean --platform "$PLATFORM" || {
     echo "개발 앱 네이티브 폴더 복원 실패: pnpm --filter @echonote/mobile native:generate:${PLATFORM/android/aos} 실행 필요" >&2
+    exit 1
+  }
 }
 trap restore_dev_native EXIT
 
-export APP_VARIANT=release NODE_ENV=production CI=1 EXPO_NO_GIT_STATUS=1
-pnpm exec expo prebuild --clean --platform "$PLATFORM"
+# CI=1은 prebuild에만 준다. expo run:ios까지 넘어가면 기기·서명 선택 창이 오류로 끝난다.
+unset CI
+export APP_VARIANT=release NODE_ENV=production EXPO_NO_GIT_STATUS=1
+CI=1 pnpm exec expo prebuild --clean --platform "$PLATFORM"
 
-STAMP="$(node -p "const c=require('./app.config.js').expo; c.version+'-'+(process.argv[1]==='ios'?c.ios.buildNumber:c.android.versionCode)" "$PLATFORM")-$(date +%Y%m%d-%H%M)"
+STAMP="$(node -p "const c=require('./app.config.js').expo; c.version+'-'+(process.argv[1]==='ios'?c.ios.buildNumber:c.android.versionCode)" "$PLATFORM")-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$OUT_DIR"
 
 if [ "$PLATFORM" = android ]; then
-  # 데몬은 이전 빌드의 환경변수를 들고 있을 수 있어 APP_VARIANT가 번들·앱 설정에 확실히 닿도록 끈다.
   (cd android && ./gradlew assembleRelease --no-daemon)
   APK="$OUT_DIR/echonote-$STAMP.apk"
   cp android/app/build/outputs/apk/release/app-release.apk "$APK"
