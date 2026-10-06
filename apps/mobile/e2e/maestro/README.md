@@ -155,7 +155,7 @@ maestro --device <simulator-udid> test e2e/scenarios/list-load-failed.yaml
 ## 함께 보는 문서
 
 - `../JOURNAL.md` — 검증에서 드러난 문제와 조치 기록. 같은 함정을 다시 밟지 않기 위한 것
-- `../FOLLOW-UPS.md` — 지금 고치지 않기로 판단한 것과 그 사유
+- `../../../../BACKLOG.md` — 지금 고치지 않기로 판단한 것과 그 사유
 - `device-e2e` 스킬 — 기기 연결·상태 조작·실패 원인 분리 절차
 
 ## 자동화하지 않는 것
