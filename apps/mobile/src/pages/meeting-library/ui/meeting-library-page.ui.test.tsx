@@ -64,6 +64,17 @@ jest.mock('@/entities/recording', () => ({
   deleteRecordingFile: jest.fn(),
 }));
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'mocked-uuid' }));
+// Provider처럼 렌더마다 같은 client를 준다.
+const mockGatewayClient = {};
+
+jest.mock('@/shared/api/gateway-client', () => ({
+  useGatewayClient: jest.fn(() => mockGatewayClient),
+}));
+jest.mock('@/features/request-transcription', () => ({
+  createTranscriptionDeps: jest.fn(() => ({})),
+  syncPendingTranscriptions: jest.fn(async () => false),
+  TRANSCRIPTION_POLL_INTERVAL_MS: 5_000,
+}));
 jest.mock('@/features/record-meeting/api/recording-permission-service.native', () => ({
   recordingPermissionService: { get: jest.fn(), request: jest.fn(), openSettings: jest.fn() },
 }));
@@ -385,7 +396,9 @@ describe('MeetingLibraryPage', () => {
     });
 
     it('T-F6: 업로드를 누르면 메뉴를 닫고 pickRecording을 호출하며 가져오는 동안 FAB를 막는다', async () => {
-      let resolvePick: (value: { uri: string; size: number } | null) => void = () => {};
+      let resolvePick: (
+        value: { uri: string; size: number; name: string } | null,
+      ) => void = () => {};
       mockedPickRecording.mockImplementation(
         () =>
           new Promise((resolve) => {
@@ -408,7 +421,9 @@ describe('MeetingLibraryPage', () => {
     });
 
     it('T-F7: 가져오는 동안 메뉴 열기를 다시 누를 수 없다', async () => {
-      let resolvePick: (value: { uri: string; size: number } | null) => void = () => {};
+      let resolvePick: (
+        value: { uri: string; size: number; name: string } | null,
+      ) => void = () => {};
       mockedPickRecording.mockImplementation(
         () =>
           new Promise((resolve) => {
@@ -467,6 +482,7 @@ describe('MeetingLibraryPage', () => {
       mockedPickRecording.mockResolvedValue({
         uri: 'file:///big.m4a',
         size: 512 * 1024 * 1024 + 1,
+        name: 'big.m4a',
       });
 
       const { getByLabelText, getByText } = await renderPage();
@@ -482,7 +498,7 @@ describe('MeetingLibraryPage', () => {
     });
 
     it('T-I7a: 크기가 괜찮으면 가져오기를 시작하고 상세로 이동한다', async () => {
-      mockedPickRecording.mockResolvedValue({ uri: 'file:///a.m4a', size: 100 });
+      mockedPickRecording.mockResolvedValue({ uri: 'file:///a.m4a', size: 100, name: 'a.m4a' });
 
       const { getByLabelText } = await renderPage();
 

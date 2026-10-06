@@ -1,12 +1,14 @@
 import { MAX_UPLOAD_BYTES } from '@echonote/contracts';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import {
   createSQLiteMeetingRepository,
+  type Meeting,
   type MeetingListCursor,
   type MeetingListVMItem,
+  MeetingStatus,
   nomalizeMeetingTitle,
   toMeetingListItemVM,
 } from '@/entities/meeting';
@@ -30,6 +32,12 @@ import {
   createFinalRecordingUri,
   createNativeRecordingFileService,
 } from '@/features/record-meeting/api/recording-file-service.native';
+import {
+  createTranscriptionDeps,
+  syncPendingTranscriptions,
+  TRANSCRIPTION_POLL_INTERVAL_MS,
+} from '@/features/request-transcription';
+import { useGatewayClient } from '@/shared/api/gateway-client';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 
 const PAGE_LIMIT = 20;
@@ -52,6 +60,21 @@ export type PickAndImportResult =
   | { kind: 'failed' };
 
 export type ImportFailureNotice = { meetingId: string; message: string };
+
+// 'S-1m-q-1.m4a' → 'S-1m-q-1'. 점이 없으면 그대로 둔다.
+function stripExtension(fileName: string): string {
+  return fileName.replace(/\.[^.]+$/, '');
+}
+
+// 서버에 진행 상황을 물을 회의. 요청 미완료(created)는 서버 작업이 없을 수 있어 뺀다.
+function toPendingMeetingIds(meetings: Meeting[]): string[] {
+  return meetings
+    .filter(
+      (meeting) =>
+        meeting.status === MeetingStatus.Queued || meeting.status === MeetingStatus.Processing,
+    )
+    .map((meeting) => meeting.id);
+}
 
 function toImportFailureReason(failure: ImportFailure): string {
   switch (failure.kind) {
@@ -105,6 +128,7 @@ export function useMeetingLibraryViewModel(
 ): MeetingLibraryViewModel {
   const database = useSQLiteContext();
   const { signOut } = useSession();
+  const gatewayClient = useGatewayClient();
 
   const [items, setItems] = useState<MeetingListVMItem[]>([]);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -114,6 +138,7 @@ export function useMeetingLibraryViewModel(
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [isImporting, setIsImporting] = useState(false);
+  const [hasPendingTranscriptions, setHasPendingTranscriptions] = useState(false);
   // pendingImports는 화면 밖 상태라 바뀔 때 다시 렌더해 읽는다.
   const [, setImportVersion] = useState(0);
   // 조회 함수가 연도마다 새로 만들어지면 focus effect가 다시 돌므로 조회는 ref로 읽는다.
@@ -124,9 +149,15 @@ export function useMeetingLibraryViewModel(
   const isImportingRef = useRef(false);
   // refresh가 시작되면 늘린다. 그 전에 출발한 loadMore 결과는 버린다.
   const listGeneration = useRef(0);
+  // 불러온 page 안의 대기·변환 중 회의다. 타이머가 매 회차 최신 값을 읽도록 ref로 둔다.
+  const pendingMeetingIds = useRef<string[]>([]);
 
   const repository = useMemo(() => createSQLiteMeetingRepository(database), [database]);
   const listMeetings = useMemo(() => makeListMeetings(repository), [repository]);
+  const transcriptionDeps = useMemo(
+    () => createTranscriptionDeps(database, gatewayClient),
+    [database, gatewayClient],
+  );
 
   // 조회 실패는 errorMessage로 흡수한다. 최초 로드 시점은 화면(focus)이 정한다.
   // 이미 불러온 뒤쪽 page는 버리고 첫 page부터 다시 읽는다.
@@ -139,6 +170,8 @@ export function useMeetingLibraryViewModel(
       if (generation !== listGeneration.current) return;
 
       nextCursor.current = result.nextCursor;
+      pendingMeetingIds.current = toPendingMeetingIds(result.meetings);
+      setHasPendingTranscriptions(pendingMeetingIds.current.length > 0);
       setItems(result.meetings.map((meeting) => toMeetingListItemVM(meeting, result.timeZone)));
       setHasLoaded(true);
       setErrorMessage(null);
@@ -166,6 +199,11 @@ export function useMeetingLibraryViewModel(
       if (generation !== listGeneration.current) return;
 
       nextCursor.current = result.nextCursor;
+      pendingMeetingIds.current = [
+        ...pendingMeetingIds.current,
+        ...toPendingMeetingIds(result.meetings),
+      ];
+      setHasPendingTranscriptions(pendingMeetingIds.current.length > 0);
       setItems((current) => [
         ...current,
         ...result.meetings.map((meeting) => toMeetingListItemVM(meeting, result.timeZone)),
@@ -202,6 +240,46 @@ export function useMeetingLibraryViewModel(
     });
   }, [isFocused, refresh]);
 
+  /**
+   * @when 포커스 중인 목록에 대기·변환 중 회의가 있을 때
+   * @expect 바로 한 번, 이후 5초마다 서버 상태를 앱 저장소에 옮기고 바뀐 게 있으면 목록을 다시 읽는다.
+   *         앱이 background거나 이전 회차가 끝나지 않았으면 그 회차를 건너뛴다.
+   * @clear 포커스를 잃거나 진행 중 회의가 없어지면 타이머를 멈추고 진행 중인 조회를 끊는다.
+   */
+  useEffect(() => {
+    if (!isFocused || !hasPendingTranscriptions) return;
+
+    const controller = new AbortController();
+    let isSyncing = false;
+
+    const syncOnce = async (): Promise<void> => {
+      if (isSyncing || AppState.currentState === 'background') return;
+
+      isSyncing = true;
+
+      try {
+        const changed = await syncPendingTranscriptions(
+          transcriptionDeps,
+          pendingMeetingIds.current,
+          controller.signal,
+        );
+
+        if (changed && !controller.signal.aborted) await refresh();
+      } finally {
+        isSyncing = false;
+      }
+    };
+
+    const timer = setInterval(() => void syncOnce(), TRANSCRIPTION_POLL_INTERVAL_MS);
+
+    void syncOnce();
+
+    return () => {
+      clearInterval(timer);
+      controller.abort();
+    };
+  }, [hasPendingTranscriptions, isFocused, refresh, transcriptionDeps]);
+
   // 렌더마다 다시 읽는다. 결과 객체는 매번 새로 만들어지므로 받는 쪽은 meetingId로 비교한다.
   const failure = isFocused ? pendingImports.failures()[0] : undefined;
   const importFailure: ImportFailureNotice | null =
@@ -234,7 +312,7 @@ export function useMeetingLibraryViewModel(
       const meetingId = createRecordingId();
       const createdAt = new Date().toISOString();
       const title = nomalizeMeetingTitle(
-        '',
+        stripExtension(source.name),
         createdAt,
         Intl.DateTimeFormat().resolvedOptions().timeZone,
       );

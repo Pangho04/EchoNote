@@ -1,6 +1,6 @@
 appId: dev.pangho.echonote
 env:
-  DEV_CLIENT_URL: 'exp+echonote://expo-development-client/?url=http%3A%2F%2F192.168.0.195%3A8081'
+  DEV_CLIENT_URL: 'exp+echonote://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081'
 name: 권한 거부면 팝업을 유지하고 재시도를 허용한다
 ---
 # 선행: e2e/device-state.sh <platform> permission-deny

@@ -26,8 +26,9 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
-// 통화용 입력(VOICE_COMMUNICATION)을 증폭·제한해 AAC 파일에 쓴다.
+// 일반 마이크 입력(MIC)을 증폭·제한해 AAC 파일에 쓴다.
 // MediaRecorder는 입력을 키울 수 없어 떨어진 말소리가 작게 남는다.
+// 통화용 입력(VOICE_COMMUNICATION)은 말 없는 구간과 먼 말소리를 0으로 지워 전사가 비므로 쓰지 않는다.
 class VoiceRecorderModule : Module() {
   private var audioRecord: AudioRecord? = null
   private var muxer: MediaMuxer? = null
@@ -89,7 +90,7 @@ class VoiceRecorderModule : Module() {
     teardown()
 
     val record = AudioRecord(
-      MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+      MediaRecorder.AudioSource.MIC,
       SAMPLE_RATE,
       AudioFormat.CHANNEL_IN_MONO,
       AudioFormat.ENCODING_PCM_16BIT,

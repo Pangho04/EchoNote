@@ -61,7 +61,7 @@ const input = {
   meetingId: 'meeting-1',
   title: '가져온 회의',
   createdAt: '2026-10-03T00:00:00.000Z',
-  source: { uri: sourceUri, size: 2048 },
+  source: { uri: sourceUri, size: 2048, name: 'source.m4a' },
 };
 
 function deletedUris(deps: ImportRecordingDependencies): string[] {

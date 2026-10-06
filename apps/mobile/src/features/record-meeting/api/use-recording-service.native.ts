@@ -7,8 +7,8 @@ import { createNativeRecordingAdapter } from './recording-service.native';
 import type { NativeRecordingAdapter, RecordingService } from './recording-service-contract';
 
 // 1m 떨어진 말소리를 -18 LUFS 안팎까지 키운다.
-// iOS 음성 처리 입력은 약 -42 LUFS, Android 통화용 입력은 약 -27~-30 LUFS로 들어온다.
-const INPUT_GAIN_DB = Platform.OS === 'ios' ? 24 : 11;
+// iOS 음성 처리 입력은 약 -42 LUFS, Android 일반 마이크 입력은 약 -55 LUFS로 들어온다.
+const INPUT_GAIN_DB = Platform.OS === 'ios' ? 24 : 37;
 
 export function useNativeRecordingService(): RecordingService {
   const adapterRef = useRef<NativeRecordingAdapter | null>(null);
