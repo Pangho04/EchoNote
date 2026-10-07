@@ -10,13 +10,13 @@ insert into auth.users (id, email) values
 select columns_are(
   'public', 'jobs',
   array['id', 'owner_id', 'meeting_id', 'size_bytes', 'sha256', 'mime_type', 'status',
-        'idempotency_key', 'created_at', 'lease_id', 'lease_expires_at', 'attempt_count', 'error_code']
+        'idempotency_key', 'created_at', 'lease_id', 'lease_expires_at', 'attempt_count', 'error_code', 'claimed_at']
 );
 select is(
   (select count(*) from information_schema.columns
    where table_schema = 'public' and table_name = 'jobs' and is_nullable = 'YES'),
-  3::bigint,
-  'jobs에서 nullable 열은 lease 두 열과 error_code뿐이다'
+  4::bigint,
+  'jobs에서 nullable 열은 lease 두 열, error_code, claimed_at뿐이다'
 );
 select col_is_unique('public', 'jobs', array['owner_id', 'idempotency_key']);
 select ok(
