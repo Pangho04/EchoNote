@@ -81,7 +81,7 @@ CLI가 컨테이너 안으로 비밀 값을 흘릴 경로가 막혀 있습니다
 - `complete_job`이라는 Postgres 함수 하나를 Gateway가 RPC로 호출합니다.
 - 이 함수 안에서 job 상태를 업데이트하고 전사 결과를 삽입하는 두 동작이 하나의 transaction으로 실행됩니다.
 - 상태 업데이트는 "processing이고 lease_id가 일치하고 아직 만료되지 않았을 때"만 적용되며 조건에 안 맞으면 `stale`을 반환하고 아무것도 바꾸지 않습니다.
-- 업데이트가 통과한 뒤 결과 삽입이 실패하면(세그먼트가 배열이 아니거나 제약 위반 등) 예외가 발생해 상태 업데이트까지 함께 rollback됩니다.
+- 업데이트가 통과한 뒤 결과 삽입이 실패하면(세그먼트가 배열이 아니거나 제약 위반 등) 예외가 발생해 상태 업데이트까지 함께 rollback됩니다. (8번 결정으로 지금은 이 열이 암호문 text 열로 바뀌었고 배열 검사는 Gateway의 Zod가 맡습니다)
 
 **결과** — job이 completed인데 전사 결과가 없거나, 결과만 있고 상태가 바뀌지 않은 상태는 나올 수 없습니다.
 
@@ -147,6 +147,30 @@ CLI가 컨테이너 안으로 비밀 값을 흘릴 경로가 막혀 있습니다
 **이 결정을 지키는 테스트** — `services/ai-gateway/src/jobs/job-repository.db.test.ts`의 "A가 job 둘을 먼저 올려도 뒤에 올린 B의 job을 A의 둘째보다 먼저 가져간다"
 
 **코드** — `services/ai-gateway/supabase/migrations/20261003140000_claim_job_owner_fairness.sql`
+
+## 8. 전사문을 Gateway가 봉투 암호화해 저장한다
+
+**배경** — Supabase `transcripts`에 전사 결과를 그대로 저장하면 Supabase 콘솔 열람, DB 덤프, 백업, SQL 주입, 키 없는 역할 등 Supabase 쪽에서 일어나는 어떤 유출로도 회의 내용이 그대로 드러납니다. Supabase는 디스크를 AES-256으로 항상 암호화하지만 질의가 닿는 순간 평문이 되므로 이 at-rest 암호화만으로는 콘솔·덤프에서 평문이 그대로 보이는 문제를 막지 못합니다.
+
+**고려한 대안** — Supabase Vault는 복호화 뷰가 Postgres 권한으로 열려 `postgres`·`service_role`이 결국 평문을 볼 수 있고, 컬럼 암호화에 쓰는 pgsodium은 Supabase가 폐기 예정으로 두고 있어 버렸습니다. 종단간 암호화(E2E, 서버도 못 읽는 방식)도 검토했지만 앱의 열쇠를 잃으면 서버의 전사문을 되찾을 길이 없어 복구 설계가 먼저 필요하고, 서버에서 전사문을 검색하거나 요약을 만드는 확장도 막혀서 이번에는 미뤘습니다. 운영자도 읽지 못하게 해야 하는 요구가 생기면 그때 다시 검토합니다.
+
+**결정**
+
+- Gateway가 전사 결과를 저장하기 전에 행마다 무작위 데이터 키(DEK, 32바이트)를 만들어 AES-256-GCM으로 전사문을 잠급니다.
+- DEK는 열쇠 키(KEK)로 다시 잠가 같은 행에 함께 둡니다. `segments_sealed`, `dek_sealed`, `key_version`(지금은 1) 열에 저장합니다.
+- KEK는 환경 변수 `TRANSCRIPT_KEK_B64`로 Gateway 실행 환경에만 두고 Supabase·저장소·앱·Worker에는 두지 않습니다.
+- 추가 인증 데이터(aad)에 job_id·버전·용도를 넣어, 다른 행의 암호문을 바꿔치기하면 복호화가 실패하게 합니다.
+- 복호화는 Gateway가 `GET /v1/jobs/:jobId/transcript`에서만 하고 앱에 내려주는 응답 모양은 그대로 둡니다.
+- 기존 평문 행은 1회용 스크립트 `services/ai-gateway/src/scripts/seal-existing-transcripts.ts`로 감쌉니다. 운영 Gateway가 만든 암호문을 먼저 열어 KEK가 맞는지 확인한 뒤 행마다 잠그고, 다시 열어 검증한 다음 `seal_transcript` RPC로 반영합니다.
+- migration은 확장→축소(expand/contract) 순서를 따릅니다. 확장 migration `20261006120000_seal_transcripts.sql`은 평문·암호문 열을 공존시키고 `complete_job`이 옛 평문 호출도 받게 하며, 평문 열 삭제는 다음 migration에서 따로 합니다.
+
+**결과** — Supabase 단독 유출(콘솔 열람·덤프·백업·SQL 주입·키 없는 역할)로는 전사문을 읽을 수 없습니다. 반면 Vercel 환경 변수와 Gateway 실행 환경을 가진 쪽, 즉 운영자는 여전히 복호화할 수 있고 `duration_ms`와 암호문 길이는 평문 메타데이터로 남습니다.
+
+KEK를 잃으면 서버에 있는 전사문은 복구할 수 없고 앱 SQLite 사본만 남습니다. 적용 전에 뜬 백업과 DB 내부에 남은 옛 행 조각(dead tuple)은 이 조치로 소급 정리되지 않으며 vacuum으로 따로 정리해야 합니다.
+
+**이 결정을 지키는 테스트** — `services/ai-gateway/src/jobs/transcript-cipher.test.ts`의 "변조한 암호문은 열리지 않는다", `services/ai-gateway/src/jobs/job-repository.db.test.ts`의 "완료한 전사는 암호문으로 저장되고 왕복한다", `services/ai-gateway/supabase/tests/complete_job.test.sql`
+
+**코드** — `services/ai-gateway/src/jobs/transcript-cipher.ts`, `services/ai-gateway/src/jobs/job-repository.ts`, `services/ai-gateway/supabase/migrations/20261006120000_seal_transcripts.sql`
 
 ## 앞으로 할 일
 
