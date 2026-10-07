@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { FlatList, Pressable, type StyleProp, StyleSheet, type ViewStyle } from 'react-native';
 
 import { UI_STRINGS } from '@/shared/config/ui-strings';
+import { formatStartLabel } from '@/shared/lib/format-start-label';
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
@@ -12,18 +13,6 @@ export interface TranscriptListProps {
   positionMs: number;
   onPressSegment(startMs: number): void;
   contentContainerStyle?: StyleProp<ViewStyle>;
-}
-
-// 접근성 라벨은 m:ss, 화면 표시는 분을 두 자리로 채운 mm:ss다. 1시간 이상은 h:mm:ss.
-function formatStartLabel(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1_000);
-  const hours = Math.floor(totalSeconds / 3_600);
-  const minutes = Math.floor((totalSeconds % 3_600) / 60);
-  const seconds = String(totalSeconds % 60).padStart(2, '0');
-
-  if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${seconds}`;
-
-  return `${minutes}:${seconds}`;
 }
 
 export function TranscriptList({
@@ -51,6 +40,7 @@ export function TranscriptList({
             onPress={() => onPressSegment(item.startMs)}
             style={styles.row}
           >
+            {/* 접근성 라벨은 m:ss, 화면 표시는 분을 두 자리로 채운 mm:ss다. */}
             <AppText color="textTertiary" style={styles.timestamp} variant="caption">
               {startLabel.padStart(5, '0')}
             </AppText>
