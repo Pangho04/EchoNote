@@ -90,7 +90,7 @@ created --(업로드 성공 확인)--> queued --(Worker가 작업을 가져감)-
 - `/v1` Gateway API는 사용자 JWT 또는 Worker credential을 매 요청마다 검증합니다. (`services/ai-gateway/src/jobs/jobs-routes.ts`, `services/ai-gateway/src/jobs/worker-jobs-routes.ts`)
 - Supabase의 `transcripts` 테이블은 RLS(행 단위 접근 규칙)를 켜 두고 쓰기는 `complete_job` RPC 하나로만 가능하게 권한을 좁혔습니다. (`services/ai-gateway/supabase/migrations/20260926125300_init.sql`)
 - Supabase service role key, Worker credential, 전사문 KEK 같은 비밀 값은 모바일 앱 번들에 포함하지 않습니다.
-- 전사문은 Gateway가 행마다 무작위 데이터 키(DEK)로 암호화하고 DEK는 다시 KEK로 암호화해 같은 행에 둡니다. KEK는 Gateway 실행 환경의 환경 변수(`TRANSCRIPT_KEK_B64`)에만 있고 Supabase·저장소·앱·Worker에는 두지 않습니다. (`services/ai-gateway/src/jobs/transcript-cipher.ts`)
+- 전사문은 Gateway가 행마다 무작위 데이터 열쇠(DEK)로 암호화하고 DEK는 다시 열쇠용 열쇠(KEK)로 암호화해 같은 행에 둡니다. KEK는 Gateway 실행 환경의 환경 변수(`TRANSCRIPT_KEK_B64`)에만 있고 Supabase·코드 저장소(git)·앱·Worker에는 두지 않습니다. (`services/ai-gateway/src/jobs/transcript-cipher.ts`)
 
 ## 모바일 FSD 구조
 
