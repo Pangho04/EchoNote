@@ -39,7 +39,7 @@ jest.mock('@/features/play-recording', () => ({
   RecordingPlayer: jest.fn(() => null),
   useRecordingPlayback: jest.fn(),
 }));
-// 공유창·파일 복사를 품고 있어 page test에서는 받은 props만 확인한다.
+// OS 저장 화면·파일 복사를 품고 있어 page test에서는 받은 props만 확인한다.
 jest.mock('@/features/export-meeting-file/ui/export-meeting-button', () => ({
   ExportMeetingButton: jest.fn(() => null),
 }));

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { PropsWithChildren, ReactElement } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Platform, Pressable, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ThemeProvider } from '@/shared/ui/theme-provider';
@@ -14,6 +14,10 @@ jest.mock('react-native-safe-area-context', () => {
 });
 
 describe('DialogProvider', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('openDialog 호출 시 제목·본문·액션이 표시된다', async () => {
     await render(
       <Wrapper>
@@ -80,6 +84,86 @@ describe('DialogProvider', () => {
     await act(async () => onDismiss());
 
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('runActionsAfterClose여도 Android에서는 누르는 즉시 onPress를 실행한다', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+
+    const onPress = jest.fn();
+
+    await render(
+      <Wrapper>
+        <DialogTrigger
+          options={{
+            message: '저장할까요?',
+            actions: [{ label: '저장', onPress }],
+            runActionsAfterClose: true,
+          }}
+        />
+      </Wrapper>,
+    );
+
+    await fireEvent.press(screen.getByText('열기'));
+    await fireEvent.press(screen.getByText('저장'));
+
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('저장할까요?')).toBeNull();
+  });
+
+  it('닫히는 중에 새 팝업이 열리면 늦게 온 onDismiss는 새 팝업을 닫지 않고 액션도 버린다', async () => {
+    const onPress = jest.fn();
+
+    await render(
+      <Wrapper>
+        <DialogTrigger
+          options={{
+            message: '저장할까요?',
+            actions: [{ label: '저장', onPress }],
+            runActionsAfterClose: true,
+          }}
+        />
+      </Wrapper>,
+    );
+
+    await fireEvent.press(screen.getByText('열기'));
+
+    const { onDismiss } = screen.getByTestId('dialog-modal').props;
+
+    await fireEvent.press(screen.getByText('저장'));
+    await fireEvent.press(screen.getByText('열기'));
+    await act(async () => onDismiss());
+
+    expect(screen.getByText('저장할까요?')).toBeOnTheScreen();
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('닫히는 중에 온 뒤로 가기는 팝업 onDismiss를 부르지 않고 고른 액션만 실행한다', async () => {
+    const onSave = jest.fn();
+    const onDialogDismiss = jest.fn();
+
+    await render(
+      <Wrapper>
+        <DialogTrigger
+          options={{
+            message: '저장할까요?',
+            actions: [{ label: '저장', onPress: onSave }],
+            runActionsAfterClose: true,
+            onDismiss: onDialogDismiss,
+          }}
+        />
+      </Wrapper>,
+    );
+
+    await fireEvent.press(screen.getByText('열기'));
+
+    const { onDismiss, onRequestClose } = screen.getByTestId('dialog-modal').props;
+
+    await fireEvent.press(screen.getByText('저장'));
+    await act(async () => onRequestClose());
+    await act(async () => onDismiss());
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onDialogDismiss).not.toHaveBeenCalled();
   });
 
   it('content로 넘긴 컴포넌트를 그대로 그린다', async () => {

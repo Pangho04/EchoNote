@@ -100,11 +100,7 @@ interface ExportKindFieldProps {
 }
 
 // 팝업 content는 열 때 캡처되므로 선택 상태는 이 컴포넌트가 직접 갖는다.
-export function ExportKindField({
-  initialKind,
-  locked,
-  onChange,
-}: ExportKindFieldProps): ReactElement {
+function ExportKindField({ initialKind, locked, onChange }: ExportKindFieldProps): ReactElement {
   const styles = useStyles();
   const { colors } = useTheme();
   const [kind, setKind] = useState(initialKind);

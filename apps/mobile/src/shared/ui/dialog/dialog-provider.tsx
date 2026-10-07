@@ -39,7 +39,7 @@ export interface DialogOptions {
   dismissible?: boolean;
   onDismiss?: () => void;
   avoidKeyboard?: boolean;
-  // iOS는 Modal이 닫히는 애니메이션 중에 다른 화면(공유창 등)을 띄우지 못한다.
+  // iOS는 Modal이 닫히는 애니메이션 중에 다른 화면(시스템 저장 화면 등)을 띄우지 못한다.
   // true면 iOS에서 Modal이 완전히 닫힌 뒤 액션을 실행한다.
   runActionsAfterClose?: boolean;
 }
@@ -55,7 +55,8 @@ export function DialogProvider({ children }: PropsWithChildren): ReactElement {
   const styles = useStyles();
   const [dialog, setDialog] = useState<DialogOptions | null>(null);
   const [hiding, setHiding] = useState(false);
-  const pendingActionRef = useRef<(() => void) | undefined>(undefined);
+  // 닫히는 중이면 Modal이 다 닫힌 뒤 실행할 액션을 담는다. null이면 닫히는 중이 아니다.
+  const closingRef = useRef<{ onPress?: () => void } | null>(null);
 
   // 화면 높이는 키보드나 Modal 프레임에 영향을 받지 않는다. 카드 높이만 잰다.
   const { height: screenHeight } = useWindowDimensions();
@@ -64,11 +65,13 @@ export function DialogProvider({ children }: PropsWithChildren): ReactElement {
   const { height: keyboardOffset } = useKeyboardAnimation();
 
   const openDialog = useCallback((options: DialogOptions) => {
+    closingRef.current = null;
     setHiding(false);
     setDialog(options);
   }, []);
 
   const closeDialog = useCallback(() => {
+    closingRef.current = null;
     setHiding(false);
     setDialog(null);
   }, []);
@@ -98,15 +101,18 @@ export function DialogProvider({ children }: PropsWithChildren): ReactElement {
   );
 
   function handleDismiss() {
-    if (dialog?.dismissible === false) return;
+    if (dialog?.dismissible === false || closingRef.current) return;
 
     closeDialog();
     dialog?.onDismiss?.();
   }
 
   function handleActionPress(action: DialogAction) {
+    // 닫히는 중의 두 번째 입력이 먼저 고른 액션을 덮지 않게 한다.
+    if (closingRef.current) return;
+
     if (dialog?.runActionsAfterClose && Platform.OS === 'ios') {
-      pendingActionRef.current = action.onPress;
+      closingRef.current = { onPress: action.onPress };
       setHiding(true);
 
       return;
@@ -117,12 +123,14 @@ export function DialogProvider({ children }: PropsWithChildren): ReactElement {
   }
 
   // onDismiss는 iOS에서 visible이 false로 바뀌어 Modal이 다 닫혔을 때만 온다.
+  // 닫히는 중에 새 팝업이 열렸다면 늦게 온 onDismiss가 그 팝업을 닫지 않는다.
   function handleModalDismiss() {
-    const pendingAction = pendingActionRef.current;
+    const closing = closingRef.current;
 
-    pendingActionRef.current = undefined;
+    if (!closing) return;
+
     closeDialog();
-    pendingAction?.();
+    closing.onPress?.();
   }
 
   function handleCardLayout(event: LayoutChangeEvent) {

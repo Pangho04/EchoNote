@@ -4,6 +4,7 @@ const { calls, fs, saveFileAsync } = vi.hoisted(() => {
   const calls: string[] = [];
   const fs = {
     directoryExists: false,
+    deleteError: null as Error | null,
     copyResult: Promise.resolve() as Promise<void>,
   };
 
@@ -32,6 +33,13 @@ vi.mock('expo-file-system', () => {
 
     delete() {
       calls.push(`delete ${this.uri}`);
+
+      const error = fs.deleteError;
+
+      fs.deleteError = null;
+
+      if (error) throw error;
+
       fs.directoryExists = false;
     }
 
@@ -76,6 +84,7 @@ describe('export-meeting-file', () => {
   beforeEach(() => {
     calls.length = 0;
     fs.directoryExists = false;
+    fs.deleteError = null;
     fs.copyResult = Promise.resolve();
     saveFileAsync.mockClear();
   });
@@ -129,6 +138,35 @@ describe('export-meeting-file', () => {
 
     await expect(saveTextFile('회의.txt', '')).resolves.toBe('cancelled');
     expect(calls.at(-1)).toBe('delete file:///cache/exports/');
+  });
+
+  it('내보내기가 진행 중이면 두 번째 요청은 사본을 건드리지 않고 거절한다', async () => {
+    let finishCopy: () => void = () => {};
+
+    fs.copyResult = new Promise((resolve) => {
+      finishCopy = resolve;
+    });
+
+    const first = saveRecordingCopy('file:///document/recordings/m1.m4a', '회의.m4a');
+
+    await expect(saveTextFile('회의.txt', '')).rejects.toThrow('export already in progress');
+    expect(calls).toEqual([
+      'create file:///cache/exports/',
+      'copy file:///document/recordings/m1.m4a -> file:///cache/exports/회의.m4a',
+    ]);
+
+    finishCopy();
+
+    await expect(first).resolves.toBe('saved');
+    await expect(saveTextFile('회의.txt', '')).resolves.toBe('saved');
+  });
+
+  it('임시 폴더를 지우지 못해도 저장 결과를 돌려주고 다음 내보내기는 막히지 않는다', async () => {
+    fs.deleteError = new Error('busy');
+
+    await expect(saveTextFile('회의.txt', '')).resolves.toBe('saved');
+    await expect(saveTextFile('회의.txt', '')).resolves.toBe('saved');
+    expect(calls.filter((call) => call.startsWith('delete'))).toHaveLength(3);
   });
 
   it('저장이 거절돼도 폴더를 지운다', async () => {

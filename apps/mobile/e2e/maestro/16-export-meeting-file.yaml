@@ -1,5 +1,5 @@
 appId: dev.pangho.echonote.dev
-name: 회의 녹음을 기기에 저장하기
+name: 회의 파일을 기기에 저장하기
 ---
 # 저장 파일 이름이 회의 제목에서 오므로 실행마다 제목을 달리해 이름 충돌을 피한다.
 - runFlow: ../subflows/start-at-list.yaml
@@ -15,7 +15,7 @@ name: 회의 녹음을 기기에 저장하기
     timeout: 10000
 
 - tapOn: '회의 파일 저장'
-- assertVisible: '내보낼 파일 종류, 현재 녹음 파일 \(.m4a\)'
+- assertVisible: '내보낼 파일 종류, 현재 .*'
 - tapOn: '저장'
 - runFlow:
     when:
@@ -43,6 +43,7 @@ name: 회의 녹음을 기기에 저장하기
     visible: '회의 파일 저장'
     timeout: 10000
 - assertNotVisible: '저장했습니다'
+- assertNotVisible: '내보내지 못했습니다'
 
 - tapOn: '회의 파일 저장'
 - tapOn: '저장'

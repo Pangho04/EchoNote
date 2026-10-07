@@ -11,7 +11,7 @@ export type ExportMeetingFileViewModel = {
   exportFile: (request: ExportRequest) => Promise<void>;
 };
 
-// busy 동안 아이콘이 비활성이라 팝업을 다시 열 수 없어 겹쳐 실행되지 않는다.
+// busy 동안 아이콘이 비활성이다. 화면을 다시 열어 겹쳐 누른 경우는 api가 거절해 실패 팝업이 뜬다.
 export function useExportMeetingFile(): ExportMeetingFileViewModel {
   const { openDialog } = useDialog();
   const [busy, setBusy] = useState(false);
