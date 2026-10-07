@@ -1,5 +1,7 @@
 # 기본은 전부 제외하고 Gateway 빌드에 필요한 것만 올린다.
 /*
+# Ignored Build Step의 git diff가 커밋 이력을 읽을 수 있게 둔다.
+!.git
 !package.json
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
