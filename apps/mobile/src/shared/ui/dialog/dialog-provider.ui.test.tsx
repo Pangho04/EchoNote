@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { PropsWithChildren, ReactElement } from 'react';
 import { Pressable, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -50,6 +50,36 @@ describe('DialogProvider', () => {
 
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('삭제할까요?')).toBeNull();
+  });
+
+  it('runActionsAfterClose면 iOS에서 Modal이 다 닫힌 뒤 onPress를 실행한다', async () => {
+    const onPress = jest.fn();
+
+    await render(
+      <Wrapper>
+        <DialogTrigger
+          options={{
+            message: '공유할까요?',
+            actions: [{ label: '공유', onPress }],
+            runActionsAfterClose: true,
+          }}
+        />
+      </Wrapper>,
+    );
+
+    await fireEvent.press(screen.getByText('열기'));
+
+    // jest의 Modal은 숨겨지면 트리에서 빠지므로 onDismiss를 미리 잡아 둔다.
+    const { onDismiss } = screen.getByTestId('dialog-modal').props;
+
+    await fireEvent.press(screen.getByText('공유'));
+
+    expect(screen.queryByText('공유할까요?')).toBeNull();
+    expect(onPress).not.toHaveBeenCalled();
+
+    await act(async () => onDismiss());
+
+    expect(onPress).toHaveBeenCalledTimes(1);
   });
 
   it('content로 넘긴 컴포넌트를 그대로 그린다', async () => {

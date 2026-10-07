@@ -50,6 +50,7 @@ Metro가 떠 있어야 한다. 없으면 `pnpm -F mobile start`를 먼저 실행
 | `12-unknown-path.yaml`        | 없는 경로 링크 → 목록 (앱 실행 중, 목록이 안 쌓이는지는 jest가 확인)                       | 계정        |
 | `14-meeting-rename.yaml`      | 상세 → 연필 → 이름 저장 → 목록에 바뀐 이름                                                 | 마이크 권한 |
 | `15-upload-recording.yaml`    | 메뉴 → 업로드 → `e2e-upload.m4a` 선택 → 상세에 녹음 길이                                   | 업로드 파일 |
+| `16-export-meeting-file.yaml` | 상세 → 저장 → 시스템 저장 화면 취소 → 다시 저장 → 「저장했습니다」                         | 마이크 권한 |
 
 **Maestro는 폴더 안 flow를 파일 이름 순으로 실행하지 않는다.** 실측에서도 파일 이름과 다른 순서로 돌았다. 그래서 회의 데이터가 필요한 flow는 `subflows/create-recording.yaml`을 `runFlow`로 불러 스스로 준비한다. 그 subflow는 회의가 이미 보이면 아무것도 하지 않는다. 제목은 호출한 flow의 `TITLE`을 쓰며, subflow에 `env` 기본값을 두면 호출부 값을 덮어쓰므로 두지 않는다.
 

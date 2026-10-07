@@ -4,6 +4,7 @@ import { type ReactElement, useCallback, useEffect, useMemo, useRef } from 'reac
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ExportMeetingButton } from '@/features/export-meeting-file/ui/export-meeting-button';
 import { pendingImports } from '@/features/record-meeting';
 import { ROUTES } from '@/shared/config/routes';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
@@ -107,12 +108,19 @@ export function MeetingDetailPage({
           />
         );
 
-      // rename을 넘기지 않아 연필이 비활성된다.
+      // rename·recordingUri를 넘기지 않아 연필과 내보내기 아이콘이 비활성된다.
       case 'importing':
         return (
           <>
             <MeetingDetailHeader
               dateLabel={viewModel.dateLabel}
+              metaAccessory={
+                <ExportMeetingButton
+                  recordingUri={null}
+                  title={viewModel.title}
+                  transcript={null}
+                />
+              }
               metaLabel={UI_STRINGS.meetingDetail.importingMeta}
               title={viewModel.title}
             />

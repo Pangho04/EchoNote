@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { RenameMeetingEditor } from '@/features/rename-meeting';
@@ -11,6 +11,8 @@ export interface MeetingDetailHeaderProps {
   metaLabel: string;
   // 없으면 연필을 비활성한다(녹음 파일을 가져오는 중).
   rename?: (title: string) => Promise<void>;
+  // 메타 줄 오른쪽 끝에 붙는 요소.
+  metaAccessory?: ReactNode;
 }
 
 async function renameUnavailable(): Promise<void> {}
@@ -20,6 +22,7 @@ export function MeetingDetailHeader({
   title,
   metaLabel,
   rename,
+  metaAccessory,
 }: MeetingDetailHeaderProps): ReactElement {
   const styles = useStyles();
 
@@ -35,14 +38,17 @@ export function MeetingDetailHeader({
         title={title}
       />
 
-      <AppText color="textSecondary" style={styles.meta} variant="caption">
-        {metaLabel}
-      </AppText>
+      <View style={styles.metaRow}>
+        <AppText color="textSecondary" style={styles.meta} variant="caption">
+          {metaLabel}
+        </AppText>
+
+        {metaAccessory}
+      </View>
     </View>
   );
 }
 
-// meta의 marginTop 10은 목업이 지정한 값이며 대응하는 theme 토큰이 없다.
 const useStyles = createThemedStyles((theme) =>
   StyleSheet.create({
     container: {
@@ -55,8 +61,16 @@ const useStyles = createThemedStyles((theme) =>
       fontWeight: theme.typography.fontWeight.bold,
       marginBottom: theme.spacing[2],
     },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: theme.spacing[3],
+      minHeight: 36,
+      marginTop: theme.spacing[3],
+    },
     meta: {
-      marginTop: 10,
+      flexShrink: 1,
     },
   }),
 );

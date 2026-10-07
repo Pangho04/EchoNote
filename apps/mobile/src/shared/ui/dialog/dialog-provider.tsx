@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -13,6 +14,7 @@ import {
   Keyboard,
   type LayoutChangeEvent,
   Modal,
+  Platform,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -37,6 +39,9 @@ export interface DialogOptions {
   dismissible?: boolean;
   onDismiss?: () => void;
   avoidKeyboard?: boolean;
+  // iOS는 Modal이 닫히는 애니메이션 중에 다른 화면(공유창 등)을 띄우지 못한다.
+  // true면 iOS에서 Modal이 완전히 닫힌 뒤 액션을 실행한다.
+  runActionsAfterClose?: boolean;
 }
 
 type DialogContextValue = {
@@ -49,6 +54,8 @@ const DialogContext = createContext<DialogContextValue | null>(null);
 export function DialogProvider({ children }: PropsWithChildren): ReactElement {
   const styles = useStyles();
   const [dialog, setDialog] = useState<DialogOptions | null>(null);
+  const [hiding, setHiding] = useState(false);
+  const pendingActionRef = useRef<(() => void) | undefined>(undefined);
 
   // 화면 높이는 키보드나 Modal 프레임에 영향을 받지 않는다. 카드 높이만 잰다.
   const { height: screenHeight } = useWindowDimensions();
@@ -57,10 +64,12 @@ export function DialogProvider({ children }: PropsWithChildren): ReactElement {
   const { height: keyboardOffset } = useKeyboardAnimation();
 
   const openDialog = useCallback((options: DialogOptions) => {
+    setHiding(false);
     setDialog(options);
   }, []);
 
   const closeDialog = useCallback(() => {
+    setHiding(false);
     setDialog(null);
   }, []);
 
@@ -96,8 +105,24 @@ export function DialogProvider({ children }: PropsWithChildren): ReactElement {
   }
 
   function handleActionPress(action: DialogAction) {
+    if (dialog?.runActionsAfterClose && Platform.OS === 'ios') {
+      pendingActionRef.current = action.onPress;
+      setHiding(true);
+
+      return;
+    }
+
     closeDialog();
     action.onPress?.();
+  }
+
+  // onDismiss는 iOS에서 visible이 false로 바뀌어 Modal이 다 닫혔을 때만 온다.
+  function handleModalDismiss() {
+    const pendingAction = pendingActionRef.current;
+
+    pendingActionRef.current = undefined;
+    closeDialog();
+    pendingAction?.();
   }
 
   function handleCardLayout(event: LayoutChangeEvent) {
@@ -109,7 +134,14 @@ export function DialogProvider({ children }: PropsWithChildren): ReactElement {
       {children}
 
       {dialog ? (
-        <Modal animationType="fade" onRequestClose={handleDismiss} transparent visible>
+        <Modal
+          animationType="fade"
+          onDismiss={handleModalDismiss}
+          onRequestClose={handleDismiss}
+          testID="dialog-modal"
+          transparent
+          visible={!hiding}
+        >
           <View
             // 카드 바깥을 누르면 키보드를 닫고 dismiss를 시도한다.
             // responder를 가져가지 않으므로 안쪽 터치는 그대로 동작한다.

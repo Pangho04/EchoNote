@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import type { Recording } from '@/entities/recording';
+import { ExportMeetingButton } from '@/features/export-meeting-file/ui/export-meeting-button';
 import { RecordingPlayer, useRecordingPlayback } from '@/features/play-recording';
 import { pendingImports } from '@/features/record-meeting';
 import {
@@ -37,6 +38,10 @@ jest.mock('expo-router', () => ({
 jest.mock('@/features/play-recording', () => ({
   RecordingPlayer: jest.fn(() => null),
   useRecordingPlayback: jest.fn(),
+}));
+// 공유창·파일 복사를 품고 있어 page test에서는 받은 props만 확인한다.
+jest.mock('@/features/export-meeting-file/ui/export-meeting-button', () => ({
+  ExportMeetingButton: jest.fn(() => null),
 }));
 jest.mock('@/features/request-transcription', () => ({
   createTranscriptionDeps: jest.fn(),
@@ -261,6 +266,45 @@ describe('MeetingDetailPage', () => {
     const ready = await renderPage();
 
     expect(ready.getByLabelText('회의 제목 수정').props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('내보내기 아이콘에 ready면 제목·녹음·전사를, importing이면 녹음 없이 넘긴다', async () => {
+    const content = { durationMs: 1_000, segments: [{ startMs: 0, endMs: 1_000, text: '안녕' }] };
+
+    mockedUseMeetingDetailViewModel.mockReturnValue(readyState);
+    await renderPage();
+
+    expect(ExportMeetingButton).toHaveBeenLastCalledWith(
+      { title: '주간 회의', recordingUri: 'file://recording.m4a', transcript: null },
+      undefined,
+    );
+
+    jest.mocked(useTranscription).mockReturnValue({
+      ...transcription,
+      panel: { kind: 'completed', content },
+    });
+    await renderPage();
+
+    expect(ExportMeetingButton).toHaveBeenLastCalledWith(
+      { title: '주간 회의', recordingUri: 'file://recording.m4a', transcript: content },
+      undefined,
+    );
+
+    mockedUseMeetingDetailViewModel.mockReturnValue({
+      viewModel: {
+        kind: 'importing',
+        title: '가져온 회의',
+        dateLabel: '2026년 10월 3일 · 오전 9:00',
+      },
+      recording: null,
+      rename: mockedRename,
+    });
+    await renderPage();
+
+    expect(ExportMeetingButton).toHaveBeenLastCalledWith(
+      { title: '가져온 회의', recordingUri: null, transcript: null },
+      undefined,
+    );
   });
 
   it('T-D4: import-failed면 팝업 없이 목록으로 한 번만 돌아간다', async () => {
