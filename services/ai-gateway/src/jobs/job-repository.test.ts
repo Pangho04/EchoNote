@@ -561,10 +561,6 @@ describe('findOwnedTranscript', () => {
   it.each([
     ['변조한 암호문', { ...transcriptRow, dek_sealed: flipByte(transcriptRow.dek_sealed) }],
     ['다른 KEK 버전', { ...transcriptRow, key_version: 2 }],
-    [
-      '평문 열만 있는 행',
-      { dek_sealed: null, duration_ms: 2_000, key_version: null, segments_sealed: null },
-    ],
   ])('%s은 본문 없는 decrypt_failed Error로 바꾼다', async (_label, row) => {
     stubFetch(async () => Response.json([row]));
 

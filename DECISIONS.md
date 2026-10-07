@@ -161,8 +161,8 @@ CLI가 컨테이너 안으로 비밀 값을 흘릴 경로가 막혀 있습니다
 - KEK는 환경 변수 `TRANSCRIPT_KEK_B64`로 Gateway 실행 환경에만 두고 Supabase·저장소·앱·Worker에는 두지 않습니다.
 - 추가 인증 데이터(aad)에 job_id·버전·용도를 넣어, 다른 행의 암호문을 바꿔치기하면 복호화가 실패하게 합니다.
 - 복호화는 Gateway가 `GET /v1/jobs/:jobId/transcript`에서만 하고 앱에 내려주는 응답 모양은 그대로 둡니다.
-- 기존 평문 행은 1회용 스크립트 `services/ai-gateway/src/scripts/seal-existing-transcripts.ts`로 감쌉니다. 운영 Gateway가 만든 암호문을 먼저 열어 KEK가 맞는지 확인한 뒤 행마다 잠그고, 다시 열어 검증한 다음 `seal_transcript` RPC로 반영합니다.
-- migration은 확장→축소(expand/contract) 순서를 따릅니다. 확장 migration `20261006120000_seal_transcripts.sql`은 평문·암호문 열을 공존시키고 `complete_job`이 옛 평문 호출도 받게 하며, 평문 열 삭제는 다음 migration에서 따로 합니다.
+- 기존 평문 행은 1회용 스크립트로 감쌌습니다. 운영 Gateway가 만든 암호문을 먼저 열어 KEK가 맞는지 확인한 뒤 행마다 잠그고, 다시 열어 검증한 다음 `seal_transcript` RPC로 반영했습니다. 스크립트와 RPC는 축소 migration에서 지웠습니다(이력은 git).
+- migration은 확장→축소(expand/contract) 순서를 따랐습니다. 확장 migration `20261006120000_seal_transcripts.sql`은 평문·암호문 열을 공존시키고 `complete_job`이 옛 평문 호출도 받게 했고, 축소 migration `20261007090000_drop_plain_segments.sql`은 평문 행이 남아 있으면 멈추도록 한 뒤 평문 열을 지웠습니다.
 
 **결과** — Supabase 단독 유출(콘솔 열람·덤프·백업·SQL 주입·키 없는 역할)로는 전사문을 읽을 수 없습니다. 반면 Vercel 환경 변수와 Gateway 실행 환경을 가진 쪽, 즉 운영자는 여전히 복호화할 수 있고 `duration_ms`와 암호문 길이는 평문 메타데이터로 남습니다.
 
@@ -170,7 +170,7 @@ KEK를 잃으면 서버에 있는 전사문은 복구할 수 없고 앱 SQLite �
 
 **이 결정을 지키는 테스트** — `services/ai-gateway/src/jobs/transcript-cipher.test.ts`의 "변조한 암호문은 열리지 않는다", `services/ai-gateway/src/jobs/job-repository.db.test.ts`의 "완료한 전사는 암호문으로 저장되고 왕복한다", `services/ai-gateway/supabase/tests/complete_job.test.sql`
 
-**코드** — `services/ai-gateway/src/jobs/transcript-cipher.ts`, `services/ai-gateway/src/jobs/job-repository.ts`, `services/ai-gateway/supabase/migrations/20261006120000_seal_transcripts.sql`
+**코드** — `services/ai-gateway/src/jobs/transcript-cipher.ts`, `services/ai-gateway/src/jobs/job-repository.ts`, `services/ai-gateway/supabase/migrations/20261006120000_seal_transcripts.sql`, `services/ai-gateway/supabase/migrations/20261007090000_drop_plain_segments.sql`
 
 ## 앞으로 할 일
 

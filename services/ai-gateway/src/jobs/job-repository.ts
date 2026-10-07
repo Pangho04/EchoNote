@@ -140,14 +140,13 @@ const completeJobRowSchema = z.discriminatedUnion('kind', [
 ]);
 
 // 열 형태만 먼저 확인하고 내용 규칙은 복호화해 camelCase로 옮긴 뒤 계약으로 검사한다.
-// 확장 migration 동안 옛 Gateway가 남긴 평문 행은 암호문 열이 null이다. 그 행은 읽지 않고 decrypt_failed로 구분한다.
 const transcriptRowsSchema = z
   .array(
     z.object({
       duration_ms: z.unknown(),
-      segments_sealed: z.string().nullable(),
-      dek_sealed: z.string().nullable(),
-      key_version: z.number().nullable(),
+      segments_sealed: z.string(),
+      dek_sealed: z.string(),
+      key_version: z.number(),
     }),
   )
   .max(1);
@@ -454,10 +453,6 @@ export const createJobRepository = ({
       const [row] = rows.data;
 
       if (row === undefined) return null;
-
-      if (row.segments_sealed === null || row.dek_sealed === null || row.key_version === null) {
-        throw new Error('select_transcripts decrypt_failed plain_row');
-      }
 
       let segments: unknown;
 

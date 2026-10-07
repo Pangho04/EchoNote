@@ -416,19 +416,17 @@ describe('completeJob·findOwnedTranscript (local Supabase)', () => {
       kind: 'completed',
     });
 
-    // 저장소에는 평문 열이 비고 암호문 열만 찬다.
+    // 저장소에는 암호문 열만 찬다.
     const [row] = (await (
       await callLocal(
-        `/rest/v1/transcripts?select=segments,segments_sealed,dek_sealed,key_version&job_id=eq.${job.id}`,
+        `/rest/v1/transcripts?select=segments_sealed,dek_sealed,key_version&job_id=eq.${job.id}`,
       )
     ).json()) as {
-      segments: unknown;
       segments_sealed: string | null;
       dek_sealed: string | null;
       key_version: number | null;
     }[];
 
-    expect(row?.segments).toBeNull();
     expect(row?.key_version).toBe(1);
     expect(row?.dek_sealed).toMatch(/^[A-Za-z0-9+/]{80}$/);
     expect(Buffer.from(row!.segments_sealed!, 'base64').includes(Buffer.from('가가가'))).toBe(
@@ -449,64 +447,5 @@ describe('completeJob·findOwnedTranscript (local Supabase)', () => {
     ).resolves.toEqual({
       kind: 'stale',
     });
-  });
-
-  // 확장 migration 동안 옛 Gateway가 보내는 평문 body(p_segments)도 같은 함수가 받는다. 축소 migration에서 이 테스트를 지운다.
-  it('p_segments만 보낸 옛 body도 completed이고 평문 행이 된다', async () => {
-    const repository = createJobRepository({
-      cipher,
-      secretKey: local.secretKey,
-      supabaseUrl: local.apiUrl,
-      timeoutMs: 5000,
-    });
-    const ownerId = await createUser();
-    const created = await repository.createJob(createInput(ownerId, randomUUID()));
-
-    if (created.kind !== 'created') throw new Error('job was not created');
-
-    const { job } = created;
-
-    while ((await repository.claimJob()).kind === 'claimed');
-
-    await repository.completeUpload({
-      jobId: job.id,
-      mimeType: job.mimeType,
-      ownerId,
-      sha256: job.sha256,
-      sizeBytes: job.sizeBytes,
-    });
-
-    let leaseId: string | undefined;
-
-    for (let attempt = 0; attempt < 10 && leaseId === undefined; attempt += 1) {
-      const result = await repository.claimJob();
-
-      if (result.kind === 'idle') break;
-
-      if (result.job.id === job.id) leaseId = result.lease.leaseId;
-    }
-
-    if (leaseId === undefined) throw new Error('created job was not claimed');
-
-    const response = await callLocal('/rest/v1/rpc/complete_job', {
-      body: JSON.stringify({
-        p_duration_ms: 1000,
-        p_job_id: job.id,
-        p_lease_id: leaseId,
-        p_segments: [{ endMs: 1000, startMs: 0, text: '옛 body' }],
-      }),
-      method: 'POST',
-    });
-    const [row] = (await (
-      await callLocal(`/rest/v1/transcripts?select=segments,segments_sealed&job_id=eq.${job.id}`)
-    ).json()) as { segments: unknown; segments_sealed: string | null }[];
-
-    expect(await response.json()).toEqual({ kind: 'completed' });
-    expect(row?.segments).toEqual([{ endMs: 1000, startMs: 0, text: '옛 body' }]);
-    expect(row?.segments_sealed).toBeNull();
-    // 평문 행은 새 Gateway가 읽지 못한다(축소 migration 전까지의 승인된 구간).
-    await expect(repository.findOwnedTranscript({ jobId: job.id, ownerId })).rejects.toThrow(
-      'select_transcripts decrypt_failed plain_row',
-    );
   });
 });
