@@ -33,14 +33,14 @@ EchoNote 전체 구조와 전사(transcription, 음성을 텍스트로 바꾸는
 
 ## 구성 요소
 
-| 구성 요소                   | 역할                                                                                  |
-| --------------------------- | ------------------------------------------------------------------------------------- |
-| `apps/mobile`               | iOS·Android 공통 Expo React Native 앱. 녹음, 재생, 목록, 전사 요청 화면               |
-| `apps/desktop`              | Electron 메인·preload. 현재 보류 상태                                                 |
-| `packages/contracts`        | 앱·Gateway·Worker가 함께 쓰는 Zod 스키마(입력 검증 규칙)                              |
-| `services/ai-gateway`       | Vercel에 배포한 Fastify API. 인증, 작업 생성, 업로드 허가 발급, 결과 암호화·저장 중계 |
-| `services/inference-worker` | Windows에서 상시 실행하는 TypeScript 프로세스. 작업을 가져가 Docker로 전사 실행       |
-| `tools/stt-benchmark`       | 음성 인식(STT) 품질·후보 비교용 실험 도구                                             |
+| 구성 요소                   | 역할                                                                                                                                                                             |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/mobile`               | iOS·Android 공통 Expo React Native 앱. 녹음, 재생, 목록, 전사 요청, 파일 내보내기 화면. OS 저장 화면은 로컬 Expo 모듈(`apps/mobile/modules/document-saver`, Swift·Kotlin)로 띄움 |
+| `apps/desktop`              | Electron 메인·preload. 현재 보류 상태                                                                                                                                            |
+| `packages/contracts`        | 앱·Gateway·Worker가 함께 쓰는 Zod 스키마(입력 검증 규칙)                                                                                                                         |
+| `services/ai-gateway`       | Vercel에 배포한 Fastify API. 인증, 작업 생성, 업로드 허가 발급, 결과 암호화·저장 중계                                                                                            |
+| `services/inference-worker` | Windows에서 상시 실행하는 TypeScript 프로세스. 작업을 가져가 Docker로 전사 실행                                                                                                  |
+| `tools/stt-benchmark`       | 음성 인식(STT) 품질·후보 비교용 실험 도구                                                                                                                                        |
 
 ## 전사 요청 한 건의 순서
 
@@ -82,6 +82,7 @@ created --(업로드 성공 확인)--> queued --(Worker가 작업을 가져감)-
 - 회의 메타데이터, 녹음 원본 파일, 재생·목록에 필요한 모든 정보는 기기 로컬 SQLite와 파일 영역에 남습니다. 이 데이터는 PC가 꺼져 있어도 유효합니다.
 - job 상태, 전사 결과는 Supabase에 원본이 있고 앱은 polling으로 내려받아 로컬 SQLite에 복제해 둡니다. Supabase에는 전사 결과가 봉투 암호화 암호문으로 저장됩니다. 자세한 위치와 보호 범위는 [README.md의 데이터 위치와 보호](./README.md#데이터-위치와-보호)에 적습니다.
 - 사용자 로그인 세션은 iOS Keychain·Android Keystore에 저장됩니다.
+- 회의 상세에서 내보낸 녹음(m4a)·전사(txt)는 사용자가 OS 저장 화면에서 고른 위치에 평문 사본으로 남습니다. 이 사본은 EchoNote가 보호하거나 지울 수 없습니다. 앱은 저장 화면에 넘길 임시 사본만 만들고 저장 화면이 닫히면 지웁니다. (`apps/mobile/src/features/export-meeting-file/api/export-meeting-file.native.ts`)
 
 ## 보안 경계
 

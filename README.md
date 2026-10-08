@@ -187,6 +187,7 @@ tools/
 | 전사문              | Supabase `transcripts` + 앱 SQLite 사본        | Supabase엔 봉투 암호화 암호문, 앱엔 평문    | 회의 소유자(Gateway를 거쳐서만), 운영자(KEK 보유). Supabase 단독 접근은 암호문만 |
 | 작업 상태·오류 코드 | Supabase `jobs`                                | 평문(상태·오류 코드·크기·해시만, 본문 없음) | Gateway, 운영자(Supabase 콘솔)                                                   |
 | 로그인 세션         | iOS Keychain·Android Keystore                  | 토큰                                        | 기기 소유자                                                                      |
+| 내보낸 파일         | 사용자가 OS 저장 화면에서 고른 위치            | 평문 사본(m4a·txt)                          | 저장 위치에 접근할 수 있는 누구나. EchoNote가 보호하거나 지울 수 없음            |
 | 서버 로그           | Vercel·Supabase 로그                           | 전사·녹음 본문과 열쇠는 남기지 않음         | 운영자                                                                           |
 
 Supabase 프로젝트는 `ap-south-1`(인도 뭄바이) 리전에 있고 Vercel 함수는 미국 기본 리전에서 실행됩니다. 전사문의 암호화·복호화와 KEK는 미국 리전 Vercel 함수에서 다룹니다. 국외 보관 고지·처리방침과 서울 리전 이전 계획은 [BACKLOG.md](./BACKLOG.md) 3번에 적었습니다.
