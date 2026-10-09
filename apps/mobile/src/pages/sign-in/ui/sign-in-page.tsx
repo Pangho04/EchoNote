@@ -1,4 +1,4 @@
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -27,20 +27,20 @@ export function SignInPage() {
 
         <SignInForm />
 
-        <Pressable
-          accessibilityLabel={`${UI_STRINGS.auth.contactLabel}, ${UI_STRINGS.auth.contactEmail}`}
-          accessibilityRole="link"
-          onPress={() => {
-            void Linking.openURL(`mailto:${UI_STRINGS.auth.contactEmail}`).catch(() => {});
-          }}
-        >
-          <AppText color="textSecondary" style={styles.contact} variant="caption">
-            {UI_STRINGS.auth.contact}{' '}
-            <AppText color="accent" variant="caption">
-              {UI_STRINGS.auth.contactEmail}
-            </AppText>
+        <AppText color="textSecondary" style={styles.contact} variant="caption">
+          {UI_STRINGS.auth.contact}{' '}
+          <AppText
+            accessibilityLabel={`${UI_STRINGS.auth.contactLabel}, ${UI_STRINGS.auth.contactEmail}`}
+            accessibilityRole="link"
+            color="accent"
+            onPress={() => {
+              void Linking.openURL(`mailto:${UI_STRINGS.auth.contactEmail}`).catch(() => {});
+            }}
+            variant="caption"
+          >
+            {UI_STRINGS.auth.contactEmail}
           </AppText>
-        </Pressable>
+        </AppText>
       </KeyboardAwareScrollView>
     </SafeAreaView>
   );

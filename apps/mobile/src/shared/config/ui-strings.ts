@@ -98,7 +98,7 @@ export const UI_STRINGS = {
     signingIn: '로그인 중…',
     signOut: '로그아웃',
     signInFailed: '로그인에 실패했습니다.',
-    contact: '계정이 필요하면 이용 문의',
+    contact: '계정 및 이용 문의:',
     contactEmail: 'lph6812@gmail.com',
     contactLabel: '이용 문의 메일 쓰기',
     signOutTitle: '로그아웃할까요?',
