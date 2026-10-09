@@ -63,17 +63,17 @@ created --(업로드 성공 확인)--> queued --(Worker가 작업을 가져감)-
 - `queued` — 업로드가 확인되어 Worker가 가져갈 수 있는 상태.
 - `processing` — Worker가 lease를 쥐고 전사를 실행 중인 상태.
 - `completed` — 결과가 저장되고 더는 바뀌지 않는 상태.
-- `failed` — 처리 오류나 lease 만료로 끝난 상태. `error_code`에 원인이 남습니다.
+- `failed` — 처리 오류로 끝났거나, 3회 가져간 뒤에도 lease가 만료된 상태. `error_code`에 원인이 남습니다.
 
 `completed`와 `failed`는 어떤 이벤트가 와도 되돌리지 않습니다. 재처리가 필요하면 새 job을 만듭니다.
 
 ## 실패할 때
 
-- **PC가 꺼져 있습니다.** 앱이 전사를 요청하기 전에 PC의 준비 상태를 확인하는 `/live` 엔드포인트를 호출합니다. 응답이 없으면 "데스크탑에 연결할 수 없습니다" 안내를 보여줍니다. PC를 깨우는 동작은 서버가 대신하지 않고 사용자가 직접 합니다. (`apps/mobile/src/features/request-transcription/api/desktop-live.ts`)
-- **업로드 중 연결이 끊깁니다.** Worker 수신기는 길이·해시(SHA-256)·magic byte를 검증한 뒤에만 temp 파일을 final 파일로 확정(hard link)합니다. 검증 전에 끊기면 temp 파일만 남고 job은 그대로 대기 상태로 유지되어 새 grant로 다시 PUT하면 됩니다. (`services/inference-worker/src/uploads`)
-- **Worker가 작업 도중 죽습니다.** job은 lease(점유권)와 만료 시각을 들고 있습니다. Worker가 멈추면 lease가 5분 뒤 만료되고 다음 Worker 기동 때 그 job을 처음부터 다시 가져갑니다.
-  claim을 3회 반복해도 끝나지 않으면 DB가 직접 `attempts_exhausted`로 실패를 확정합니다. (`services/ai-gateway/supabase/migrations/20260926125300_init.sql`)
-- **결과 저장이 실패합니다.** 결과 저장은 `complete_job` RPC 한 번의 DB transaction으로 묶여 있습니다. 저장 중 하나라도 실패하면 상태 변경과 결과 삽입이 모두 되돌려지고 job은 `processing`으로 남아 다시 완료를 시도할 수 있습니다. (`services/ai-gateway/supabase/migrations/20260926125300_init.sql`)
+- **PC가 꺼져 있습니다.** 앱이 녹음을 업로드하기 전에 PC의 준비 상태를 확인하는 `/live` 엔드포인트를 호출합니다. 5초 안에 204가 오지 않으면 "데스크탑에 연결할 수 없습니다" 안내를 보여줍니다. PC를 깨우는 동작은 서버가 대신하지 않고 사용자가 직접 합니다. (`apps/mobile/src/features/request-transcription/api/desktop-live.ts`)
+- **업로드 중 연결이 끊깁니다.** Worker 수신기는 길이·해시(SHA-256)·magic byte를 검증한 뒤에만 temp 파일을 final 파일로 확정(hard link)합니다. 검증 전에 끊기면 temp 파일은 지워지고 job은 `created`로 남아 새 grant로 다시 PUT하면 됩니다. (`services/inference-worker/src/uploads`)
+- **Worker가 작업 도중 죽습니다.** job은 lease(점유권)와 만료 시각을 들고 있습니다. Worker가 멈추면 lease가 5분 뒤 만료되고 다음 작업 조회(claim) 때 그 job을 처음부터 다시 가져갑니다.
+  claim을 3회 반복해도 끝나지 않으면 DB가 직접 `attempts_exhausted`로 실패를 확정합니다. (`services/ai-gateway/supabase/migrations/20261003140000_claim_job_owner_fairness.sql`)
+- **결과 저장이 실패합니다.** 결과 저장은 `complete_job` RPC 한 번의 DB transaction으로 묶여 있습니다. 저장 중 하나라도 실패하면 상태 변경과 결과 삽입이 모두 되돌려지고 job은 `processing`으로 남아 다시 완료를 시도할 수 있습니다. (`services/ai-gateway/supabase/migrations/20261007090000_drop_plain_segments.sql`)
 - **파일이 512 MiB를 넘습니다.** 앱이 업로드를 시작하기 전에 파일 크기를 확인해 막습니다. 네트워크로 보내고 나서 서버가 거부하는 방식이 아니라 전송 자체를 사전에 차단합니다. 상한은 `packages/contracts`의 `MAX_UPLOAD_BYTES`입니다. (`apps/mobile/src/features/record-meeting/model/import-recording.ts`, `apps/mobile/src/features/request-transcription/model/request-transcription.ts`)
 - **KEK가 맞지 않거나 암호문이 변조됐습니다.** 조회만 500으로 실패하고 저장된 행은 바뀌지 않습니다. (`services/ai-gateway/src/jobs/job-repository.ts`)
 
