@@ -59,7 +59,11 @@ export function SignInForm() {
         accessibilityState={{ disabled: !canSubmit, busy: isSubmitting }}
         disabled={!canSubmit}
         onPress={submit}
-        style={[styles.primary, !canSubmit && styles.primaryDisabled]}
+        style={({ pressed }) => [
+          styles.primary,
+          !canSubmit && styles.primaryDisabled,
+          pressed && styles.primaryPressed,
+        ]}
       >
         <AppText style={styles.primaryLabel} variant="reading">
           {isSubmitting ? UI_STRINGS.auth.signingIn : UI_STRINGS.auth.signIn}
@@ -95,6 +99,9 @@ const useStyles = createThemedStyles((theme) =>
     },
     primaryDisabled: {
       opacity: 0.5,
+    },
+    primaryPressed: {
+      backgroundColor: theme.colors.accentPressed,
     },
     primaryLabel: {
       color: theme.colors.surface,

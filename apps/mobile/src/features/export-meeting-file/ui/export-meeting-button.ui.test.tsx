@@ -1,11 +1,20 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { TranscriptContent } from '@/entities/transcript';
+import { lightTheme } from '@/shared/config/theme';
 import { DialogProvider } from '@/shared/ui/dialog';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
 import { saveRecordingCopy, saveTextFile } from '../api/export-meeting-file';
 import { ExportMeetingButton, type ExportMeetingButtonProps } from './export-meeting-button';
+
+function pressIn(host: ReturnType<typeof screen.getByLabelText>) {
+  fireEvent(host, 'responderGrant', {
+    persist() {},
+    nativeEvent: { timestamp: 0, pageX: 0, pageY: 0, locationX: 0, locationY: 0 },
+    currentTarget: { measure() {} },
+  });
+}
 
 jest.mock('react-native-safe-area-context', () => {
   const mock = jest.requireActual('react-native-safe-area-context/jest/mock');
@@ -189,5 +198,26 @@ describe('ExportMeetingButton', () => {
     await openDialog();
 
     expect(screen.queryByText('내보내기')).toBeNull();
+  });
+
+  it('누르는 동안 아이콘 버튼 배경이 눌림 토큰 색이다', async () => {
+    await render(element());
+    const button = screen.getByLabelText('회의 파일 저장');
+
+    await act(async () => pressIn(button));
+
+    expect(button).toHaveStyle({ backgroundColor: lightTheme.colors.accentPressed });
+  });
+
+  it('누르는 동안 파일 종류 필드 배경이 눌림 토큰 색이다', async () => {
+    await render(element());
+    await openDialog();
+
+    const trigger = screen.getByLabelText('내보낼 파일 종류, 현재 전사 텍스트 (.txt)');
+    const field = screen.getByText('전사 텍스트 (.txt)').parent;
+
+    await act(async () => pressIn(trigger));
+
+    expect(field).toHaveStyle({ backgroundColor: lightTheme.colors.surfacePressed });
   });
 });

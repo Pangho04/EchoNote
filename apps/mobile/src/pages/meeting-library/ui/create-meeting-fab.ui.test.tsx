@@ -1,10 +1,20 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
 import type React from 'react';
-import { BackHandler } from 'react-native';
+import { BackHandler, processColor } from 'react-native';
+import type { TestInstance } from 'test-renderer';
 
+import { lightTheme } from '@/shared/config/theme';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
 import { CreateMeetingFab } from './create-meeting-fab';
+
+function pressIn(host: TestInstance) {
+  fireEvent(host, 'responderGrant', {
+    persist() {},
+    nativeEvent: { timestamp: 0, pageX: 0, pageY: 0, locationX: 0, locationY: 0 },
+    currentTarget: { measure() {} },
+  });
+}
 
 jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual<typeof React>('react');
@@ -97,4 +107,53 @@ describe('CreateMeetingFab', () => {
     expect(queryByText('녹음하기')).toBeNull();
     expect(fab.props.accessibilityState).toEqual({ disabled: true });
   });
+
+  it('누르는 동안 메뉴 항목 배경이 눌림 토큰 색이다', async () => {
+    const { getByLabelText } = await renderOpenFab();
+    const item = getByLabelText('녹음하기');
+
+    await act(async () => pressIn(item));
+
+    expect(item).toHaveStyle({ backgroundColor: lightTheme.colors.surfacePressed });
+  });
+
+  it('누르는 동안 가운데 원 색이 눌림 토큰 색으로 바뀐다', async () => {
+    const { getByLabelText, toJSON } = await renderFab();
+    const fab = getByLabelText('메뉴 열기');
+
+    await act(async () => pressIn(fab));
+
+    const centerCircle = findNode(toJSON(), (node) => node.props.r === 25);
+
+    expect(centerCircle?.props.fill).toEqual({
+      type: 0,
+      payload: processColor(lightTheme.colors.accentPressed),
+    });
+  });
 });
+
+type JsonNode =
+  NonNullable<Awaited<ReturnType<typeof renderFab>>['toJSON']> extends (...args: never[]) => infer T
+    ? NonNullable<T>
+    : never;
+
+function findNode(
+  node: JsonNode | JsonNode[] | null,
+  predicate: (node: JsonNode) => boolean,
+): JsonNode | null {
+  if (node == null) return null;
+
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findNode(child, predicate);
+
+      if (found !== null) return found;
+    }
+
+    return null;
+  }
+
+  if (predicate(node)) return node;
+
+  return findNode(node.children as JsonNode[] | null, predicate);
+}

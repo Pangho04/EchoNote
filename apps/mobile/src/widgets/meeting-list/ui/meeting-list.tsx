@@ -56,6 +56,7 @@ export function MeetingList({
     if (selectedIds) {
       return (
         <MeetingListItem
+          disabled={onToggleSelection === undefined}
           item={item}
           onPress={(meetingId) => onToggleSelection?.(meetingId)}
           selected={selectedIds.has(item.id)}
@@ -177,7 +178,7 @@ function SwipeableMeetingRow({
             swipeable.close();
             onMeetingDelete(item.id);
           }}
-          style={styles.deleteAction}
+          style={({ pressed }) => [styles.deleteAction, pressed && styles.deleteActionPressed]}
           // Android E2E 도구는 숨긴 버튼도 찾으므로 열린 행의 버튼에만 id를 준다.
           testID={isOpen ? 'meeting-row-delete' : undefined}
         >
@@ -217,6 +218,9 @@ const useStyle = createThemedStyles((theme) =>
       justifyContent: 'center',
       width: 80,
       backgroundColor: theme.colors.recording,
+    },
+    deleteActionPressed: {
+      backgroundColor: theme.colors.recordingPressed,
     },
     deleteActionLabel: {
       color: palette.white,

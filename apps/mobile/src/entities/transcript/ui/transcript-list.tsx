@@ -4,6 +4,7 @@ import { FlatList, Pressable, type StyleProp, StyleSheet, type ViewStyle } from 
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { formatStartLabel } from '@/shared/lib/format-start-label';
 import { AppText } from '@/shared/ui/app-text';
+import { PressedHighlight } from '@/shared/ui/pressed-highlight';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 import { findActiveSegmentIndex, type TranscriptSegment } from '../model/transcription';
@@ -40,19 +41,25 @@ export function TranscriptList({
             onPress={() => onPressSegment(item.startMs)}
             style={styles.row}
           >
-            {/* 접근성 라벨은 m:ss, 화면 표시는 분을 두 자리로 채운 mm:ss다. */}
-            <AppText color="textTertiary" style={styles.timestamp} variant="caption">
-              {startLabel.padStart(5, '0')}
-            </AppText>
+            {({ pressed }) => (
+              <>
+                <PressedHighlight pressed={pressed} />
 
-            {/* 재생 중인 문장만 진하게 그려 나머지 문장도 눌러서 이동할 수 있음을 드러낸다. */}
-            <AppText
-              color={index === activeIndex ? 'textPrimary' : 'textTertiary'}
-              style={styles.text}
-              variant="reading"
-            >
-              {item.text}
-            </AppText>
+                {/* 접근성 라벨은 m:ss, 화면 표시는 분을 두 자리로 채운 mm:ss다. */}
+                <AppText color="textTertiary" style={styles.timestamp} variant="caption">
+                  {startLabel.padStart(5, '0')}
+                </AppText>
+
+                {/* 재생 중인 문장만 진하게 그려 나머지 문장도 눌러서 이동할 수 있음을 드러낸다. */}
+                <AppText
+                  color={index === activeIndex ? 'textPrimary' : 'textTertiary'}
+                  style={styles.text}
+                  variant="reading"
+                >
+                  {item.text}
+                </AppText>
+              </>
+            )}
           </Pressable>
         );
       }}

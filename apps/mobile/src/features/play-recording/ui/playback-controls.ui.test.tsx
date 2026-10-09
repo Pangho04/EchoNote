@@ -1,8 +1,18 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
+import type { TestInstance } from 'test-renderer';
 
+import { lightTheme } from '@/shared/config/theme';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
 import { PlaybackControls, type PlaybackControlsProps } from './playback-controls';
+
+function pressIn(host: TestInstance) {
+  fireEvent(host, 'responderGrant', {
+    persist() {},
+    nativeEvent: { timestamp: 0, pageX: 0, pageY: 0, locationX: 0, locationY: 0 },
+    currentTarget: { measure() {} },
+  });
+}
 
 async function renderControls(overrides: Partial<PlaybackControlsProps> = {}) {
   const props: PlaybackControlsProps = {
@@ -78,5 +88,14 @@ describe('PlaybackControls', () => {
     const { getByRole } = await renderControls({ errorMessage: '파일을 열 수 없습니다.' });
 
     expect(getByRole('alert')).toHaveTextContent('파일을 열 수 없습니다.');
+  });
+
+  it('누르는 동안 -10 버튼 배경이 눌림 토큰 색이다', async () => {
+    const { getByLabelText } = await renderControls();
+    const host = getByLabelText('10초 뒤로');
+
+    await act(async () => pressIn(host));
+
+    expect(host).toHaveStyle({ backgroundColor: lightTheme.colors.surfacePressed });
   });
 });

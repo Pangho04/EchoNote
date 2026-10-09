@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { palette } from './primitives';
 import { darkTheme, lightTheme } from './themes';
 
 describe('theme text contrast', () => {
@@ -18,6 +19,32 @@ describe('theme text contrast', () => {
     ['dark warning', darkTheme.colors.warning, darkTheme.colors.surface],
   ])('%s 색상이 surface에서 4.5:1 이상의 대비를 가진다', (_, foreground, background) => {
     expect(getContrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('theme pressed background contrast', () => {
+  it.each([
+    ['light textPrimary', lightTheme.colors.textPrimary, lightTheme.colors.surfacePressed],
+    ['light textSecondary', lightTheme.colors.textSecondary, lightTheme.colors.surfacePressed],
+    ['light textTertiary', lightTheme.colors.textTertiary, lightTheme.colors.surfacePressed],
+    ['light accent', lightTheme.colors.accent, lightTheme.colors.surfacePressed],
+    ['light recording', lightTheme.colors.recording, lightTheme.colors.surfacePressed],
+    ['dark textPrimary', darkTheme.colors.textPrimary, darkTheme.colors.surfacePressed],
+    ['dark textSecondary', darkTheme.colors.textSecondary, darkTheme.colors.surfacePressed],
+    ['dark textTertiary', darkTheme.colors.textTertiary, darkTheme.colors.surfacePressed],
+    ['dark accent', darkTheme.colors.accent, darkTheme.colors.surfacePressed],
+    ['dark recording', darkTheme.colors.recording, darkTheme.colors.surfacePressed],
+    ['white on light accentPressed', palette.white, lightTheme.colors.accentPressed],
+    ['white on light recordingPressed', palette.white, lightTheme.colors.recordingPressed],
+    ['white on dark accentPressed', palette.white, darkTheme.colors.accentPressed],
+    ['white on dark recordingPressed', palette.white, darkTheme.colors.recordingPressed],
+    [
+      'dark surface on dark accentPressed',
+      darkTheme.colors.surface,
+      darkTheme.colors.accentPressed,
+    ],
+  ])('%s 색상이 눌림 배경에서 3:1 이상의 대비를 가진다', (_, foreground, background) => {
+    expect(getContrastRatio(foreground, background)).toBeGreaterThanOrEqual(3);
   });
 });
 

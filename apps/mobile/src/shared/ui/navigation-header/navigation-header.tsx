@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { AppText } from '@/shared/ui/app-text';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
@@ -27,7 +27,10 @@ export function NavigationHeader({
 }: NavigationHeaderProps): ReactElement {
   const styles = useStyles();
 
-  function renderAction({ label, accessibilityLabel, onPress, disabled }: NavigationHeaderAction) {
+  function renderAction(
+    { label, accessibilityLabel, onPress, disabled }: NavigationHeaderAction,
+    edgeStyle: ViewStyle,
+  ) {
     return (
       <Pressable
         accessibilityLabel={accessibilityLabel}
@@ -36,7 +39,7 @@ export function NavigationHeader({
         disabled={disabled}
         hitSlop={5}
         onPress={onPress}
-        style={styles.action}
+        style={({ pressed }) => [styles.action, edgeStyle, pressed && styles.actionPressed]}
       >
         <AppText color={disabled ? 'textSecondary' : 'accent'} variant="body">
           {label}
@@ -47,13 +50,13 @@ export function NavigationHeader({
 
   return (
     <View style={[styles.container, (action || trailingAction) && styles.withAction]}>
-      {action && renderAction(action)}
+      {action && renderAction(action, styles.leadingAction)}
 
       <AppText accessibilityRole="header" variant={titleVariant}>
         {title}
       </AppText>
 
-      {trailingAction && renderAction(trailingAction)}
+      {trailingAction && renderAction(trailingAction, styles.trailingAction)}
 
       {/** 제목이 가운데에 오도록 action과 같은 폭을 비워 둔다. */}
       {action && !trailingAction && <View style={styles.spacer} />}
@@ -83,6 +86,18 @@ const useStyles = createThemedStyles((theme) =>
       justifyContent: 'center',
       minHeight: 44,
       minWidth: 44,
+      paddingHorizontal: theme.spacing[2],
+    },
+    // 눌림 배경만 화면 가장자리 쪽으로 넓히고 글자는 container 여백 위치에 둔다.
+    leadingAction: {
+      marginLeft: -theme.spacing[2],
+    },
+    trailingAction: {
+      marginRight: -theme.spacing[2],
+    },
+    actionPressed: {
+      backgroundColor: theme.colors.surfacePressed,
+      borderRadius: theme.radii.control,
     },
     spacer: {
       height: 44,

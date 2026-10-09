@@ -1,8 +1,18 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import type { TestInstance } from 'test-renderer';
 
+import { lightTheme } from '@/shared/config/theme';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
 import { DatabaseRecoveryScreen } from './database-recovery-screen';
+
+function pressIn(host: TestInstance) {
+  fireEvent(host, 'responderGrant', {
+    persist() {},
+    nativeEvent: { timestamp: 0, pageX: 0, pageY: 0, locationX: 0, locationY: 0 },
+    currentTarget: { measure() {} },
+  });
+}
 
 const onReset = jest.fn(async () => {});
 const onRetry = jest.fn();
@@ -52,5 +62,14 @@ describe('DatabaseRecoveryScreen', () => {
     await fireEvent.press(getByText('다시 시도'));
 
     expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('누르는 동안 버튼 배경이 눌림 토큰 색이다', async () => {
+    const { getByText } = await renderScreen('corrupted');
+    const button = getByText('초기화하고 계속').parent as TestInstance;
+
+    await act(async () => pressIn(button));
+
+    expect(button).toHaveStyle({ backgroundColor: lightTheme.colors.surfacePressed });
   });
 });

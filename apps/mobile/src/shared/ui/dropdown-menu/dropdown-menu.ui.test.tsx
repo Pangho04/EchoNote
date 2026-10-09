@@ -136,4 +136,24 @@ describe('DropdownMenu (iOS)', () => {
 
     expect(frameOf).toMatchObject({ height: expected });
   });
+
+  it('함수 children이 렌더된다', async () => {
+    const { getByText } = await render(
+      <DropdownMenu accessibilityLabel="연도" onSelect={jest.fn()} options={YEARS}>
+        {() => <Text>함수 트리거</Text>}
+      </DropdownMenu>,
+    );
+
+    expect(getByText('함수 트리거')).toBeOnTheScreen();
+  });
+
+  it('disabled면서 함수 children이 렌더된다', async () => {
+    const { getByText } = await render(
+      <DropdownMenu accessibilityLabel="연도" disabled onSelect={jest.fn()} options={YEARS}>
+        {() => <Text>함수 트리거</Text>}
+      </DropdownMenu>,
+    );
+
+    expect(getByText('함수 트리거')).toBeOnTheScreen();
+  });
 });

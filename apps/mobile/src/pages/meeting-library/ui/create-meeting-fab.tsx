@@ -78,7 +78,7 @@ export function CreateMeetingFab(props: Props): ReactElement {
                 setOpen(false);
                 onRecord();
               }}
-              style={styles.item}
+              style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
             >
               <Mic color={colors.accent} size={16} />
               <AppText style={styles.itemText} variant="body">
@@ -92,7 +92,7 @@ export function CreateMeetingFab(props: Props): ReactElement {
                 setOpen(false);
                 onUpload();
               }}
-              style={styles.item}
+              style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
             >
               <Upload color={colors.accent} size={16} />
               <AppText style={styles.itemText} variant="body">
@@ -117,25 +117,34 @@ export function CreateMeetingFab(props: Props): ReactElement {
             pressed && styles.buttonPressed,
           ]}
         >
-          <Svg height={61} pointerEvents="none" style={styles.piece} width={58}>
-            <Defs>
-              <LinearGradient id="createMeetingFabBorder" x1="1" x2="0" y1="0" y2="1">
-                <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.4} />
-                <Stop offset="1" stopColor="#000000" stopOpacity={0.3} />
-              </LinearGradient>
-            </Defs>
-            {/* 두께 */}
-            <Circle cx={29} cy={32} fill={colors.accent} r={29} />
-            <Circle cx={29} cy={32} fill="#000000" fillOpacity={0.4} r={29} />
-            {/* 테두리 */}
-            <Circle cx={29} cy={29} fill={colors.accent} r={29} />
-            <Circle cx={29} cy={29} fill="url(#createMeetingFabBorder)" r={29} />
-            {/* 가운데 면 */}
-            <Circle cx={29} cy={29} fill={colors.accent} r={25} />
-          </Svg>
-          <Animated.View style={{ transform: [{ rotate }] }}>
-            <Plus color={palette.white} size={24} />
-          </Animated.View>
+          {({ pressed }) => (
+            <>
+              <Svg height={61} pointerEvents="none" style={styles.piece} width={58}>
+                <Defs>
+                  <LinearGradient id="createMeetingFabBorder" x1="1" x2="0" y1="0" y2="1">
+                    <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.4} />
+                    <Stop offset="1" stopColor="#000000" stopOpacity={0.3} />
+                  </LinearGradient>
+                </Defs>
+                {/* 두께 */}
+                <Circle cx={29} cy={32} fill={colors.accent} r={29} />
+                <Circle cx={29} cy={32} fill="#000000" fillOpacity={0.4} r={29} />
+                {/* 테두리 */}
+                <Circle cx={29} cy={29} fill={colors.accent} r={29} />
+                <Circle cx={29} cy={29} fill="url(#createMeetingFabBorder)" r={29} />
+                {/* 가운데 면 */}
+                <Circle
+                  cx={29}
+                  cy={29}
+                  fill={pressed ? colors.accentPressed : colors.accent}
+                  r={25}
+                />
+              </Svg>
+              <Animated.View style={{ transform: [{ rotate }] }}>
+                <Plus color={palette.white} size={24} />
+              </Animated.View>
+            </>
+          )}
         </Pressable>
       </View>
     </>
@@ -194,6 +203,9 @@ const useStyles = createThemedStyles((theme) =>
       gap: theme.spacing[2],
       minHeight: 44,
       paddingHorizontal: theme.spacing[4],
+    },
+    itemPressed: {
+      backgroundColor: theme.colors.surfacePressed,
     },
     itemText: {
       fontWeight: theme.typography.fontWeight.semibold,

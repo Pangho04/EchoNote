@@ -5,14 +5,17 @@ export type ThemeMode = 'light' | 'dark';
 export type ThemeColors = {
   accent: string;
   accentMuted: string;
+  accentPressed: string;
   background: string;
   border: string;
   playbackBar: string;
   recording: string;
   recordingMuted: string;
+  recordingPressed: string;
   success: string;
   surface: string;
   surfaceMuted: string;
+  surfacePressed: string;
   textPrimary: string;
   textSecondary: string;
   textTertiary: string;

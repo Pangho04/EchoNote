@@ -64,7 +64,7 @@ export function PlaybackControls(props: PlaybackControlsProps): ReactElement {
           style={({ pressed }) => [
             styles.seekButton,
             !canSeek && styles.disabled,
-            pressed && styles.pressed,
+            pressed && styles.seekPressed,
           ]}
         >
           <View style={styles.seekIcon}>
@@ -90,7 +90,7 @@ export function PlaybackControls(props: PlaybackControlsProps): ReactElement {
           style={({ pressed }) => [
             styles.toggleButton,
             !toggleEnabled && styles.disabled,
-            pressed && styles.pressed,
+            pressed && styles.togglePressed,
           ]}
         >
           {canPause ? (
@@ -113,7 +113,7 @@ export function PlaybackControls(props: PlaybackControlsProps): ReactElement {
           style={({ pressed }) => [
             styles.seekButton,
             !canSeek && styles.disabled,
-            pressed && styles.pressed,
+            pressed && styles.seekPressed,
           ]}
         >
           <View style={[styles.seekIcon, styles.seekIconMirrored]}>
@@ -171,6 +171,10 @@ const useStyles = createThemedStyles((theme) =>
       height: 40,
       justifyContent: 'center',
       width: 40,
+    },
+    seekPressed: {
+      backgroundColor: theme.colors.surfacePressed,
+      borderRadius: theme.radii.round,
     },
     seekIcon: {
       height: 28,
@@ -252,8 +256,8 @@ const useStyles = createThemedStyles((theme) =>
     disabled: {
       opacity: 0.4,
     },
-    pressed: {
-      opacity: 0.82,
+    togglePressed: {
+      backgroundColor: theme.colors.accentPressed,
       transform: [{ scale: 0.96 }],
     },
   }),

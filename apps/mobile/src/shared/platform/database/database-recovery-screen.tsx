@@ -108,7 +108,8 @@ const useStyles = createThemedStyles((theme) =>
       paddingHorizontal: theme.spacing[4],
     },
     pressed: {
-      opacity: 0.7,
+      backgroundColor: theme.colors.surfacePressed,
+      borderRadius: theme.radii.control,
     },
   }),
 );

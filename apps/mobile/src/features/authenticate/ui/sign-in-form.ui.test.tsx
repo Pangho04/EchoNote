@@ -1,8 +1,17 @@
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import { AccessibilityInfo, Platform } from 'react-native';
 
+import { lightTheme } from '@/shared/config/theme';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
+
+function pressIn(host: ReturnType<typeof screen.getByRole>) {
+  fireEvent(host, 'responderGrant', {
+    persist() {},
+    nativeEvent: { timestamp: 0, pageX: 0, pageY: 0, locationX: 0, locationY: 0 },
+    currentTarget: { measure() {} },
+  });
+}
 
 import { useSession } from '../model/session-provider';
 import { useSignInForm } from '../model/use-sign-in-form';
@@ -189,5 +198,19 @@ describe('SignInForm', () => {
     await waitFor(() =>
       expect(signIn).toHaveBeenCalledWith({ email: 'a@b.c', password: 'secret1' }),
     );
+  });
+
+  it('누르는 동안 로그인 버튼 배경이 눌림 토큰 색이다', async () => {
+    const signIn = jest.fn();
+
+    await renderForm(signIn);
+    await fireEvent.changeText(screen.getByLabelText(UI_STRINGS.auth.email), 'a@b.c');
+    await fireEvent.changeText(screen.getByLabelText(UI_STRINGS.auth.password), 'secret1');
+
+    const button = screen.getByRole('button');
+
+    await act(async () => pressIn(button));
+
+    expect(button).toHaveStyle({ backgroundColor: lightTheme.colors.accentPressed });
   });
 });

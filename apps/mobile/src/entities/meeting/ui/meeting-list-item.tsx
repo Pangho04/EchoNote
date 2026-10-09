@@ -13,9 +13,10 @@ type Props = {
   selected?: boolean;
   // 스와이프를 쓰기 어려운 스크린 리더 사용자에게 같은 삭제 명령을 준다.
   onDelete?: (meetingId: string) => void;
+  disabled?: boolean;
 };
 
-export function MeetingListItem({ item, onPress, selected, onDelete }: Props) {
+export function MeetingListItem({ item, onPress, selected, onDelete, disabled }: Props) {
   const styles = useStyles();
   const selecting = selected !== undefined;
 
@@ -26,11 +27,12 @@ export function MeetingListItem({ item, onPress, selected, onDelete }: Props) {
       }
       accessibilityRole={selecting ? 'checkbox' : 'button'}
       accessibilityState={selecting ? { checked: selected } : undefined}
+      disabled={disabled}
       onAccessibilityAction={(event) => {
         if (event.nativeEvent.actionName === 'delete') onDelete?.(item.id);
       }}
       onPress={() => onPress(item.id)}
-      style={styles.container}
+      style={({ pressed }) => [styles.container, pressed && styles.containerPressed]}
     >
       {selecting && (
         <View style={[styles.check, selected && styles.checkSelected]} testID="meeting-row-check">
@@ -90,6 +92,9 @@ const useStyles = createThemedStyles((theme) =>
       paddingHorizontal: theme.spacing[4],
       borderBottomColor: theme.colors.border,
       borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    containerPressed: {
+      backgroundColor: theme.colors.surfacePressed,
     },
     check: {
       alignItems: 'center',

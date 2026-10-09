@@ -39,7 +39,7 @@ export function RecordingControls(props: RecordingControlsProps): ReactElement {
         style={({ pressed }) => [
           styles.stopButton,
           !canStop && !isTransitioning && styles.disabled,
-          pressed && styles.pressed,
+          pressed && styles.stopPressed,
         ]}
       >
         <View style={styles.stopIndicator} />
@@ -55,7 +55,7 @@ export function RecordingControls(props: RecordingControlsProps): ReactElement {
         style={({ pressed }) => [
           styles.toggleButton,
           !toggleEnabled && !isTransitioning && styles.disabled,
-          pressed && styles.pressed,
+          pressed && styles.togglePressed,
         ]}
       >
         {isPausing ? (
@@ -127,8 +127,12 @@ const useStyles = createThemedStyles((theme) =>
     disabled: {
       opacity: 0.4,
     },
-    pressed: {
-      opacity: 0.82,
+    stopPressed: {
+      backgroundColor: theme.colors.recordingPressed,
+      transform: [{ scale: 0.96 }],
+    },
+    togglePressed: {
+      backgroundColor: theme.colors.surfacePressed,
       transform: [{ scale: 0.96 }],
     },
   }),

@@ -3,6 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import type React from 'react';
 import { BackHandler } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import type { TestInstance } from 'test-renderer';
 
 import { type Meeting, MeetingStatus } from '@/entities/meeting';
 import { useSession } from '@/features/authenticate';
@@ -10,6 +11,7 @@ import { deleteMeetings } from '@/features/delete-meeting';
 import { makeListMeetings } from '@/features/list-meetings';
 import { importRecording, pendingImports } from '@/features/record-meeting';
 import { ROUTES } from '@/shared/config/routes';
+import { lightTheme } from '@/shared/config/theme';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { DialogProvider } from '@/shared/ui/dialog';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
@@ -18,6 +20,14 @@ import { MeetingLibraryPage } from './meeting-library-page';
 
 const mockedPush = jest.fn();
 const mockedSignOut = jest.fn();
+
+function pressIn(host: TestInstance) {
+  fireEvent(host, 'responderGrant', {
+    persist() {},
+    nativeEvent: { timestamp: 0, pageX: 0, pageY: 0, locationX: 0, locationY: 0 },
+    currentTarget: { measure() {} },
+  });
+}
 
 jest.mock('expo-sqlite', () => ({
   useSQLiteContext: jest.fn(),
@@ -707,6 +717,20 @@ describe('MeetingLibraryPage', () => {
       await waitFor(() => expect(listMeetings).toHaveBeenCalled());
 
       expect(queryByLabelText('선택 시작')).toBeNull();
+    });
+
+    it('누르는 동안 선택 시작 버튼 배경이 눌림 토큰 색이다', async () => {
+      setupMeetings([meeting('m1', '제품 회의')]);
+
+      const { getByLabelText, getByText } = await renderPage();
+
+      await waitFor(() => expect(getByText('제품 회의')).toBeTruthy());
+
+      const button = getByLabelText('선택 시작');
+
+      await act(async () => pressIn(button));
+
+      expect(button).toHaveStyle({ backgroundColor: lightTheme.colors.surfacePressed });
     });
   });
 

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { AppText } from '@/shared/ui/app-text';
+import { PressedHighlight } from '@/shared/ui/pressed-highlight';
 import { createThemedStyles } from '@/shared/ui/theme-provider';
 
 export interface RecordingSaveErrorProps {
@@ -24,11 +25,16 @@ export function RecordingSaveError(props: RecordingSaveErrorProps): ReactElement
         accessibilityRole="button"
         accessibilityState={{ disabled: false }}
         onPress={onRetry}
-        style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}
+        style={styles.retryButton}
       >
-        <AppText color="accent" variant="body">
-          {UI_STRINGS.common.retry}
-        </AppText>
+        {({ pressed }) => (
+          <>
+            <PressedHighlight pressed={pressed} />
+            <AppText color="accent" variant="body">
+              {UI_STRINGS.common.retry}
+            </AppText>
+          </>
+        )}
       </Pressable>
     </View>
   );
@@ -47,9 +53,6 @@ const useStyles = createThemedStyles((theme) =>
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: theme.spacing[2],
-    },
-    pressed: {
-      opacity: 0.7,
     },
   }),
 );

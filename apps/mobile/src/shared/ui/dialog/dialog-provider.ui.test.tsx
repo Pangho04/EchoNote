@@ -2,8 +2,18 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { PropsWithChildren, ReactElement } from 'react';
 import { Platform, Pressable, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import type { TestInstance } from 'test-renderer';
 
+import { lightTheme } from '@/shared/config/theme';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
+
+function pressIn(host: TestInstance) {
+  fireEvent(host, 'responderGrant', {
+    persist() {},
+    nativeEvent: { timestamp: 0, pageX: 0, pageY: 0, locationX: 0, locationY: 0 },
+    currentTarget: { measure() {} },
+  });
+}
 
 import { type DialogOptions, DialogProvider, useDialog } from './dialog-provider';
 
@@ -189,6 +199,22 @@ describe('DialogProvider', () => {
     await fireEvent.press(screen.getByText('닫기'));
 
     expect(screen.queryByText('진행 중입니다.')).toBeNull();
+  });
+
+  it('누르는 동안 액션 버튼 배경이 눌림 토큰 색이다', async () => {
+    await render(
+      <Wrapper>
+        <DialogTrigger options={{ message: '진행 중입니다.', actions: [{ label: '확인' }] }} />
+      </Wrapper>,
+    );
+
+    await fireEvent.press(screen.getByText('열기'));
+
+    const button = screen.getByText('확인').parent as TestInstance;
+
+    await act(async () => pressIn(button));
+
+    expect(button).toHaveStyle({ backgroundColor: lightTheme.colors.surfacePressed });
   });
 
   it('DialogProvider 밖에서 useDialog를 호출하면 오류를 던진다', async () => {

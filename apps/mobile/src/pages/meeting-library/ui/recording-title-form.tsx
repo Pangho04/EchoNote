@@ -129,7 +129,8 @@ const useStyles = createThemedStyles((theme) =>
       opacity: 0.4,
     },
     pressed: {
-      opacity: 0.7,
+      backgroundColor: theme.colors.surfacePressed,
+      borderRadius: theme.radii.control,
     },
   }),
 );

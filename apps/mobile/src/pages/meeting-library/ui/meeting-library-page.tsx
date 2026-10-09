@@ -283,7 +283,10 @@ export function MeetingLibraryPage() {
                     disabled={isDeleting}
                     hitSlop={5}
                     onPress={toggleEditing}
-                    style={styles.selectButton}
+                    style={({ pressed }) => [
+                      styles.selectButton,
+                      pressed && styles.selectButtonPressed,
+                    ]}
                   >
                     <AppText
                       color={isDeleting ? 'textTertiary' : 'accent'}
@@ -343,8 +346,14 @@ const useStyles = createThemedStyles((theme) =>
     selectButton: {
       alignItems: 'center',
       justifyContent: 'center',
+      marginRight: -theme.spacing[2],
       minHeight: 44,
       minWidth: 44,
+      paddingHorizontal: theme.spacing[2],
+    },
+    selectButtonPressed: {
+      backgroundColor: theme.colors.surfacePressed,
+      borderRadius: theme.radii.control,
     },
     selectButtonLabel: {
       fontWeight: theme.typography.fontWeight.bold,

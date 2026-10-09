@@ -86,7 +86,11 @@ export function ExportMeetingButton({
       onPress={() => {
         if (recordingUri !== null) openExportDialog(recordingUri);
       }}
-      style={[styles.button, disabled && styles.disabled]}
+      style={({ pressed }) => [
+        styles.button,
+        disabled && styles.disabled,
+        pressed && styles.buttonPressed,
+      ]}
     >
       <Download color={palette.white} size={ICON_SIZE} />
     </Pressable>
@@ -131,19 +135,21 @@ function ExportKindField({ initialKind, locked, onChange }: ExportKindFieldProps
           { id: 'recording', label: KIND_LABELS.recording, selected: kind === 'recording' },
         ]}
       >
-        <View style={[styles.field, { width: fieldWidth }]}>
-          <AppText variant="body">{KIND_LABELS[kind]}</AppText>
-          <Svg height={6} width={10}>
-            <Path
-              d="M1 1l4 4 4-4"
-              fill="none"
-              stroke={locked ? colors.textTertiary : colors.accent}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-            />
-          </Svg>
-        </View>
+        {({ pressed }) => (
+          <View style={[styles.field, { width: fieldWidth }, pressed && styles.fieldPressed]}>
+            <AppText variant="body">{KIND_LABELS[kind]}</AppText>
+            <Svg height={6} width={10}>
+              <Path
+                d="M1 1l4 4 4-4"
+                fill="none"
+                stroke={locked ? colors.textTertiary : colors.accent}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+              />
+            </Svg>
+          </View>
+        )}
       </DropdownMenu>
     </View>
   );
@@ -162,6 +168,9 @@ const useStyles = createThemedStyles((theme) =>
     disabled: {
       opacity: 0.4,
     },
+    buttonPressed: {
+      backgroundColor: theme.colors.accentPressed,
+    },
     fieldWrap: {
       marginTop: theme.spacing[2],
     },
@@ -175,6 +184,9 @@ const useStyles = createThemedStyles((theme) =>
       borderWidth: 1,
       borderRadius: theme.radii.control,
       backgroundColor: theme.colors.surfaceMuted,
+    },
+    fieldPressed: {
+      backgroundColor: theme.colors.surfacePressed,
     },
   }),
 );

@@ -1,8 +1,18 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import type { TestInstance } from 'test-renderer';
 
+import { lightTheme } from '@/shared/config/theme';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
 import { RenameMeetingEditor } from './rename-meeting-editor';
+
+function pressIn(host: TestInstance) {
+  fireEvent(host, 'responderGrant', {
+    persist() {},
+    nativeEvent: { timestamp: 0, pageX: 0, pageY: 0, locationX: 0, locationY: 0 },
+    currentTarget: { measure() {} },
+  });
+}
 
 async function renderEditor(onSave: jest.Mock, props: { title?: string; disabled?: boolean } = {}) {
   return render(
@@ -119,5 +129,27 @@ describe('RenameMeetingEditor', () => {
     await fireEvent.press(getByLabelText('회의 제목 수정'));
 
     expect(queryByLabelText('회의 제목 변경')).toBeNull();
+  });
+
+  it('누르는 동안 연필 버튼 배경이 눌림 토큰 색이다', async () => {
+    const onSave = jest.fn();
+    const { getByLabelText } = await renderEditor(onSave);
+    const button = getByLabelText('회의 제목 수정');
+
+    await act(async () => pressIn(button));
+
+    expect(button).toHaveStyle({ backgroundColor: lightTheme.colors.surfacePressed });
+  });
+
+  it('누르는 동안 취소 행의 PressedHighlight가 눌림 토큰 색이다', async () => {
+    const onSave = jest.fn();
+    const { getByLabelText, getAllByTestId } = await renderEditor(onSave);
+
+    await fireEvent.press(getByLabelText('회의 제목 수정'));
+    await act(async () => pressIn(getByLabelText('취소')));
+
+    const [cancelHighlight] = getAllByTestId('pressed-highlight');
+
+    expect(cancelHighlight).toHaveStyle({ backgroundColor: lightTheme.colors.surfacePressed });
   });
 });

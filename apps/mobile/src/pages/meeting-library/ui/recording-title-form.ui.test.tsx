@@ -1,9 +1,19 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import type { TestInstance } from 'test-renderer';
 
+import { lightTheme } from '@/shared/config/theme';
 import { ThemeProvider } from '@/shared/ui/theme-provider';
 
 import type { ConfirmRecordingResult } from '../model/use-meeting-library-view-model';
 import { RecordingTitleForm } from './recording-title-form';
+
+function pressIn(host: TestInstance) {
+  fireEvent(host, 'responderGrant', {
+    persist() {},
+    nativeEvent: { timestamp: 0, pageX: 0, pageY: 0, locationX: 0, locationY: 0 },
+    currentTarget: { measure() {} },
+  });
+}
 
 const onGranted = jest.fn();
 const onCancel = jest.fn();
@@ -73,5 +83,14 @@ describe('RecordingTitleForm', () => {
     await fireEvent.press(getByText('취소'));
 
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('누르는 동안 취소 버튼 배경이 눌림 토큰 색이다', async () => {
+    const { getByText } = await renderForm({ kind: 'denied' });
+    const button = getByText('취소').parent as TestInstance;
+
+    await act(async () => pressIn(button));
+
+    expect(button).toHaveStyle({ backgroundColor: lightTheme.colors.surfacePressed });
   });
 });

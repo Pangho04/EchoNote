@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { UI_STRINGS } from '@/shared/config/ui-strings';
 import { AppText } from '@/shared/ui/app-text';
+import { PressedHighlight } from '@/shared/ui/pressed-highlight';
 import { createThemedStyles, useTheme } from '@/shared/ui/theme-provider';
 
 import { normalizeMeetingRenameTitle } from '../model/rename-meeting';
@@ -41,7 +42,7 @@ export function RenameMeetingEditor(props: RenameMeetingEditorProps): ReactEleme
           accessibilityState={{ disabled }}
           disabled={disabled}
           onPress={() => setMode({ kind: 'editing', draft: title })}
-          style={styles.editButton}
+          style={({ pressed }) => [styles.editButton, pressed && styles.editButtonPressed]}
         >
           <Pencil color={colors.textTertiary} size={EDIT_ICON_SIZE} />
         </Pressable>
@@ -95,7 +96,12 @@ export function RenameMeetingEditor(props: RenameMeetingEditorProps): ReactEleme
           disabled={isSaving}
           onPress={handleCancel}
         >
-          <AppText variant="body">{UI_STRINGS.common.cancel}</AppText>
+          {({ pressed }) => (
+            <>
+              <PressedHighlight pressed={pressed} />
+              <AppText variant="body">{UI_STRINGS.common.cancel}</AppText>
+            </>
+          )}
         </Pressable>
 
         <Pressable
@@ -105,9 +111,14 @@ export function RenameMeetingEditor(props: RenameMeetingEditorProps): ReactEleme
           disabled={saveDisabled}
           onPress={handleSave}
         >
-          <AppText color="accent" variant="body">
-            {UI_STRINGS.meetingDetail.renameSave}
-          </AppText>
+          {({ pressed }) => (
+            <>
+              <PressedHighlight pressed={pressed} />
+              <AppText color="accent" variant="body">
+                {UI_STRINGS.meetingDetail.renameSave}
+              </AppText>
+            </>
+          )}
         </Pressable>
       </View>
 
@@ -138,6 +149,10 @@ const useStyles = createThemedStyles((theme) =>
       height: TOUCH_TARGET_SIZE,
       justifyContent: 'center',
       width: TOUCH_TARGET_SIZE,
+    },
+    editButtonPressed: {
+      backgroundColor: theme.colors.surfacePressed,
+      borderRadius: theme.radii.round,
     },
     container: {
       gap: theme.spacing[2],

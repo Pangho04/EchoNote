@@ -108,5 +108,18 @@ describe('MeetingList', () => {
       expect(onToggleSelection).toHaveBeenCalledWith('m1');
       expect(onMeetingPress).not.toHaveBeenCalled();
     });
+
+    it('선택 모드에서 onToggleSelection이 undefined면 행이 checked 상태 유지하고 비활성화된다', async () => {
+      await render(
+        <ThemeProvider mode="light">
+          <MeetingList items={[item]} onMeetingPress={jest.fn()} selectedIds={new Set(['m1'])} />
+        </ThemeProvider>,
+      );
+
+      const checkbox = screen.getByRole('checkbox');
+
+      expect(checkbox).toBeChecked();
+      expect(checkbox).toBeDisabled();
+    });
   });
 });

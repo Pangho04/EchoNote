@@ -19,6 +19,10 @@ const ROW_HEIGHT = 48;
 // 정수 행 수로 자르면 목록이 끝난 것처럼 보이므로 반 행을 걸쳐 스크롤할 항목이 더 있음을 드러낸다.
 const VISIBLE_ROWS = 4.5;
 
+// 두 플랫폼 tsconfig가 PressableStateCallbackType을 서로 다른 선언으로 가져와, 리터럴로
+// 넘기면 한쪽에선 초과 속성으로 다른 쪽에선 누락 속성으로 막힌다. 변수로 감싸 양쪽을 만족시킨다.
+const notPressedState = { pressed: false, hovered: false };
+
 export function DropdownMenu({ disabled, ...props }: DropdownMenuProps) {
   if (disabled) {
     return (
@@ -28,7 +32,7 @@ export function DropdownMenu({ disabled, ...props }: DropdownMenuProps) {
         accessibilityState={{ disabled }}
         accessible
       >
-        {props.children}
+        {typeof props.children === 'function' ? props.children(notPressedState) : props.children}
       </View>
     );
   }

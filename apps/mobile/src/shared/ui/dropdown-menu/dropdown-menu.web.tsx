@@ -13,6 +13,10 @@ const selectStyle: CSSProperties = {
   cursor: 'pointer',
 };
 
+// 두 플랫폼 tsconfig가 PressableStateCallbackType을 서로 다른 선언으로 가져와, 리터럴로
+// 넘기면 한쪽에선 초과 속성으로 다른 쪽에선 누락 속성으로 막힌다. 변수로 감싸 양쪽을 만족시킨다.
+const notPressedState = { pressed: false, hovered: false };
+
 export function DropdownMenu({
   options,
   onSelect,
@@ -30,7 +34,7 @@ export function DropdownMenu({
         accessibilityState={{ disabled }}
         accessible
       >
-        {children}
+        {typeof children === 'function' ? children(notPressedState) : children}
       </View>
 
       <select

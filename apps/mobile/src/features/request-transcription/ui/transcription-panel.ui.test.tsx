@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { lightTheme } from '@/shared/config/theme';
 import { UI_STRINGS } from '@/shared/config/ui-strings';
@@ -6,6 +6,14 @@ import { ThemeProvider } from '@/shared/ui/theme-provider';
 
 import type { TranscriptionPanelState, TranscriptionViewModel } from '../model/use-transcription';
 import { TranscriptionPanel } from './transcription-panel';
+
+function pressIn(host: ReturnType<typeof screen.getByRole>) {
+  fireEvent(host, 'responderGrant', {
+    persist() {},
+    nativeEvent: { timestamp: 0, pageX: 0, pageY: 0, locationX: 0, locationY: 0 },
+    currentTarget: { measure() {} },
+  });
+}
 
 function buildViewModel(panel: TranscriptionPanelState): TranscriptionViewModel {
   return {
@@ -203,5 +211,33 @@ describe('TranscriptionPanel', () => {
     await fireEvent.press(button);
 
     expect(viewModel.request).not.toHaveBeenCalled();
+  });
+
+  it('누르는 동안 버튼 배경이 눌림 토큰 색이다', async () => {
+    await renderPanel({ kind: 'none', notice: null });
+
+    const button = screen.getByRole('button', { name: UI_STRINGS.transcription.request });
+
+    await act(async () => pressIn(button));
+
+    expect(button).toHaveStyle({ backgroundColor: lightTheme.colors.accentPressed });
+  });
+
+  it('누르는 동안 전사 행이 PressedHighlight로 배경을 바꾼다', async () => {
+    await renderPanel({
+      kind: 'completed',
+      content: {
+        durationMs: 120_000,
+        segments: [{ startMs: 0, endMs: 5_000, text: '첫 문장' }],
+      },
+    });
+
+    const row = screen.getByRole('button', { name: '0:00부터 재생' });
+
+    await act(async () => pressIn(row));
+
+    expect(screen.getByTestId('pressed-highlight')).toHaveStyle({
+      backgroundColor: lightTheme.colors.surfacePressed,
+    });
   });
 });

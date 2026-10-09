@@ -253,7 +253,7 @@ const useStyles = createThemedStyles((theme) =>
       opacity: 0.4,
     },
     pressed: {
-      opacity: 0.82,
+      backgroundColor: theme.colors.accentPressed,
     },
   }),
 );

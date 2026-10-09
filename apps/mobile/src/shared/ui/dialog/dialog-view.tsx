@@ -137,7 +137,7 @@ const useStyles = createThemedStyles((theme) =>
       textAlign: 'center',
     },
     pressed: {
-      backgroundColor: theme.colors.surfaceMuted,
+      backgroundColor: theme.colors.surfacePressed,
     },
   }),
 );

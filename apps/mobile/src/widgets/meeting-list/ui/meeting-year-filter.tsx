@@ -29,21 +29,23 @@ export function MeetingYearFilter({ selectedYear, years, disabled, onSelectYear 
         selected: year === selectedYear,
       }))}
     >
-      <View style={styles.yearFilter}>
-        <AppText color={disabled ? 'textTertiary' : 'accent'} style={styles.label} variant="body">
-          {selectedYearLabel}
-        </AppText>
-        <Svg height={6} width={10}>
-          <Path
-            d="M1 1l4 4 4-4"
-            fill="none"
-            stroke={disabled ? colors.textTertiary : colors.accent}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.5}
-          />
-        </Svg>
-      </View>
+      {({ pressed }) => (
+        <View style={[styles.yearFilter, pressed && styles.yearFilterPressed]}>
+          <AppText color={disabled ? 'textTertiary' : 'accent'} style={styles.label} variant="body">
+            {selectedYearLabel}
+          </AppText>
+          <Svg height={6} width={10}>
+            <Path
+              d="M1 1l4 4 4-4"
+              fill="none"
+              stroke={disabled ? colors.textTertiary : colors.accent}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+            />
+          </Svg>
+        </View>
+      )}
     </DropdownMenu>
   );
 }
@@ -58,6 +60,10 @@ const useStyles = createThemedStyles((theme) =>
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: theme.spacing[2],
+    },
+    yearFilterPressed: {
+      backgroundColor: theme.colors.surfacePressed,
+      borderRadius: theme.radii.control,
     },
     label: {
       fontWeight: theme.typography.fontWeight.bold,

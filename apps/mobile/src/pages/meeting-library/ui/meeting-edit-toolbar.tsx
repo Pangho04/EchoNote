@@ -23,7 +23,7 @@ export function MeetingEditToolbar({ selectedCount, disabled, onDeletePress }: P
         disabled={deleteDisabled}
         hitSlop={5}
         onPress={onDeletePress}
-        style={styles.button}
+        style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
       >
         <AppText color={deleteDisabled ? 'textTertiary' : 'recording'} variant="body">
           {`${UI_STRINGS.meetingLibrary.delete} (${selectedCount})`}
@@ -42,8 +42,14 @@ const useStyles = createThemedStyles((theme) =>
     },
     button: {
       justifyContent: 'center',
+      marginLeft: -theme.spacing[2],
       minHeight: 44,
       minWidth: 44,
+      paddingHorizontal: theme.spacing[2],
+    },
+    buttonPressed: {
+      backgroundColor: theme.colors.surfacePressed,
+      borderRadius: theme.radii.control,
     },
   }),
 );
