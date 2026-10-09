@@ -12,12 +12,12 @@ module.exports = {
     userInterfaceStyle: 'automatic',
     ios: {
       bundleIdentifier: IS_RELEASE ? 'dev.pangho.echonote' : 'dev.pangho.echonote.dev',
-      buildNumber: '2',
+      buildNumber: '3',
       supportsTablet: false,
     },
     android: {
       package: IS_RELEASE ? 'dev.pangho.echonote' : 'dev.pangho.echonote.dev',
-      versionCode: 2,
+      versionCode: 3,
     },
     plugins: [
       ['expo-router', { sitemap: false }],
