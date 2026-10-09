@@ -1,6 +1,6 @@
 # 결정 기록과 퀴즈 범위
 
-결정 기록은 checkpoint마다 하나씩 `docs/learning/<checkpoint>-결정기록.md`에 둔다.
+결정 기록은 checkpoint마다 하나씩 `private-docs/learning/<checkpoint>-결정기록.md`에 둔다.
 
 - 항목은 그 checkpoint에서 새로 내린 설계 선택만 담는다. 개수는 제한하지 않는다. 같은 선택에서 파생된 세부 결정은 별도 항목으로 쪼개지 않고 한 항목에 묶는다.
 - 항목 형식은 결정 / 흐름(호출 사슬) / 핵심 코드 발췌 / 입력별 추적 / 왜·버린 대안·트레이드오프다.

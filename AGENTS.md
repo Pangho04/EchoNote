@@ -27,12 +27,15 @@ services/
   inference-worker/ Windows에서 실행할 TypeScript 추론 제어 프로세스
 tools/
   stt-benchmark/   STT 품질·후보 비교 실험 도구
-docs/              로컬 전용 설계·계획·개발 가이드와 샘플 자료
+docs/              공개 문서
+private-docs/      로컬 전용 설계·계획·개발 가이드와 샘플 자료
 ```
 
 `services/inference-worker`는 해당 도메인 학습 단계에서 생성한다. FSD(Feature-Sliced Design)는 사용자 인터페이스를 구성하는 `apps/mobile/src`에 적용한다. Electron 프로세스 코드, Fastify 서비스, 계약 패키지, 벤치마크 도구에는 각 런타임에 맞는 단순한 구조를 유지한다.
 
-`docs/` 전체는 `.gitignore` 대상이다. 회사 회의 자료와 로컬 설계 문서를 포함하므로 `git add -f`로 강제 추가하거나 커밋하지 않는다.
+`private-docs/` 전체는 `.gitignore` 대상이다. 회사 회의 자료와 로컬 설계 문서를 포함하므로 `git add -f`로 강제 추가하거나 커밋하지 않는다.
+
+`docs/`는 공개 문서 폴더다. `.gitignore`의 허용 목록에 적힌 파일만 추적한다. 새 공개 문서는 허용 목록에 추가하고, 비공개 자료는 `docs/`에 두지 않는다.
 
 ## 3. 모바일 FSD 계층
 
@@ -163,7 +166,7 @@ recording-service.android.ts Android만 달라야 할 때
 - 주석·중간 변수·주입 함수 이름·import 그룹·세로 여백 규칙: 코드 작성 전 반드시 읽는다 → `rules/code-style.md`
 - **판별 union 분기**: `kind` 같은 판별 필드 분기는 `switch`로 전수 처리한다. 삼항과 `null`을 나열해 분기하지 않는다. 새 멤버가 생기면 반환 타입에서 누락이 드러나야 한다.
 - **용어**: 「유스케이스」·「use case」 대신 「기능」을 쓴다. feature 계층이 소유하는 함수는 「기능 함수」다.
-- **UI 기준**: 화면은 `docs/ui/echonote-ui-plan.html`의 RN 구현 Inspector 명세(`data-spec-id`별 component·tokens·rn·structure)를 따른다. 목업과 다르게 만들 부분은 설계 카드의 파일별 변경 칸에 편차로 적고 승인받는다. FSD 위치는 목업보다 현재 코드 구조가 우선한다.
+- **UI 기준**: 화면은 `private-docs/ui/echonote-ui-plan.html`의 RN 구현 Inspector 명세(`data-spec-id`별 component·tokens·rn·structure)를 따른다. 목업과 다르게 만들 부분은 설계 카드의 파일별 변경 칸에 편차로 적고 승인받는다. FSD 위치는 목업보다 현재 코드 구조가 우선한다.
 - **화면 문구**: 사용자에게 보이는 문구는 `shared/config/ui-strings.ts`의 `UI_STRINGS`에 도메인별로 둔다. 버튼 라벨, 접근성 라벨, placeholder도 포함한다. `throw new Error(...)`에 쓰는 개발자용 진단 문구는 넣지 않는다.
 - **팝업**: 모든 팝업은 `shared/ui/dialog`의 `useDialog`로 띄운다. 화면이 `Modal`이나 native `Alert`을 직접 쓰지 않는다. native `Alert`은 react-native-web에서 동작하지 않아 Electron에서 안내가 사라진다.
 - 문구형 팝업은 `title`·`message`·`actions`로, 자체 상태가 필요한 팝업은 `content`로 컴포넌트를 넘긴다. `content`에 넘긴 JSX는 열릴 때 캡처되므로, 팝업이 열린 뒤 바뀌는 값은 바깥에서 props로 내리지 않고 그 컴포넌트가 직접 소유한다.
@@ -237,7 +240,7 @@ pnpm verify
 
 ## 11. 구현 가이드 학습 방식
 
-`docs/guides/echonote-job-mvp-implementation-guide.html`는 v6 「구현 선행 + 결정 기록」 방식으로 운영한다.
+`private-docs/guides/echonote-job-mvp-implementation-guide.html`는 v6 「구현 선행 + 결정 기록」 방식으로 운영한다.
 
 - 에이전트가 production·test·migration·통합·검증을 전부 구현한다.
 - 사용자는 구현 전 설계 승인, 구현 뒤 결정 기록 확인, 실기기 확인을 맡는다.
@@ -250,7 +253,7 @@ pnpm verify
   - 코드 식별자·명령어·파일 경로는 원문 그대로 두고, 처음 나올 때 무엇인지 한 줄 붙인다.
 - 승인 범위 밖의 새 파일·공개 API·DB schema·package/config·사용자 동작이 필요하면 구현을 멈추고 수정 설계안을 다시 승인받는다.
 - 이력서 정식 반영 기준점은 Gate C 공개다. Gate A·B는 내부 마일스톤이다. checkpoint는 Gate 경계에서만 멈추고 연속으로 진행한다.
-- 미룬 작업은 `BACKLOG.md`에 적는다. 설계 카드를 쓰기 전에 읽고, 겹치는 항목이 있으면 카드에 번호를 적는다. 끝난 항목은 지운다.
+- 미룬 작업은 `docs/BACKLOG.md`에 적는다. 설계 카드를 쓰기 전에 읽고, 겹치는 항목이 있으면 카드에 번호를 적는다. 끝난 항목은 지운다.
 
 ### 11.1 결정 기록과 퀴즈 범위
 

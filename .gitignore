@@ -24,7 +24,15 @@ apps/desktop/out/
 !.env.example
 
 # Local-only documents and private meeting samples
-/docs/
+/private-docs/
+
+# Public documents: only listed files are tracked
+/docs/*
+!/docs/ARCHITECTURE.md
+!/docs/DECISIONS.md
+!/docs/BACKLOG.md
+!/docs/PRD.md
+!/docs/SPEC.md
 
 # Python benchmark cache
 __pycache__/

@@ -74,7 +74,7 @@ EchoNote는 회의를 녹음하고 그 녹음을 개인 PC(Windows, NVIDIA GPU)�
 
 앱은 Gateway에 "이 회의를 전사해도 되는지" 작업 생성과 상태 확인만 요청합니다. 녹음 파일 자체는 Gateway를 거치지 않고 Tailscale을 통해 개인 PC로 직접 전송됩니다.
 
-자세한 흐름과 저장 위치, 실패 시 동작은 [ARCHITECTURE.md](./ARCHITECTURE.md)에 적습니다.
+자세한 흐름과 저장 위치, 실패 시 동작은 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)에 적습니다.
 
 ## 검증
 
@@ -190,11 +190,11 @@ tools/
 | 내보낸 파일         | 사용자가 OS 저장 화면에서 고른 위치            | 평문 사본(m4a·txt)                          | 저장 위치에 접근할 수 있는 누구나. EchoNote가 보호하거나 지울 수 없음            |
 | 서버 로그           | Vercel·Supabase 로그                           | 전사·녹음 본문과 열쇠는 남기지 않음         | 운영자                                                                           |
 
-Supabase 프로젝트는 `ap-south-1`(인도 뭄바이) 리전에 있고 Vercel 함수는 미국 기본 리전에서 실행됩니다. 전사문의 암호화·복호화와 KEK는 미국 리전 Vercel 함수에서 다룹니다. 국외 보관 고지·처리방침과 서울 리전 이전 계획은 [BACKLOG.md](./BACKLOG.md) 3번에 적었습니다.
+Supabase 프로젝트는 `ap-south-1`(인도 뭄바이) 리전에 있고 Vercel 함수는 미국 기본 리전에서 실행됩니다. 전사문의 암호화·복호화와 KEK는 미국 리전 Vercel 함수에서 다룹니다. 국외 보관 고지·처리방침과 서울 리전 이전 계획은 [docs/BACKLOG.md](./docs/BACKLOG.md) 3번에 적었습니다.
 
 ## 상용화를 위해 고려 중인 것
 
-현재 공개 범위는 위에 적은 구현까지입니다. 여러 사용자가 쓰는 서비스로 키우려면 아래가 더 필요하다고 보고 [BACKLOG.md](./BACKLOG.md)에 설계 방향을 적어 두었습니다.
+현재 공개 범위는 위에 적은 구현까지입니다. 여러 사용자가 쓰는 서비스로 키우려면 아래가 더 필요하다고 보고 [docs/BACKLOG.md](./docs/BACKLOG.md)에 설계 방향을 적어 두었습니다.
 
 - **계정 기반 복원** — 회의 목록·전사문을 서버 원본으로 옮기고, 녹음은 개인 PC를 보관소로 삼아 새 기기에서도 로그인만으로 목록·전사문·음성이 돌아오게 합니다. 클라우드에 음성을 두지 않고 무료 한도 안에서 하는 방향입니다. (BACKLOG 10번)
 - **개인정보 처리방침·앱 안내·서버 자동 삭제** — 국외 보관 고지, 첫 전사 요청 때 안내, 앱이 내려받은 전사문을 서버에서 지체 없이 지우는 흐름입니다. 현재 형태(판매·사업자 신고 없음)에서는 법정 보관 의무가 없어 보유 기간을 스스로 정하고, 유료화하면 다시 확인합니다. (BACKLOG 3번)
@@ -202,4 +202,4 @@ Supabase 프로젝트는 `ap-south-1`(인도 뭄바이) 리전에 있고 Vercel 
 
 ## 더 보기
 
-프로젝트 진행 중 내린 설계 결정과 근거는 [DECISIONS.md](./DECISIONS.md), 전체 구조와 전사 요청 경로는 [ARCHITECTURE.md](./ARCHITECTURE.md)에 적습니다.
+프로젝트 진행 중 내린 설계 결정과 근거는 [docs/DECISIONS.md](./docs/DECISIONS.md), 전체 구조와 전사 요청 경로는 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)에 적습니다.

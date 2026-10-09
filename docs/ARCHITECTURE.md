@@ -80,7 +80,7 @@ created --(업로드 성공 확인)--> queued --(Worker가 작업을 가져감)-
 ## 데이터 저장 위치
 
 - 회의 메타데이터, 녹음 원본 파일, 재생·목록에 필요한 모든 정보는 기기 로컬 SQLite와 파일 영역에 남습니다. 이 데이터는 PC가 꺼져 있어도 유효합니다.
-- job 상태, 전사 결과는 Supabase에 원본이 있고 앱은 polling으로 내려받아 로컬 SQLite에 복제해 둡니다. Supabase에는 전사 결과가 봉투 암호화 암호문으로 저장됩니다. 자세한 위치와 보호 범위는 [README.md의 데이터 위치와 보호](./README.md#데이터-위치와-보호)에 적습니다.
+- job 상태, 전사 결과는 Supabase에 원본이 있고 앱은 polling으로 내려받아 로컬 SQLite에 복제해 둡니다. Supabase에는 전사 결과가 봉투 암호화 암호문으로 저장됩니다. 자세한 위치와 보호 범위는 [README.md의 데이터 위치와 보호](../README.md#데이터-위치와-보호)에 적습니다.
 - 사용자 로그인 세션은 iOS Keychain·Android Keystore에 저장됩니다.
 - 회의 상세에서 내보낸 녹음(m4a)·전사(txt)는 사용자가 OS 저장 화면에서 고른 위치에 평문 사본으로 남습니다. 이 사본은 EchoNote가 보호하거나 지울 수 없습니다. 앱은 저장 화면에 넘길 임시 사본만 만들고 저장 화면이 닫히면 지웁니다. (`apps/mobile/src/features/export-meeting-file/api/export-meeting-file.native.ts`)
 

@@ -2,7 +2,7 @@
 
 > **종료된 비교 실험**: 이 도구는 `large-v3` 채택 여부를 판단하기 위한 과거 벤치마크다.
 > 현재 제품은 `large-v3-turbo` 전사와 Gemma 오전사 후보 제안을 사용하며 `large-v3` 재전사를 수행하지 않는다.
-> 제품 구현·운영 기준은 `docs/superpowers/specs/2026-08-04-echonote-rn-first-architecture-design.md`다.
+> 제품 구현·운영 기준은 `private-docs/superpowers/specs/2026-08-04-echonote-rn-first-architecture-design.md`다.
 
 Windows 11 + Docker Desktop + NVIDIA RTX 5070 Ti에서 `faster-whisper`의 `turbo`와 `large-v3`를 순서대로 실행한다. 각 모델을 클로바 전사문과 비교하고, `turbo` 단어 신뢰도가 `0.5` 미만인 오전사 의심 후보를 `large-v3` 결과와 타임스탬프로 대응시킨다.
 
