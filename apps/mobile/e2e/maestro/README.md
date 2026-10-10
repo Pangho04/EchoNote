@@ -2,7 +2,7 @@
 
 선택자는 `src/shared/config/ui-strings.ts`의 문구와 `accessibilityLabel`을 그대로 쓴다. 문구를 바꾸면 이 flow도 같이 고친다.
 
-실측으로 10/10 통과한다 — Android 실기기(SM-F731N / Android 16), iPhone 12 mini 실기기(iOS 27.0, maestro-runner). iOS 시뮬레이터(iPhone 17 Pro / iOS 26.5)는 시작 규칙과 재생 중 seek 검증을 넣기 전 판에서 6/6을 확인했다. `16-export-meeting-file.yaml`은 현재 판을 단독 실행해 Android·iPhone 12 mini에서 1회씩 통과했다.
+실측으로 11/11 통과한다 — Android 실기기(SM-F731N / Android 16) 2회 연속, iPhone 12 mini 실기기(iOS 27.0, maestro-runner) 2회 연속 모두 11/11. iOS 시뮬레이터(iPhone 17 Pro / iOS 26.5)는 시작 규칙과 재생 중 seek 검증을 넣기 전 판에서 6/6을 확인했다. `16-export-meeting-file.yaml`은 현재 판을 단독 실행해 Android·iPhone 12 mini에서 1회씩 통과했다.
 
 **iOS 실기기는 공식 Maestro가 지원하지 않는다.** 공식 문서의 Known limitations에 "Physical Devices … not supported yet"으로 적혀 있다. 실기기는 오픈소스 대체 러너 [maestro-runner](https://github.com/devicelab-dev/maestro-runner)(Apache-2.0, DeviceLab)로 같은 flow를 돌린다. 아래 「iPhone 실기기」 절을 본다.
 

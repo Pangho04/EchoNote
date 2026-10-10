@@ -34,14 +34,6 @@
 
 **착수 조건** — 1단계는 Gate C 공개 뒤 바로. 2·3단계는 BACKLOG 10번 설계 카드와 함께.
 
-## 4. release 재배포 시 빌드 번호 수동 증가 — 소
-
-**배경** — `apps/mobile/app.config.js:15`·`:20`의 `buildNumber`·`versionCode`를 재배포마다 손으로 올립니다(`rules/release-build.md`). 잊으면 같은 번호로 두 빌드가 생깁니다.
-
-**방향** — `scripts/release.sh`가 마지막 산출물 이름에서 번호를 읽어 다음 번호를 제안하고, 설정값이 그보다 작으면 멈춥니다. 자동 수정은 하지 않습니다.
-
-**착수 조건** — 재배포를 세 번째 할 때.
-
 ## 5. 전역 ErrorBoundary — 중
 
 **배경** — `AGENTS.md` §5는 `_layout.tsx`에 전역 오류 경계를 두라고 하지만 없습니다. DB 열기 실패는 `DatabaseProvider`의 복구 화면이, 조회·저장 실패는 `kind` 값 반환이 막습니다. 그 밖의 렌더 중 throw는 앱 전체가 흰 화면입니다.

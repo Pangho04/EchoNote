@@ -85,8 +85,8 @@ EchoNote는 회의를 녹음하고 그 녹음을 개인 PC(Windows, NVIDIA GPU)�
 | 항목                                            | 값                                                                                 | 확인하는 것                                                               |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `pnpm verify`(lint·format·typecheck·test·build) | 통과                                                                               | 코드 스타일과 타입, 각 패키지 빌드가 깨지지 않았는지                      |
-| 자동 테스트                                     | 1,378건(mobile 726, inference-worker 311, ai-gateway 248, contracts 91, desktop 2) | 단위·통합 단위에서 로직이 명세대로 동작하는지                             |
-| 실기기 E2E(Maestro, flow 10개)                  | Android 실기기 10/10, iPhone 12 mini 10/10(maestro-runner)                         | 실제 기기에서 녹음부터 목록·상세 화면까지 사용자 흐름이 끝까지 동작하는지 |
+| 자동 테스트                                     | 1,458건(mobile 806, inference-worker 311, ai-gateway 248, contracts 91, desktop 2) | 단위·통합 단위에서 로직이 명세대로 동작하는지                             |
+| 실기기 E2E(Maestro, flow 11개)                  | Android 실기기 11/11, iPhone 12 mini 11/11(maestro-runner)                         | 실제 기기에서 녹음부터 목록·상세 화면까지 사용자 흐름이 끝까지 동작하는지 |
 
 flow 목록과 실행법은 `apps/mobile/e2e/maestro/README.md`에 있습니다.
 
