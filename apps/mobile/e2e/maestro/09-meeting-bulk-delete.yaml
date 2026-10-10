@@ -1,27 +1,27 @@
 appId: dev.pangho.echonote.dev
 name: 편집 모드에서 회의 여러 개 지우기
-env:
-  FIRST: 'E2E 묶음 첫째'
-  SECOND: 'E2E 묶음 둘째'
 ---
 # 선택·삭제 버튼은 화면 문구(`선택`·`취소`)가 아니라 접근성 라벨로 누른다. 문구는 다른 버튼과 겹친다.
 - runFlow: ../subflows/start-at-list.yaml
+# 제목은 실행마다 달라야 앞선 실행이 남긴 같은 제목의 회의가 결과를 바꾸지 않는다.
+- evalScript: ${output.first = 'E2E 묶음 첫째 ' + (Date.now() % 100000)}
+- evalScript: ${output.second = 'E2E 묶음 둘째 ' + (Date.now() % 100000)}
 - runFlow:
     file: ../subflows/create-recording.yaml
     env:
-      TITLE: ${FIRST}
+      TITLE: ${output.first}
 - runFlow:
     file: ../subflows/create-recording.yaml
     env:
-      TITLE: ${SECOND}
+      TITLE: ${output.second}
 
 - tapOn: '선택 시작'
 # 선택 개수 문구는 버튼의 접근성 라벨에 가려 선택자로 잡히지 않는다. 개수 표시는 jest가 덮는다.
 - extendedWaitUntil:
     visible: '선택한 회의 삭제'
     timeout: 10000
-- tapOn: .*${FIRST}.*
-- tapOn: .*${SECOND}.*
+- tapOn: .*${output.first}.*
+- tapOn: .*${output.second}.*
 
 - tapOn: '선택한 회의 삭제'
 - extendedWaitUntil:
@@ -38,5 +38,5 @@ env:
     when:
       platform: Android
     commands:
-      - assertNotVisible: .*${FIRST}.*
-      - assertNotVisible: .*${SECOND}.*
+      - assertNotVisible: .*${output.first}.*
+      - assertNotVisible: .*${output.second}.*

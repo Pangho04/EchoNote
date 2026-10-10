@@ -1,23 +1,23 @@
 appId: dev.pangho.echonote.dev
 name: Gate A 녹음·재시작·재생 전체 흐름
-env:
-  TITLE: 'Gate A 녹음'
 ---
 # 마이크 권한은 미리 허용된 상태를 전제한다. README의 권한 준비를 먼저 실행한다.
 - runFlow: ../subflows/start-at-list.yaml
+# 제목은 실행마다 달라야 앞선 실행이 남긴 같은 제목의 회의가 결과를 바꾸지 않는다.
+- evalScript: ${output.title = 'Gate A 녹음 ' + (Date.now() % 100000)}
 
 - tapOn: '메뉴 열기'
 
 - tapOn: '녹음하기'
 - tapOn: '기본 이름으로 저장'
-- inputText: ${TITLE}
+- inputText: ${output.title}
 # iPhone 실기기는 앞쪽 글자를 가끔 빠뜨린다(`create-recording.yaml`과 같은 이유). 한 번 다시 쓴다.
 - runFlow:
     when:
-      notVisible: .*${TITLE}.*
+      notVisible: .*${output.title}.*
     commands:
       - eraseText: 80
-      - inputText: ${TITLE}
+      - inputText: ${output.title}
 - runFlow:
     when:
       platform: Android
@@ -57,7 +57,7 @@ env:
     timeout: 40000
 
 - extendedWaitUntil:
-    visible: .*${TITLE}.*
+    visible: .*${output.title}.*
     timeout: 10000
 
 # 메모리 상태만 버리고 SQLite와 녹음 파일로 다시 읽는다.
@@ -68,10 +68,10 @@ env:
 - runFlow: ../subflows/dismiss-link-prompt.yaml
 
 - extendedWaitUntil:
-    visible: .*${TITLE}.*
+    visible: .*${output.title}.*
     timeout: 30000
 
-- tapOn: .*${TITLE}.*
+- tapOn: .*${output.title}.*
 
 - extendedWaitUntil:
     visible: '회의 기록'
@@ -164,23 +164,7 @@ env:
     visible: '메뉴 열기'
     timeout: 10000
 
-- swipe:
-    from: .*${TITLE}.*
-    direction: LEFT
-# 닫힌 행 뒤의 숨은 삭제 버튼도 `삭제`로 잡히므로 열린 행의 버튼을 id로 누른다.
-- tapOn:
-    id: 'meeting-row-delete'
-- extendedWaitUntil:
-    visible: '삭제하시겠습니까? 복구가 불가능합니다.'
-    timeout: 10000
-- tapOn: '확인'
-- extendedWaitUntil:
-    visible: '메뉴 열기'
-    timeout: 10000
-
-# maestro-runner의 notVisible은 오판한 전례가 있어 공식 Maestro를 쓰는 Android에서만 확인한다.
 - runFlow:
-    when:
-      platform: Android
-    commands:
-      - assertNotVisible: .*${TITLE}.*
+    file: ../subflows/delete-meeting.yaml
+    env:
+      TITLE: ${output.title}

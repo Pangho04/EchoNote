@@ -21,10 +21,19 @@ name: 회의 파일을 기기에 저장하기
     when:
       platform: Android
     commands:
+      # 앱 시트가 닫힌 뒤 시스템 저장 화면이 뜨기까지 틈이 있어, 저장 화면이 보일 때까지 기다린다.
       - extendedWaitUntil:
-          notVisible: '회의 파일 저장'
+          visible:
+            id: 'com.google.android.documentsui:id/container_save'
           timeout: 10000
-      - back
+      # 저장 화면은 파일 이름 입력줄에 키보드를 띄우기도 해서, 뒤로 한 번은 키보드만 내릴 수 있다.
+      # 앱 화면이 돌아올 때까지 뒤로를 누른다.
+      - repeat:
+          while:
+            notVisible: '회의 파일 저장'
+          times: 3
+          commands:
+            - back
 - runFlow:
     when:
       platform: iOS
@@ -52,7 +61,8 @@ name: 회의 파일을 기기에 저장하기
       platform: Android
     commands:
       - extendedWaitUntil:
-          notVisible: '회의 파일 저장'
+          visible:
+            id: 'com.google.android.documentsui:id/container_save'
           timeout: 10000
       - waitForAnimationToEnd:
           timeout: 3000
@@ -71,3 +81,13 @@ name: 회의 파일을 기기에 저장하기
     visible: '저장했습니다'
     timeout: 30000
 - tapOn: '확인'
+
+# 목록으로 돌아가 이 flow가 만든 회의를 지운다.
+- tapOn: '회의 목록으로 이동'
+- extendedWaitUntil:
+    visible: '메뉴 열기'
+    timeout: 10000
+- runFlow:
+    file: ../subflows/delete-meeting.yaml
+    env:
+      TITLE: ${output.title}

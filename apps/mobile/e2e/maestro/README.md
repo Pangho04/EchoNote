@@ -49,10 +49,12 @@ Metro가 떠 있어야 한다. 없으면 `pnpm -F mobile start`를 먼저 실행
 | `11-sign-out-sign-in.yaml`    | 로그아웃 → 로그아웃 상태 링크 차단 → 틀린 비밀번호 오류 → 로그인                           | 계정        |
 | `12-unknown-path.yaml`        | 없는 경로 링크 → 목록 (앱 실행 중, 목록이 안 쌓이는지는 jest가 확인)                       | 계정        |
 | `14-meeting-rename.yaml`      | 상세 → 연필 → 이름 저장 → 목록에 바뀐 이름                                                 | 마이크 권한 |
-| `15-upload-recording.yaml`    | 메뉴 → 업로드 → `e2e-upload.m4a` 선택 → 상세에 녹음 길이                                   | 업로드 파일 |
+| `15-upload-recording.yaml`    | 메뉴 → 업로드 → `EchoNote-E2E` 폴더의 `e2e-upload.m4a` 선택 → 상세에 녹음 길이             | 업로드 파일 |
 | `16-export-meeting-file.yaml` | 상세 → 저장 → 시스템 저장 화면 취소 → 다시 저장 → 「저장했습니다」                         | 마이크 권한 |
 
 **Maestro는 폴더 안 flow를 파일 이름 순으로 실행하지 않는다.** 실측에서도 파일 이름과 다른 순서로 돌았다. 그래서 회의 데이터가 필요한 flow는 `subflows/create-recording.yaml`을 `runFlow`로 불러 스스로 준비한다. 그 subflow는 회의가 이미 보이면 아무것도 하지 않는다. 제목은 호출한 flow의 `TITLE`을 쓰며, subflow에 `env` 기본값을 두면 호출부 값을 덮어쓰므로 두지 않는다.
+
+**제목은 실행마다 새로 만들고, 만든 회의는 그 flow가 지운다.** 회의를 만드는 flow는 `evalScript`로 `'접두사 ' + (Date.now() % 100000)` 제목을 정하고, 끝에서 `subflows/delete-meeting.yaml`로 자기 회의를 지운다. 고정 제목을 쓰면 중단된 실행이 남긴 같은 제목의 행 때문에 `create-recording`이 새로 만들지 않고 넘어가거나 삭제 뒤 확인이 실패한다.
 
 `subflows/`는 `e2e/maestro/` 바깥에 둔다. 안에 두면 그 자체가 독립 flow로 실행된다.
 
@@ -74,13 +76,13 @@ maestro test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" e2e/maest
 `15`는 기기에 `e2e-upload.m4a`가 있어야 한다. 앱이 저장한 테스트 녹음 하나를 꺼내 넣는다. 저장소에는 넣지 않는다.
 
 ```bash
-# Android: 앱 녹음 하나를 꺼내 다운로드 폴더에 둔다
+# Android: 앱 녹음 하나를 꺼내 다운로드 아래 전용 폴더에 둔다. 다운로드 폴더 바로 아래에 두면 다른 파일이 쌓일 때 첫 화면 밖으로 밀린다
 adb exec-out run-as dev.pangho.echonote.dev ls files/recordings
 adb exec-out run-as dev.pangho.echonote.dev cat files/recordings/<id>.m4a > /tmp/e2e-upload.m4a
-adb push /tmp/e2e-upload.m4a /sdcard/Download/e2e-upload.m4a
+adb push /tmp/e2e-upload.m4a /sdcard/Download/EchoNote-E2E/e2e-upload.m4a
 ```
 
-iPhone은 파일 앱의 「나의 iPhone」에 같은 이름으로 둔다. 개발 도구로 그 폴더에 직접 복사할 수 없어(`devicectl copy`가 컨테이너를 찾지 못함) AirDrop 등으로 넣는다. 파일 선택 창은 Android `루트 표시 → 다운로드`, iOS `둘러보기 → 나의 iPhone` 순으로 연다.
+iPhone은 파일 앱의 「나의 iPhone」에 같은 이름으로 둔다. 개발 도구로 그 폴더에 직접 복사할 수 없어(`devicectl copy`가 컨테이너를 찾지 못함) AirDrop 등으로 넣는다. 파일 선택 창은 Android `루트 표시 → 다운로드 → EchoNote-E2E`, iOS `둘러보기 → 나의 iPhone` 순으로 연다.
 
 ## 플랫폼 차이로 flow에 넣은 장치
 
@@ -98,6 +100,8 @@ iPhone은 파일 앱의 「나의 iPhone」에 같은 이름으로 둔다. 개�
 | 재생 중 탭에 `waitToSettleTimeoutMs: 500`                | 재생 위치 표시가 계속 바뀌어 탭이 화면 안정을 기다리느라 한 번에 10초 넘게 늦어진다. 위치는 `copyTextFrom`으로 두 번 읽고 그사이 흐른 시간을 빼서 seek 폭을 ±4초로 판정한다. iPhone에서 `copyTextFrom` 한 번이 2초 넘게 걸려 읽기 시점 오차가 커진다 |
 
 ## 실행 전 확인
+
+`pnpm -F mobile e2e`는 `e2e/preflight.sh`를 먼저 돌린다. 기기 연결, Metro, **폰의 Tailscale 연결, Windows Worker 응답**을 확인하고 하나라도 실패하면 시작하지 않는다. 회의가 생기면 앱이 곧바로 Worker에 녹음을 보내는데, 닿지 않으면 「데스크탑에 연결할 수 없습니다」 팝업이 화면을 덮어 녹음과 무관한 flow까지 실패한다. `maestro test`를 직접 부를 때도 이 스크립트를 먼저 돌린다.
 
 **Android 기기 화면이 꺼져 있으면 전부 실패한다.** 잠금 화면에서는 앱이 보이지 않는다.
 

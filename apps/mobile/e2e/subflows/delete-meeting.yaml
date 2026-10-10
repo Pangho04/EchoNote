@@ -1,0 +1,25 @@
+appId: dev.pangho.echonote.dev
+name: 회의 하나 밀어서 지우기
+---
+# 목록 화면에서 호출한다. 회의를 만든 flow는 끝에서 이 subflow로 자기 회의를 지워 다음 실행에 남기지 않는다.
+# 제목은 호출한 flow의 TITLE을 쓴다(`create-recording.yaml`과 같은 이유로 env 기본값을 두지 않는다).
+- swipe:
+    from: .*${TITLE}.*
+    direction: LEFT
+# 닫힌 행 뒤의 숨은 삭제 버튼도 `삭제`로 잡히므로 열린 행의 버튼을 id로 누른다.
+- tapOn:
+    id: 'meeting-row-delete'
+- extendedWaitUntil:
+    visible: '삭제하시겠습니까? 복구가 불가능합니다.'
+    timeout: 10000
+- tapOn: '확인'
+- extendedWaitUntil:
+    visible: '메뉴 열기'
+    timeout: 10000
+
+# maestro-runner의 notVisible은 오판한 전례가 있어 공식 Maestro를 쓰는 Android에서만 확인한다.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertNotVisible: .*${TITLE}.*

@@ -1,17 +1,16 @@
 appId: dev.pangho.echonote.dev
 name: 회의 상세에서 이름 바꾸기
-env:
-  TITLE: 'E2E 이름 전'
 ---
-# 바꾼 이름은 실행마다 달라야 앞선 실행이 남긴 회의로 통과하지 않는다.
+# 제목과 바꾼 이름은 실행마다 달라야 앞선 실행이 남긴 회의로 통과하지 않는다.
 - runFlow: ../subflows/start-at-list.yaml
+- evalScript: ${output.title = 'E2E 이름 전 ' + (Date.now() % 100000)}
 - runFlow:
     file: ../subflows/create-recording.yaml
     env:
-      TITLE: ${TITLE}
+      TITLE: ${output.title}
 - evalScript: ${output.renamed = 'E2E 이름 ' + (Date.now() % 100000)}
 
-- tapOn: .*${TITLE}.*
+- tapOn: .*${output.title}.*
 - extendedWaitUntil:
     visible: '회의 제목 수정'
     timeout: 10000
@@ -44,3 +43,8 @@ env:
 - extendedWaitUntil:
     visible: .*${output.renamed}.*
     timeout: 10000
+
+- runFlow:
+    file: ../subflows/delete-meeting.yaml
+    env:
+      TITLE: ${output.renamed}

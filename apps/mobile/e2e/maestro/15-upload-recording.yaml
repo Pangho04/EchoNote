@@ -1,7 +1,7 @@
 appId: dev.pangho.echonote.dev
 name: m4a 파일을 업로드해 회의 만들기
 ---
-# 기기에 `e2e-upload.m4a`를 미리 넣어 둔다(README 「업로드 파일 준비」).
+# 기기에 `e2e-upload.m4a`를 미리 넣어 둔다(README 「업로드 파일 준비」). Android는 `Download/EchoNote-E2E/`에 둔다.
 # 시스템 파일 선택 창은 앱 밖 화면이라 문구가 기기 언어를 따른다. 선택자는 한국어 기준이다.
 - runFlow: ../subflows/start-at-list.yaml
 - tapOn: '메뉴 열기'
@@ -25,6 +25,12 @@ name: m4a 파일을 업로드해 회의 만들기
       - tapOn:
           text: '다운로드'
           id: 'android:id/title'
+      # 다운로드 폴더는 최신순이라 다른 파일이 쌓이면 대상이 첫 화면 밖으로 밀린다.
+      # 폴더는 파일보다 앞에 오므로 이 파일만 든 전용 폴더로 들어간다.
+      - extendedWaitUntil:
+          visible: 'EchoNote-E2E'
+          timeout: 10000
+      - tapOn: 'EchoNote-E2E'
       - extendedWaitUntil:
           visible: 'e2e-upload.m4a'
           timeout: 10000
@@ -46,3 +52,13 @@ name: m4a 파일을 업로드해 회의 만들기
     visible: '.*[0-9]+초 · .*'
     timeout: 30000
 - assertVisible: '.*e2e-upload.*'
+
+# 목록으로 돌아가 이 flow가 만든 회의를 지운다. 제목은 파일 이름에서 온다.
+- tapOn: '회의 목록으로 이동'
+- extendedWaitUntil:
+    visible: '메뉴 열기'
+    timeout: 10000
+- runFlow:
+    file: ../subflows/delete-meeting.yaml
+    env:
+      TITLE: 'e2e-upload'

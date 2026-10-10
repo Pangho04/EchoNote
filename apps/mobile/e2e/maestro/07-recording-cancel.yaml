@@ -1,16 +1,16 @@
 appId: dev.pangho.echonote.dev
 name: 녹음 취소 확인과 폐기
-env:
-  TITLE: 'E2E 폐기 녹음'
 ---
 # 마이크 권한은 미리 허용된 상태를 전제한다. README의 권한 준비를 먼저 실행한다.
 - runFlow: ../subflows/start-at-list.yaml
+# 제목은 실행마다 달라야 앞선 실행이 남긴 같은 제목의 회의가 결과를 바꾸지 않는다.
+- evalScript: ${output.title = 'E2E 폐기 녹음 ' + (Date.now() % 100000)}
 
 - tapOn: '메뉴 열기'
 
 - tapOn: '녹음하기'
 - tapOn: '기본 이름으로 저장'
-- inputText: ${TITLE}
+- inputText: ${output.title}
 - runFlow:
     when:
       platform: Android
@@ -46,4 +46,4 @@ env:
     when:
       platform: Android
     commands:
-      - assertNotVisible: .*${TITLE}.*
+      - assertNotVisible: .*${output.title}.*

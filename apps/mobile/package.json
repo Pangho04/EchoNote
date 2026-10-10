@@ -9,7 +9,7 @@
     "build": "pnpm run build:ios && pnpm run build:aos",
     "build:aos": "expo export --platform android --output-dir dist/android",
     "build:ios": "expo export --platform ios --output-dir dist/ios",
-    "e2e": "maestro test e2e/maestro",
+    "e2e": "./e2e/preflight.sh && maestro test e2e/maestro",
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",
     "lint": "eslint .",
