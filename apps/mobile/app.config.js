@@ -30,7 +30,11 @@ module.exports = {
         },
       ],
       'expo-sqlite',
-      ['expo-build-properties', { ios: { enableSceneSupport: true } }],
+      // 미리 컴파일된 Expo 모듈은 만든 Swift 버전과 다른 Xcode에서 불러오지 못해 소스로 빌드한다.
+      [
+        'expo-build-properties',
+        { ios: { enableSceneSupport: true, usePrecompiledModules: false } },
+      ],
       './plugins/with-user-script-sandboxing-disabled',
       'expo-secure-store',
       // release 앱이 개발 서버 연결 링크(exp+echonote)를 가로채지 않게 개발 앱에만 등록한다.
