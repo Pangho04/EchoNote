@@ -33,6 +33,8 @@ EchoNote는 회의를 녹음하고 그 녹음을 개인 PC(Windows, NVIDIA GPU)�
 
 ## 시연
 
+<img src="assets/demo.gif" width="320" alt="EchoNote 시연" />
+
 영상: [시연 영상 (v0.1.0 Release)](https://github.com/Pangho04/EchoNote/releases/tag/v0.1.0)
 
 | 목록                                    | 녹음·업로드 선택                                           | 전사 진행                                            | 전사 결과                                          |
