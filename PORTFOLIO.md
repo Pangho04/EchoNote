@@ -2,7 +2,7 @@
 
 회의를 녹음하고 개인 PC의 GPU로 전사하는 iOS·Android 앱입니다. 기획부터 검증까지 AI 코딩 도구와 함께 진행했습니다. 방향 결정·설계 승인·Android·iPhone 실기기 검증은 직접 판단했습니다.
 
-시연 영상: (Release 링크 예정)
+시연 영상: [시연 영상 (v0.1.0 Release)](https://github.com/Pangho04/EchoNote/releases/tag/v0.1.0)
 
 기능과 실행 방법은 [README](./README.md), 전체 구조는 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md), 설계 결정은 [docs/DECISIONS.md](./docs/DECISIONS.md)에 있습니다.
 
