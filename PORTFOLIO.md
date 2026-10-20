@@ -1,6 +1,6 @@
 # EchoNote 포트폴리오
 
-회의를 녹음하고 개인 PC의 GPU로 전사하는 iOS·Android 앱입니다. 기획부터 검증까지 AI 코딩 도구와 함께 진행했고, 방향 결정·설계 승인·갤럭시·아이폰 실기기 검증은 직접 판단했습니다.
+회의를 녹음하고 개인 PC의 GPU로 전사하는 iOS·Android 앱입니다. 기획부터 검증까지 AI 코딩 도구와 함께 진행했고, 방향 결정·설계 승인·Android·iPhone 실기기 검증은 직접 판단했습니다.
 
 시연 영상: (Release 링크 예정)
 
@@ -101,10 +101,10 @@ pnpm verify   # format·lint·typecheck·test·build
 | `pnpm verify`          | 통과                                                                               |
 | 자동 테스트            | 1,458건(mobile 806, inference-worker 311, ai-gateway 248, contracts 91, desktop 2) |
 | 실기기 E2E(Maestro)    | flow 11개, Android 실기기 11/11, iPhone 실기기 11/11                               |
-| Android 녹음 품질 개선 | 1 m 전사 오류율(CER) 회차별 23~100 % → 15.9 %                                      |
+| Android 녹음 품질 개선 | 1 m 전사 오류율(CER) 회차별 23–100 % → 15.9 %                                      |
 
-Android 녹음 품질은 원인을 끝까지 추적했습니다. 녹음 입력을 통화용(`VOICE_COMMUNICATION`)으로 열어 말 없는 구간과 작은 말소리가 완전 무음(0)으로 지워지고 있었습니다. 10 ms 단위 무음 비율이 1 m에서 47~~70 %, 3 m에서 95~~98 %였고 기본 녹음 앱과 아이폰은 0.1 % 이하였습니다. 입력을 일반 마이크(`MIC`)로 바꾸고 증폭을 +11 dB에서 +37 dB로 올려 해결했습니다. 3 m는 기기 마이크 감도 차이로 개선이 부족해 범위 밖으로 두었습니다. 다른 문제 해결 사례는 README의 트러블슈팅에 있습니다.
+Android 녹음 품질은 원인을 끝까지 추적했습니다. 녹음 입력을 통화용(`VOICE_COMMUNICATION`)으로 열어 말 없는 구간과 작은 말소리가 완전 무음(0)으로 지워지고 있었습니다. 10 ms 단위 무음 비율이 1 m에서 47–70 %, 3 m에서 95–98 %였고 기본 녹음 앱과 iPhone은 0.1 % 이하였습니다. 입력을 일반 마이크(`MIC`)로 바꾸고 증폭을 +11 dB에서 +37 dB로 올려 해결했습니다. 3 m는 기기 마이크 감도 차이로 개선이 부족해 범위 밖으로 두었습니다. 다른 문제 해결 사례는 README의 트러블슈팅에 있습니다.
 
 ## Resume bullet
 
-백그라운드 녹음을 지원하는 iOS·Android 회의 전사 앱을 Expo React Native, Fastify·Supabase, Tailscale 직접 전송, 전사문 봉투 암호화(AES-256-GCM)로 구축했습니다. 기획부터 검증까지 AI 코딩 도구와 함께 진행하며 방향 결정·설계 승인·갤럭시·아이폰 실기기 검증은 직접 판단했고, 자동 테스트 1,458건과 Android·iPhone 실기기 E2E 각 11/11로 확인했습니다.
+백그라운드 녹음을 지원하는 iOS·Android 회의 전사 앱을 Expo React Native, Fastify·Supabase, Tailscale 직접 전송, 전사문 봉투 암호화(AES-256-GCM)로 구축했습니다. 기획부터 검증까지 AI 코딩 도구와 함께 진행하며 방향 결정·설계 승인·Android·iPhone 실기기 검증은 직접 판단했고, 자동 테스트 1,458건과 Android·iPhone 실기기 E2E 각 11/11로 확인했습니다.
